@@ -1,0 +1,382 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Cormorant Garamond", ui-serif, Georgia, serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-glow: var(--primary-glow);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+:root {
+  --radius: 1.25rem;
+
+  /* Matte Black (#0B0B0B) */
+  --background: #0B0B0B;
+  --foreground: #F8F8F8;
+
+  /* Charcoal (#151515) */
+  --card: #151515;
+  --card-foreground: #F8F8F8;
+  --popover: #151515;
+  --popover-foreground: #F8F8F8;
+
+  /* Soft Gold (#C8A96A) */
+  --primary: #C8A96A;
+  --primary-foreground: #0B0B0B;
+  --primary-glow: rgba(200, 169, 106, 0.4);
+
+  /* Gold also used as secondary */
+  --secondary: #C8A96A;
+  --secondary-foreground: #0B0B0B;
+
+  /* Graphite Gray (#2A2A2A) */
+  --accent: #2A2A2A;
+  --accent-foreground: #F8F8F8;
+
+  --muted: #1E1E1E;
+  --muted-foreground: #9CA3AF;
+
+  --destructive: oklch(0.55 0.22 25);
+  --destructive-foreground: #F8F8F8;
+
+  --border: #2A2A2A;
+  --input: #2A2A2A;
+  --ring: #C8A96A;
+
+  /* Gradients: Black & Gold */
+  --gradient-hero: linear-gradient(135deg, #0B0B0B 0%, #1A1410 40%, #2A2018 70%, #0B0B0B 100%);
+  --gradient-soft: linear-gradient(180deg, #151515 0%, #0B0B0B 100%);
+  --gradient-primary: linear-gradient(135deg, #B8963A, #C8A96A, #D4B87A);
+  --gradient-accent: linear-gradient(135deg, #C8A96A, #D4B87A);
+  --gradient-gold: linear-gradient(135deg, #C8A96A, #E0C88A);
+  --gradient-bronze: linear-gradient(135deg, #8B7355, #C8A96A);
+  --gradient-dark: linear-gradient(135deg, #0B0B0B, #1A1410);
+  --gradient-warm: linear-gradient(135deg, #C8A96A, #E0C88A);
+  --gradient-rich: linear-gradient(135deg, #0B0B0B, #2A2018);
+
+  --shadow-elegant: 0 25px 60px -20px rgba(200, 169, 106, 0.3);
+  --shadow-soft: 0 8px 30px -10px rgba(200, 169, 106, 0.15);
+  --shadow-glow: 0 0 50px rgba(200, 169, 106, 0.25);
+}
+
+.dark {
+  --background: #0B0B0B;
+  --foreground: #F8F8F8;
+
+  --card: #111111;
+  --card-foreground: #F8F8F8;
+  --popover: #111111;
+  --popover-foreground: #F8F8F8;
+
+  --primary: #C8A96A;
+  --primary-foreground: #0B0B0B;
+  --primary-glow: rgba(200, 169, 106, 0.5);
+
+  --secondary: #C8A96A;
+  --secondary-foreground: #0B0B0B;
+
+  --accent: #252525;
+  --accent-foreground: #F8F8F8;
+
+  --muted: #1A1A1A;
+  --muted-foreground: #9CA3AF;
+
+  --border: #252525;
+  --input: #252525;
+  --ring: #C8A96A;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  ::selection {
+    background: rgba(200, 169, 106, 0.3);
+    color: #F8F8F8;
+  }
+}
+
+@utility gradient-hero {
+  background-image: var(--gradient-hero);
+}
+@utility gradient-primary {
+  background-image: var(--gradient-primary);
+}
+@utility gradient-accent {
+  background-image: var(--gradient-accent);
+}
+@utility gradient-soft {
+  background-image: var(--gradient-soft);
+}
+@utility gradient-gold {
+  background-image: var(--gradient-gold);
+}
+@utility gradient-bronze {
+  background-image: var(--gradient-bronze);
+}
+@utility gradient-dark {
+  background-image: var(--gradient-dark);
+}
+@utility gradient-warm {
+  background-image: var(--gradient-warm);
+}
+@utility gradient-rich {
+  background-image: var(--gradient-rich);
+}
+@utility text-gradient {
+  background-image: var(--gradient-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+@utility shadow-elegant {
+  box-shadow: var(--shadow-elegant);
+}
+@utility shadow-soft {
+  box-shadow: var(--shadow-soft);
+}
+@utility shadow-glow {
+  box-shadow: var(--shadow-glow);
+}
+@utility glass {
+  background: color-mix(in oklab, var(--card) 70%, transparent);
+  backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+}
+@utility hover-lift {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-soft);
+  }
+}
+
+/* Hero floating talent icons */
+@keyframes hero-float-0 {
+  0%   { transform: translate3d(0,0,0) rotate(0deg) scale(0.95); }
+  50%  { transform: translate3d(14px,-24px,0) rotate(180deg) scale(1.05); }
+  100% { transform: translate3d(0,0,0) rotate(360deg) scale(0.95); }
+}
+@keyframes hero-float-1 {
+  0%   { transform: translate3d(0,0,0) rotate(0deg) scale(1.02); }
+  50%  { transform: translate3d(-18px,-16px,0) rotate(-180deg) scale(0.96); }
+  100% { transform: translate3d(0,0,0) rotate(-360deg) scale(1.02); }
+}
+@keyframes hero-float-2 {
+  0%   { transform: translate3d(0,0,0) rotate(0deg) scale(0.98); }
+  50%  { transform: translate3d(20px,20px,0) rotate(180deg) scale(1.04); }
+  100% { transform: translate3d(0,0,0) rotate(360deg) scale(0.98); }
+}
+@keyframes hero-icon-in {
+  from { opacity: 0; }
+  to   { opacity: var(--hero-icon-opacity, 0.15); }
+}
+.hero-icon {
+  will-change: transform, opacity;
+  opacity: 0;
+  animation:
+    hero-icon-in 1.2s ease-out forwards,
+    var(--hero-anim, hero-float-0) var(--hero-dur, 50s) ease-in-out infinite;
+  animation-delay: 0s, var(--hero-delay, 0s);
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-icon {
+    animation: hero-icon-in 1.2s ease-out forwards;
+  }
+}
+
+@keyframes talent-label-in {
+  from {
+    opacity: 0;
+    translate: 18px 0;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@keyframes talent-person-float {
+  0%, 100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 8px -10px;
+  }
+}
+
+@keyframes talent-card-in {
+  from {
+    opacity: 0;
+    translate: 0 18px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@keyframes talent-image-in {
+  from {
+    opacity: 0;
+    scale: 0.96;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes talent-collage-in {
+  from {
+    opacity: 0;
+    translate: 0 22px;
+    scale: 0.96;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+    scale: 1;
+  }
+}
+
+@keyframes talent-collage-float {
+  0%, 100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 4px -8px;
+  }
+}
+
+.talent-label {
+  animation: talent-label-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.talent-hero-person {
+  opacity: 0.18;
+  transform: translateX(32px) scale(0.96);
+  transition:
+    opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.talent-hero-person.is-active {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+  animation: talent-person-float 5.5s ease-in-out infinite;
+}
+
+.talent-category-card {
+  opacity: 0;
+  animation: talent-card-in 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.talent-card-person {
+  opacity: 0;
+  animation: talent-image-in 620ms cubic-bezier(0.22, 1, 0.36, 1) 120ms forwards;
+}
+
+.talent-collage-person {
+  opacity: 0;
+  animation:
+    talent-collage-in 680ms cubic-bezier(0.22, 1, 0.36, 1) forwards,
+    talent-collage-float 7s ease-in-out 900ms infinite;
+}
+
+.project-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  display: block;
+}
+
+@media (hover: none) {
+  .talent-category-card:hover {
+    transform: none;
+  }
+  .talent-card-person {
+    transform: none !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .talent-hero-person.is-active {
+    animation-duration: 7s;
+  }
+  .talent-card-person {
+    right: -11%;
+    width: 88%;
+  }
+  .talent-collage-person {
+    max-width: 44%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .talent-label,
+  .talent-hero-person,
+  .talent-hero-person.is-active,
+  .talent-category-card,
+  .talent-card-person,
+  .talent-collage-person,
+  .carousel-arrow {
+    animation: none !important;
+    transition: none !important;
+  }
+  .talent-hero-person,
+  .talent-hero-person.is-active,
+  .talent-category-card,
+  .talent-card-person,
+  .talent-collage-person {
+    opacity: 1;
+    translate: 0 0;
+    scale: 1;
+    transform: none;
+  }
+}

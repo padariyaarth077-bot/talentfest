@@ -1,0 +1,1 @@
+UPDATE public.entry_passes SET status='approved' WHERE status='pending';
