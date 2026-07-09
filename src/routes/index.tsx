@@ -108,7 +108,7 @@ function Home() {
       >
         <div className="grid items-center gap-10 lg:grid-cols-5">
           <div className="lg:col-span-2">
-            <div className="mx-auto flex aspect-[4/5] w-full max-w-sm items-end justify-center overflow-hidden rounded-3xl border border-primary/35 bg-[#0b0b0b] shadow-elegant sm:max-w-md lg:max-w-none">
+            <div className="mx-auto flex aspect-[9/16] w-full max-w-xs items-end justify-center overflow-hidden rounded-3xl border border-primary/35 bg-white shadow-elegant sm:max-w-sm lg:max-w-md">
               <img
                 src="/people/jb-ahir-founder.png"
                 alt="JB Ahir – Founder of Talent Fest"
