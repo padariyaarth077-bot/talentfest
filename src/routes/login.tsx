@@ -9,8 +9,8 @@ import { useLang } from "@/lib/i18n";
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
-      { title: "Login - Talent Fest" },
-      { name: "description", content: "Login to your Talent Fest account." },
+      { title: "Login - Telent Fest" },
+      { name: "description", content: "Login to your Telent Fest account." },
     ],
   }),
   component: LoginPage,

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useLang } from "@/lib/i18n";
 
 export const Route = createFileRoute("/forgot-password")({
-  head: () => ({ meta: [{ title: "Forgot Password - Talent Fest" }] }),
+  head: () => ({ meta: [{ title: "Forgot Password - Telent Fest" }] }),
   component: ForgotPasswordPage,
 });
 

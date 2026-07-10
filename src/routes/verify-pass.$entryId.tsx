@@ -9,8 +9,8 @@ import { useLang } from "@/lib/i18n";
 export const Route = createFileRoute("/verify-pass/$entryId")({
   head: () => ({
     meta: [
-      { title: "Verify Pass - Talent Fest" },
-      { name: "description", content: "Verify a Talent Fest entry pass." },
+      { title: "Verify Pass - Telent Fest" },
+      { name: "description", content: "Verify a Telent Fest entry pass." },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -63,7 +63,7 @@ function VerifyPage() {
         <div className="flex items-center justify-between px-6 py-5 gradient-hero">
           <div className="flex items-center gap-2 text-foreground">
             <Sparkles className="h-5 w-5 text-primary" />
-            <span className="font-display font-bold">Talent Fest</span>
+            <span className="font-display font-bold">Telent Fest</span>
           </div>
           <span className="flex items-center gap-1.5 text-xs font-medium text-primary">
             <ShieldCheck className="h-4 w-4" /> {t("verify.verified").toUpperCase()}

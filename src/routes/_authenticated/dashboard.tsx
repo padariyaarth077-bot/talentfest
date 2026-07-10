@@ -15,7 +15,7 @@ type Pass = {
 };
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => ({ meta: [{ title: "My Dashboard — Talent Fest" }] }),
+  head: () => ({ meta: [{ title: "My Dashboard — Telent Fest" }] }),
   component: DashboardPage,
 });
 
@@ -56,7 +56,7 @@ function DashboardPage() {
     <Section eyebrow={`Signed in as ${email}`} title="My Entry Passes" subtitle="Your submissions and their approval status.">
       <div className="max-w-4xl mx-auto space-y-4">
         <div className="flex justify-between items-center flex-wrap gap-3">
-          <Link to="/register">
+          <Link to="/entry-pass">
             <Button className="gradient-primary text-primary-foreground border-0">
               <Ticket className="h-4 w-4" /> Register for a Competition
             </Button>

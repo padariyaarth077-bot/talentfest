@@ -7,7 +7,7 @@ import { PassCard, type PassData } from "@/components/site/PassCard";
 import { Printer, ArrowLeft, Clock } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/pass/$entryId")({
-  head: () => ({ meta: [{ title: "Entry Pass — Talent Fest" }] }),
+  head: () => ({ meta: [{ title: "Entry Pass — Telent Fest" }] }),
   component: PassPage,
 });
 
@@ -79,7 +79,7 @@ function PassPage() {
   }
 
   return (
-    <Section eyebrow="Your official pass" title="Talent Fest Entry Pass">
+    <Section eyebrow="Your official pass" title="Telent Fest Entry Pass">
       <div className="space-y-6">
         <PassCard pass={pass} />
         <div className="flex justify-center gap-3 print:hidden">

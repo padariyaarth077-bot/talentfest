@@ -34,7 +34,7 @@ const statusStyles: Record<string, string> = {
 
 export function PassCard({ pass, verifyOrigin }: { pass: PassData; verifyOrigin?: string }) {
   const barcodeRef = useRef<SVGSVGElement>(null);
-  const origin = verifyOrigin ?? (typeof window !== "undefined" ? window.location.origin : "");
+  const origin = verifyOrigin ?? (typeof window !== "undefined" ? (import.meta.env.VITE_PUBLIC_SITE_URL || window.location.origin) : "");
   const verifyUrl = `${origin}/verify-pass/${pass.id}?t=${pass.verification_token}`;
 
   useEffect(() => {
@@ -56,7 +56,7 @@ export function PassCard({ pass, verifyOrigin }: { pass: PassData; verifyOrigin?
       <div className="gradient-hero px-6 py-5 flex justify-between items-center border-b border-primary/30">
         <div className="flex items-center gap-2 text-foreground">
           <Sparkles className="h-5 w-5 text-primary" />
-          <span className="font-display font-bold tracking-tight">Talent Fest</span>
+          <span className="font-display font-bold tracking-tight">Telent Fest</span>
         </div>
         <div className="flex items-center gap-1.5 text-xs font-medium text-primary">
           <ShieldCheck className="h-4 w-4" /> VERIFIED
@@ -135,7 +135,7 @@ export function PassCard({ pass, verifyOrigin }: { pass: PassData; verifyOrigin?
 
       <div className="bg-accent/50 px-6 py-3 text-[10px] text-muted-foreground flex justify-between border-t border-border">
         <span>Non-transferable • Present at gate</span>
-        <span>talentfest.in</span>
+        <span>TELENTFEST.in</span>
       </div>
     </div>
   );

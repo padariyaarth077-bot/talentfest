@@ -315,7 +315,7 @@ export function PremiumHero({ registerLabel, exploreLabel }: { registerLabel: st
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
             <Button asChild size="lg" className="gradient-primary border-0 px-8 text-primary-foreground shadow-elegant hover:opacity-95">
-              <Link to="/register">
+              <Link to="/entry-pass">
                 {registerLabel} <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
             </Button>
@@ -348,7 +348,7 @@ export function TalentCategoryCard({ category, index = 0 }: { category: TalentIt
 
   return (
     <Link
-      to="/register"
+      to="/entry-pass"
       className={`talent-category-card group relative flex min-h-[360px] overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-br ${category.cardTone} shadow-soft transition duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-2 hover:border-primary/50 hover:shadow-elegant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:min-h-[390px]`}
       style={{ animationDelay: `${index * 95}ms` }}
     >
@@ -402,7 +402,7 @@ export function TalentPeopleCollage() {
           <Sparkles className="h-6 w-6" />
         </span>
         <span className="font-display text-2xl font-bold">
-          Talent<span className="text-[#8a631e]">Fest</span>
+          Telent<span className="text-[#8a631e]">Fest</span>
         </span>
       </div>
       <div className="absolute inset-x-0 bottom-0 z-10 h-24 bg-gradient-to-t from-[#f2dfb1] to-transparent" />
@@ -441,7 +441,7 @@ export function FinalRegistrationCta() {
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button asChild size="lg" className="gradient-primary border-0 px-8 text-primary-foreground hover:opacity-95">
-                <Link to="/register">{t("cta.register")}</Link>
+                <Link to="/entry-pass">{t("cta.register")}</Link>
               </Button>
               <Button asChild size="lg" variant="outline" className="border-foreground/35 bg-foreground/10 px-8 text-foreground hover:bg-foreground/20">
                 <Link to="/admin/login">

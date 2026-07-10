@@ -12,13 +12,13 @@ export type Language = "en" | "hi";
 type TranslationValue = string | Record<string, TranslationValue>;
 type TranslationTree = Record<string, TranslationValue>;
 
-const STORAGE_KEY = "talentfest-language";
+const STORAGE_KEY = "TELENTFEST-language";
 const LEGACY_STORAGE_KEY = "tf-lang";
 
 export const translations = {
   en: {
     common: {
-      brand: "TalentFest",
+      brand: "TELENTFEST",
       loading: "Loading...",
       registerFree: "Registration Free",
       login: "Login",
@@ -32,7 +32,6 @@ export const translations = {
     },
     a11y: {
       toggleLanguage: "Toggle language",
-      toggleTheme: "Toggle theme",
       openMenu: "Open menu",
       closeMenu: "Close menu",
       previousTalent: "Previous talent",
@@ -61,7 +60,7 @@ export const translations = {
     },
     hero: {
       announcement: "Season 4 Registrations Open",
-      title: "Talent Festival Platform",
+      title: "Telent Festival Platform",
       description:
         "Discover extraordinary talent through competitions, concerts, performances and creative opportunities.",
       stats: {
@@ -144,10 +143,10 @@ export const translations = {
         },
       },
       about: {
-        eyebrow: "About Talent Fest",
+        eyebrow: "About Telent Fest",
         titlePrefix: "Meet",
         body:
-          "JB Ahir is the founder of Talent Fest, a movement started to spotlight the extraordinary creative talent hidden in every corner of India. With over a decade of experience producing live events and community festivals, JB has built Talent Fest into a nationwide platform.",
+          "JB Ahir is the founder of Telent Fest, a movement started to spotlight the extraordinary creative talent hidden in every corner of India. With over a decade of experience producing live events and community festivals, JB has built Telent Fest into a nationwide platform.",
         facts: {
           years: "10+ years in live events",
           cities: "50+ cities toured",
@@ -173,7 +172,7 @@ export const translations = {
         subtitle: "Get on stage in three easy steps. Registration is 100% free.",
         register: {
           title: "Registration Free",
-          desc: "Create your Talent Fest account in under 2 minutes.",
+          desc: "Create your Telent Fest account in under 2 minutes.",
         },
         profile: {
           title: "Complete Profile",
@@ -202,7 +201,7 @@ export const translations = {
         title: "Concert Information",
         subtitle: "The main stage lineup you don't want to miss.",
         grandFinale: "Grand Finale",
-        eventTitle: "Talent Fest Live 2026",
+        eventTitle: "Telent Fest Live 2026",
         venue: "NSCI Dome, Mumbai",
         date: "12 December 2026",
         time: "6:00 PM onwards",
@@ -231,15 +230,15 @@ export const translations = {
         title: "Our Projects",
         subtitle: "Events, festivals, and community initiatives we're proud of.",
         recentHeading: "RECENT PROJECTS",
-        recentTitle: "TalentFest Registration Campaign",
+        recentTitle: "TELENTFEST Registration Campaign",
         recentDesc:
-          "A completed TalentFest campaign inviting performers across dancing, singing, traditional fashion and other talent categories.",
-        recentAlt: "TalentFest registered students campaign poster",
+          "A completed TELENTFEST campaign inviting performers across dancing, singing, traditional fashion and other talent categories.",
+        recentAlt: "TELENTFEST registered students campaign poster",
         completed: "COMPLETED",
         upcomingHeading: "UPCOMING PROJECTS",
         upcomingTitle: "Upcoming Project",
         upcomingDesc:
-          "A new TalentFest initiative is being prepared and will be announced soon.",
+          "A new TELENTFEST initiative is being prepared and will be announced soon.",
         comingSoon: "COMING SOON",
         placeholderTitle: "Upcoming Project - Coming Soon",
         placeholderDesc: "Details will be revealed after the official announcement.",
@@ -247,7 +246,7 @@ export const translations = {
       awards: {
         eyebrow: "Recognition",
         title: "Employee Award Ceremony",
-        subtitle: "Celebrating the achievers who make Talent Fest happen.",
+        subtitle: "Celebrating the achievers who make Telent Fest happen.",
         creative: {
           title: "Creative Excellence",
           desc: "Awarded to our design and production team.",
@@ -264,16 +263,16 @@ export const translations = {
       sponsor: {
         eyebrow: "Partner with us",
         title: "Sponsorship",
-        subtitle: "Partner with TalentFest and connect your brand with a highly engaged audience.",
+        subtitle: "Partner with TELENTFEST and connect your brand with a highly engaged audience.",
       },
       blog: {
         eyebrow: "From the blog",
         title: "Latest Articles",
-        subtitle: "Stories, tips and updates from the Talent Fest community.",
+        subtitle: "Stories, tips and updates from the Telent Fest community.",
         readMore: "Read more",
         tipTitle: "5 tips to nail your audition tape",
         winnersTitle: "Meet the winners of Season 3",
-        citiesTitle: "Talent Fest goes to 12 new cities",
+        citiesTitle: "Telent Fest goes to 12 new cities",
         tips: "Talent Tips",
         stories: "Success Stories",
         updates: "Festival Updates",
@@ -282,7 +281,7 @@ export const translations = {
         eyebrow: "Loved by artists",
         title: "What people are saying",
         subtitle: "From national artists to sponsors and audiences.",
-        singerReview: "Talent Fest changed my career. The exposure and mentorship are unmatched.",
+        singerReview: "Telent Fest changed my career. The exposure and mentorship are unmatched.",
         painterReview: "A beautifully organized platform for artists. Loved every moment.",
         sponsorReview: "The audience quality and reach exceeded our expectations.",
         dancerReview: "Free registration, real prizes, and a jury that actually cares.",
@@ -290,45 +289,21 @@ export const translations = {
       },
       finalCta: {
         title: "Ready to show the world your talent?",
-        subtitle: "Join thousands of artists on India's fastest-growing talent festival platform.",
+        subtitle: "Join thousands of artists on India's fastest-growing Telent Festival platform.",
         orgLogin: "Organization Login",
       },
     },
     sponsorship: {
-      recentTab: "Recent Sponsorship",
-      upcomingTab: "Upcoming Sponsorship",
-      recentTitle: "Recent Sponsorship",
-      recentDesc: "Explore the sponsorship opportunities offered for our recent event.",
-      upcomingTitle: "Upcoming Sponsorship",
-      upcomingDesc: "Upcoming sponsorship opportunities will be announced soon.",
-      stayConnected: "Stay connected with TalentFest for future partnership opportunities.",
-      enquireNow: "Enquire Now",
-      packages: {
-        title: "Title Sponsor",
-        platinum: "Platinum Sponsor",
-        gold: "Gold Sponsor",
-        silver: "Silver Sponsor",
-        bronze: "Bronze Sponsor",
-      },
-      benefits: {
-        titleIntegrated: "Brand name integrated into the event title",
-        premiumLogo: "Premium logo placement on all promotional materials",
-        recognition: "Dedicated sponsor recognition during the event",
-        social: "Logo featured on official social media promotions",
-        press: "Recognition in press releases and media coverage",
-        fullPage: "Full-page advertisement in the event brochure",
-        led: "Prime branding on LED screens and the main stage",
-        anchor: "Exclusive anchor mentions throughout the event",
-        logoMaterials: "Logo on event branding materials",
-        socialMention: "Social media mentions",
-        sessions: "Recognition during key event sessions",
-        halfPage: "Half-page advertisement in the event brochure",
-        website: "Branding on the official website and digital promotions",
-        logoPlacement: "Logo placement on event branding materials",
-        brochure: "Acknowledgment in the event brochure",
-        quarterPage: "Quarter-page advertisement in the event brochure",
-        selectMaterials: "Logo placement on select event materials",
-        eventAck: "Acknowledgment during the event",
+      selectLabel: "Choose brochure",
+      viewBrochure: "View Brochure",
+      openFullScreen: "Open Full Screen",
+      downloadPdf: "Download PDF",
+      openBrochure: "Open Brochure",
+      pdfFallback: "Your browser cannot display this brochure directly.",
+      pdfViewerLabel: "Sponsorship brochure viewer",
+      brochures: {
+        grandFinale: "Grand Finale Brochure",
+        employeeAward: "Employee Award Ceremony Brochure",
       },
     },
     contact: {
@@ -349,7 +324,7 @@ export const translations = {
     },
     auth: {
       welcomeBack: "Welcome back",
-      loginTitle: "Login to Talent Fest",
+      loginTitle: "Login to Telent Fest",
       loginSubtitle: "Access your entry passes and dashboard.",
       email: "Email",
       password: "Password",
@@ -400,7 +375,7 @@ export const translations = {
       eyebrow: "Entry Pass",
       titlePrefix: "Generate Your",
       titleHighlight: "Entry Pass",
-      subtitle: "Fill in your details to generate and download your unique Talent Fest entry pass.",
+      subtitle: "Fill in your details to generate and download your unique Telent Fest entry pass.",
       detailsTitle: "Your Details",
       participantName: "Participant Name",
       participantPlaceholder: "Enter your full name",
@@ -434,7 +409,7 @@ export const translations = {
         "Complete the registration form to nominate an employee and participate in the Employee Award Ceremony 2026.",
       submittedTitle: "Registration Submitted Successfully",
       submittedSubtitle:
-        "Thank you for registering for the Employee Award Ceremony 2026. Our TalentFest team will review the submitted information and contact you with the next steps.",
+        "Thank you for registering for the Employee Award Ceremony 2026. Our TELENTFEST team will review the submitted information and contact you with the next steps.",
       sections: {
         company: "Company Details",
         employee: "Employee Details",
@@ -549,7 +524,7 @@ export const translations = {
         unavailable: "Not available",
       },
       declaration:
-        "I hereby confirm that all the information provided above is true and correct. I agree to participate in the Employee Award Ceremony 2026 organized by TalentFest Training Institute.",
+        "I hereby confirm that all the information provided above is true and correct. I agree to participate in the Employee Award Ceremony 2026 organized by TELENTFEST Training Institute.",
       declarationAccept: "I have read and agree to the declaration.",
       maxFile: "Maximum file size: 5 MB",
       reset: "Reset Form",
@@ -568,7 +543,7 @@ export const translations = {
       },
       help: {
         title: "Need Help?",
-        desc: "Contact TalentFest for registration support.",
+        desc: "Contact TELENTFEST for registration support.",
       },
     },
     verify: {
@@ -584,7 +559,7 @@ export const translations = {
       status: "Status",
     },
     footer: {
-      desc: "India's ultimate talent festival platform for artists, organizations, and audiences.",
+      desc: "India's ultimate Telent Festival platform for artists, organizations, and audiences.",
       quickLinks: "Quick Links",
       legal: "Legal",
       privacy: "Privacy Policy",
@@ -607,7 +582,7 @@ export const translations = {
   },
   hi: {
     common: {
-      brand: "TalentFest",
+      brand: "TELENTFEST",
       loading: "लोड हो रहा है...",
       registerFree: "मुफ़्त पंजीकरण",
       login: "लॉगिन",
@@ -621,7 +596,6 @@ export const translations = {
     },
     a11y: {
       toggleLanguage: "भाषा बदलें",
-      toggleTheme: "थीम बदलें",
       openMenu: "मेनू खोलें",
       closeMenu: "मेनू बंद करें",
       previousTalent: "पिछली प्रतिभा",
@@ -733,10 +707,10 @@ export const translations = {
         },
       },
       about: {
-        eyebrow: "Talent Fest के बारे में",
+        eyebrow: "Telent Fest के बारे में",
         titlePrefix: "मिलिए",
         body:
-          "JB Ahir Talent Fest के संस्थापक हैं, यह एक ऐसा अभियान है जो भारत के हर कोने में छिपी असाधारण रचनात्मक प्रतिभा को मंच देता है। लाइव इवेंट्स और सामुदायिक उत्सवों के एक दशक से अधिक अनुभव के साथ, JB ने Talent Fest को राष्ट्रीय मंच बनाया है।",
+          "JB Ahir Telent Fest के संस्थापक हैं, यह एक ऐसा अभियान है जो भारत के हर कोने में छिपी असाधारण रचनात्मक प्रतिभा को मंच देता है। लाइव इवेंट्स और सामुदायिक उत्सवों के एक दशक से अधिक अनुभव के साथ, JB ने Telent Fest को राष्ट्रीय मंच बनाया है।",
         facts: {
           years: "लाइव इवेंट्स में 10+ वर्ष",
           cities: "50+ शहरों का अनुभव",
@@ -762,7 +736,7 @@ export const translations = {
         subtitle: "तीन आसान चरणों में मंच पर आएँ। पंजीकरण 100% मुफ़्त है।",
         register: {
           title: "मुफ़्त पंजीकरण",
-          desc: "2 मिनट से कम समय में अपना Talent Fest खाता बनाएँ।",
+          desc: "2 मिनट से कम समय में अपना Telent Fest खाता बनाएँ।",
         },
         profile: {
           title: "प्रोफ़ाइल पूरी करें",
@@ -791,7 +765,7 @@ export const translations = {
         title: "कॉन्सर्ट जानकारी",
         subtitle: "मुख्य मंच की लाइनअप जिसे आप मिस नहीं करना चाहेंगे।",
         grandFinale: "ग्रैंड फिनाले",
-        eventTitle: "Talent Fest Live 2026",
+        eventTitle: "Telent Fest Live 2026",
         venue: "NSCI Dome, Mumbai",
         date: "12 December 2026",
         time: "शाम 6:00 बजे से",
@@ -820,15 +794,15 @@ export const translations = {
         title: "हमारे प्रोजेक्ट्स",
         subtitle: "वे इवेंट्स, उत्सव और सामुदायिक पहल जिन पर हमें गर्व है।",
         recentHeading: "हाल के प्रोजेक्ट्स",
-        recentTitle: "TalentFest पंजीकरण अभियान",
+        recentTitle: "TELENTFEST पंजीकरण अभियान",
         recentDesc:
-          "डांसिंग, सिंगिंग, पारंपरिक फैशन और अन्य प्रतिभा श्रेणियों के कलाकारों को आमंत्रित करने वाला पूरा हुआ TalentFest अभियान।",
-        recentAlt: "TalentFest पंजीकृत छात्रों का अभियान पोस्टर",
+          "डांसिंग, सिंगिंग, पारंपरिक फैशन और अन्य प्रतिभा श्रेणियों के कलाकारों को आमंत्रित करने वाला पूरा हुआ TELENTFEST अभियान।",
+        recentAlt: "TELENTFEST पंजीकृत छात्रों का अभियान पोस्टर",
         completed: "पूरा हुआ",
         upcomingHeading: "आगामी प्रोजेक्ट्स",
         upcomingTitle: "आगामी प्रोजेक्ट",
         upcomingDesc:
-          "TalentFest की एक नई पहल तैयार की जा रही है और जल्द ही घोषित की जाएगी।",
+          "TELENTFEST की एक नई पहल तैयार की जा रही है और जल्द ही घोषित की जाएगी।",
         comingSoon: "जल्द आ रहा है",
         placeholderTitle: "आगामी प्रोजेक्ट - जल्द आ रहा है",
         placeholderDesc: "आधिकारिक घोषणा के बाद विवरण साझा किए जाएँगे।",
@@ -836,7 +810,7 @@ export const translations = {
       awards: {
         eyebrow: "सम्मान",
         title: "कर्मचारी पुरस्कार समारोह",
-        subtitle: "Talent Fest को सफल बनाने वाले उपलब्धि हासिल करने वालों का सम्मान।",
+        subtitle: "Telent Fest को सफल बनाने वाले उपलब्धि हासिल करने वालों का सम्मान।",
         creative: {
           title: "क्रिएटिव एक्सीलेंस",
           desc: "हमारी डिज़ाइन और प्रोडक्शन टीम को सम्मानित किया गया।",
@@ -853,16 +827,16 @@ export const translations = {
       sponsor: {
         eyebrow: "हमारे साथ साझेदारी",
         title: "प्रायोजन",
-        subtitle: "TalentFest के साथ साझेदारी करें और अपने ब्रांड को सक्रिय दर्शकों से जोड़ें।",
+        subtitle: "TELENTFEST के साथ साझेदारी करें और अपने ब्रांड को सक्रिय दर्शकों से जोड़ें।",
       },
       blog: {
         eyebrow: "ब्लॉग से",
         title: "नवीनतम लेख",
-        subtitle: "Talent Fest समुदाय की कहानियाँ, सुझाव और अपडेट।",
+        subtitle: "Telent Fest समुदाय की कहानियाँ, सुझाव और अपडेट।",
         readMore: "और पढ़ें",
         tipTitle: "अपने ऑडिशन वीडियो को बेहतर बनाने के 5 सुझाव",
         winnersTitle: "सीज़न 3 के विजेताओं से मिलिए",
-        citiesTitle: "Talent Fest 12 नए शहरों में पहुँचा",
+        citiesTitle: "Telent Fest 12 नए शहरों में पहुँचा",
         tips: "प्रतिभा सुझाव",
         stories: "सफलता की कहानियाँ",
         updates: "उत्सव अपडेट",
@@ -871,7 +845,7 @@ export const translations = {
         eyebrow: "कलाकारों का भरोसा",
         title: "लोग क्या कह रहे हैं",
         subtitle: "राष्ट्रीय कलाकारों से लेकर प्रायोजकों और दर्शकों तक।",
-        singerReview: "Talent Fest ने मेरा करियर बदल दिया। एक्सपोज़र और मेंटरशिप शानदार हैं।",
+        singerReview: "Telent Fest ने मेरा करियर बदल दिया। एक्सपोज़र और मेंटरशिप शानदार हैं।",
         painterReview: "कलाकारों के लिए बहुत सुंदर ढंग से आयोजित मंच। हर पल पसंद आया।",
         sponsorReview: "दर्शकों की गुणवत्ता और पहुँच हमारी उम्मीदों से बेहतर रही।",
         dancerReview: "मुफ़्त पंजीकरण, वास्तविक पुरस्कार और सचमुच ध्यान देने वाली जूरी।",
@@ -884,40 +858,16 @@ export const translations = {
       },
     },
     sponsorship: {
-      recentTab: "हालिया प्रायोजन",
-      upcomingTab: "आगामी प्रायोजन",
-      recentTitle: "हालिया प्रायोजन",
-      recentDesc: "हमारे हालिया कार्यक्रम के लिए उपलब्ध प्रायोजन अवसर देखें।",
-      upcomingTitle: "आगामी प्रायोजन",
-      upcomingDesc: "आगामी प्रायोजन अवसर जल्द घोषित किए जाएँगे।",
-      stayConnected: "भविष्य की साझेदारी के अवसरों के लिए TalentFest से जुड़े रहें।",
-      enquireNow: "अभी पूछताछ करें",
-      packages: {
-        title: "टाइटल स्पॉन्सर",
-        platinum: "प्लैटिनम स्पॉन्सर",
-        gold: "गोल्ड स्पॉन्सर",
-        silver: "सिल्वर स्पॉन्सर",
-        bronze: "ब्रॉन्ज स्पॉन्सर",
-      },
-      benefits: {
-        titleIntegrated: "ब्रांड नाम को कार्यक्रम शीर्षक में शामिल करना",
-        premiumLogo: "सभी प्रचार सामग्री पर प्रीमियम लोगो प्लेसमेंट",
-        recognition: "कार्यक्रम के दौरान विशेष प्रायोजक सम्मान",
-        social: "आधिकारिक सोशल मीडिया प्रचार में लोगो प्रदर्शित",
-        press: "प्रेस रिलीज़ और मीडिया कवरेज में मान्यता",
-        fullPage: "कार्यक्रम ब्रोशर में फुल-पेज विज्ञापन",
-        led: "LED स्क्रीन और मुख्य मंच पर प्रमुख ब्रांडिंग",
-        anchor: "पूरे कार्यक्रम में विशेष एंकर उल्लेख",
-        logoMaterials: "कार्यक्रम ब्रांडिंग सामग्री पर लोगो",
-        socialMention: "सोशल मीडिया उल्लेख",
-        sessions: "मुख्य कार्यक्रम सत्रों में मान्यता",
-        halfPage: "कार्यक्रम ब्रोशर में हाफ-पेज विज्ञापन",
-        website: "आधिकारिक वेबसाइट और डिजिटल प्रचार में ब्रांडिंग",
-        logoPlacement: "कार्यक्रम ब्रांडिंग सामग्री पर लोगो प्लेसमेंट",
-        brochure: "कार्यक्रम ब्रोशर में आभार",
-        quarterPage: "कार्यक्रम ब्रोशर में क्वार्टर-पेज विज्ञापन",
-        selectMaterials: "चयनित कार्यक्रम सामग्री पर लोगो प्लेसमेंट",
-        eventAck: "कार्यक्रम के दौरान आभार",
+      selectLabel: "ब्रोशर चुनें",
+      viewBrochure: "ब्रोशर देखें",
+      openFullScreen: "पूर्ण स्क्रीन में खोलें",
+      downloadPdf: "PDF डाउनलोड करें",
+      openBrochure: "ब्रोशर खोलें",
+      pdfFallback: "आपका ब्राउज़र इस ब्रोशर को सीधे प्रदर्शित नहीं कर सकता।",
+      pdfViewerLabel: "प्रायोजन ब्रोशर व्यूअर",
+      brochures: {
+        grandFinale: "ग्रैंड फिनाले ब्रोशर",
+        employeeAward: "कर्मचारी पुरस्कार समारोह ब्रोशर",
       },
     },
     contact: {
@@ -938,7 +888,7 @@ export const translations = {
     },
     auth: {
       welcomeBack: "वापसी पर स्वागत है",
-      loginTitle: "Talent Fest में लॉगिन करें",
+      loginTitle: "Telent Fest में लॉगिन करें",
       loginSubtitle: "अपने एंट्री पास और डैशबोर्ड तक पहुँचें।",
       email: "ईमेल",
       password: "पासवर्ड",
@@ -989,7 +939,7 @@ export const translations = {
       eyebrow: "एंट्री पास",
       titlePrefix: "अपना",
       titleHighlight: "एंट्री पास बनाएँ",
-      subtitle: "अपना अनोखा Talent Fest एंट्री पास बनाने और डाउनलोड करने के लिए विवरण भरें।",
+      subtitle: "अपना अनोखा Telent Fest एंट्री पास बनाने और डाउनलोड करने के लिए विवरण भरें।",
       detailsTitle: "आपकी जानकारी",
       participantName: "प्रतिभागी का नाम",
       participantPlaceholder: "अपना पूरा नाम दर्ज करें",
@@ -1023,7 +973,7 @@ export const translations = {
         "कर्मचारी को नामांकित करने और कर्मचारी पुरस्कार समारोह 2026 में भाग लेने के लिए पंजीकरण फॉर्म पूरा करें।",
       submittedTitle: "पंजीकरण सफलतापूर्वक जमा हुआ",
       submittedSubtitle:
-        "कर्मचारी पुरस्कार समारोह 2026 के लिए पंजीकरण करने के लिए धन्यवाद। हमारी TalentFest टीम जानकारी की समीक्षा करेगी और अगले चरणों के लिए आपसे संपर्क करेगी।",
+        "कर्मचारी पुरस्कार समारोह 2026 के लिए पंजीकरण करने के लिए धन्यवाद। हमारी TELENTFEST टीम जानकारी की समीक्षा करेगी और अगले चरणों के लिए आपसे संपर्क करेगी।",
       sections: {
         company: "कंपनी विवरण",
         employee: "कर्मचारी विवरण",
@@ -1138,7 +1088,7 @@ export const translations = {
         unavailable: "उपलब्ध नहीं",
       },
       declaration:
-        "मैं पुष्टि करता/करती हूँ कि ऊपर दी गई सभी जानकारी सही है। मैं TalentFest Training Institute द्वारा आयोजित कर्मचारी पुरस्कार समारोह 2026 में भाग लेने के लिए सहमत हूँ।",
+        "मैं पुष्टि करता/करती हूँ कि ऊपर दी गई सभी जानकारी सही है। मैं TELENTFEST Training Institute द्वारा आयोजित कर्मचारी पुरस्कार समारोह 2026 में भाग लेने के लिए सहमत हूँ।",
       declarationAccept: "मैंने घोषणा पढ़ ली है और उससे सहमत हूँ।",
       maxFile: "अधिकतम फ़ाइल आकार: 5 MB",
       reset: "फॉर्म रीसेट करें",
@@ -1157,7 +1107,7 @@ export const translations = {
       },
       help: {
         title: "सहायता चाहिए?",
-        desc: "पंजीकरण सहायता के लिए TalentFest से संपर्क करें।",
+        desc: "पंजीकरण सहायता के लिए TELENTFEST से संपर्क करें।",
       },
     },
     verify: {

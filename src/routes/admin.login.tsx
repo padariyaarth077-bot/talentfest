@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { getSupabaseConfigError, supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/admin/login")({
-  head: () => ({ meta: [{ title: "Admin Login - Talent Fest" }] }),
+  head: () => ({ meta: [{ title: "Admin Login - Telent Fest" }] }),
   component: AdminLoginPage,
 });
 
@@ -107,7 +107,7 @@ function AdminLoginPage() {
         </div>
         <div className="mt-5 text-center">
           <p className="text-xs uppercase tracking-[0.3em] text-primary">Secure Admin</p>
-          <h1 className="mt-2 text-3xl font-semibold">Talent Fest Admin Login</h1>
+          <h1 className="mt-2 text-3xl font-semibold">Telent Fest Admin Login</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Sign in with your Supabase admin account. Passwords are never stored in the frontend.
           </p>

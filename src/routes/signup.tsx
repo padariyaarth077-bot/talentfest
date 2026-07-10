@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { useLang } from "@/lib/i18n";
 
 export const Route = createFileRoute("/signup")({
-  head: () => ({ meta: [{ title: "Sign up - Talent Fest" }, { name: "description", content: "Create your Talent Fest account." }] }),
+  head: () => ({ meta: [{ title: "Sign up - Telent Fest" }, { name: "description", content: "Create your Telent Fest account." }] }),
   component: SignupPage,
 });
 

@@ -7,8 +7,8 @@ import { useLang } from "@/lib/i18n";
 export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
-      { title: "Contact - Talent Fest" },
-      { name: "description", content: "Get in touch with the Talent Fest team." },
+      { title: "Contact - Telent Fest" },
+      { name: "description", content: "Get in touch with the Telent Fest team." },
     ],
   }),
   component: ContactPage,
@@ -24,7 +24,7 @@ function ContactPage() {
           {[
             { icon: MapPin, label: t("contact.office"), value: t("footer.location"), href: "https://www.openstreetmap.org/#map=12/19.04/72.85" },
             { icon: Phone, label: t("contact.phone"), value: "+91 98000 00000", href: "tel:+919800000000" },
-            { icon: Mail, label: t("contact.email"), value: "hello@talentfest.in", href: "mailto:hello@talentfest.in" },
+            { icon: Mail, label: t("contact.email"), value: "hello@TELENTFEST.in", href: "mailto:hello@TELENTFEST.in" },
             { icon: Clock, label: t("contact.hours"), value: t("contact.hoursValue"), href: "#" },
           ].map((c) => (
             <a

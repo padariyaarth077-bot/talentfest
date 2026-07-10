@@ -1,6 +1,6 @@
 import { Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Menu, X, Globe, Sparkles, Moon, Sun, LayoutDashboard } from "lucide-react";
+import { Menu, X, Globe, LayoutDashboard } from "lucide-react";
 import { useLang } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
@@ -22,7 +22,6 @@ export function Header() {
   const currentPath = router.state.location.pathname;
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [dark, setDark] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
 
   useEffect(() => {
@@ -43,10 +42,6 @@ export function Header() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", dark);
-  }, [dark]);
-
   const isActive = (to: string) => {
     if (to.startsWith("/#")) {
       return false;
@@ -62,11 +57,17 @@ export function Header() {
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
         <Link to="/" className="flex items-center gap-2 shrink-0">
-          <span className="grid h-9 w-9 place-items-center rounded-xl gradient-primary shadow-glow">
-            <Sparkles className="h-5 w-5 text-foreground" />
+          <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-xl border border-primary/45 bg-primary/10 shadow-glow">
+            <img
+              src="/brand/telentfest-icon-tight.png"
+              alt="TelentFest logo"
+              className="h-full w-full object-contain"
+              width={36}
+              height={36}
+            />
           </span>
           <span className="font-display font-bold text-lg tracking-tight">
-            Talent<span className="text-gradient">Fest</span>
+            Telent<span className="text-gradient">Fest</span>
           </span>
         </Link>
 
@@ -95,13 +96,6 @@ export function Header() {
             <Globe className="h-3.5 w-3.5" />
             {lang === "en" ? "HI" : "EN"}
           </button>
-          <button
-            onClick={() => setDark((d) => !d)}
-            className="hidden sm:inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border hover:bg-accent"
-            aria-label={t("a11y.toggleTheme")}
-          >
-            {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
           {signedIn ? (
             <Link to="/dashboard" className="hidden md:inline-flex">
               <Button size="sm" className="gradient-primary text-primary-foreground border-0 shadow-soft hover:opacity-95">
@@ -112,11 +106,6 @@ export function Header() {
             <>
               <Link to="/login" className="hidden md:inline-flex">
                 <Button variant="ghost" size="sm">{t("cta.login")}</Button>
-              </Link>
-              <Link to="/register" className="hidden md:inline-flex">
-                <Button size="sm" className="gradient-primary text-primary-foreground border-0 shadow-soft hover:opacity-95">
-                  {t("cta.register")}
-                </Button>
               </Link>
             </>
           )}
@@ -153,13 +142,8 @@ export function Header() {
                 {t(m.labelKey)}
               </a>
             ))}
-            <Link to="/login" onClick={() => setOpen(false)} className="col-span-1">
+            <Link to="/login" onClick={() => setOpen(false)} className="col-span-2">
               <Button variant="outline" className="w-full mt-2">{t("cta.login")}</Button>
-            </Link>
-            <Link to="/register" onClick={() => setOpen(false)} className="col-span-1">
-              <Button className="w-full mt-2 gradient-primary text-primary-foreground border-0">
-                {t("cta.register")}
-              </Button>
             </Link>
           </div>
         </div>

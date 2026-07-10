@@ -16,9 +16,7 @@ import {
   Star,
   Ticket,
   Trophy,
-  UploadCloud,
   UserPlus,
-  Users,
   Video,
   Vote,
 } from "lucide-react";
@@ -30,6 +28,13 @@ import {
   TalentCategories as RealTalentCategories,
 } from "@/components/site/TalentShowcase";
 import { useLang } from "@/lib/i18n";
+import {
+  type BlogPost,
+  type ConcertArtist,
+  type ConcertSettings,
+  fetchConcertContent,
+  fetchPublishedBlogPosts,
+} from "@/lib/public-content.functions";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -48,23 +53,11 @@ const services = [
   { icon: ScanLine, key: "onlineEntry" },
 ];
 
-const steps = [
-  { icon: UserPlus, key: "register" },
-  { icon: Users, key: "profile" },
-  { icon: UploadCloud, key: "upload" },
-];
-
 const team = [
   { name: "JB Ahir", roleKey: "home.team.founder" },
   { name: "Priya Sharma", roleKey: "home.team.operations" },
   { name: "Rohan Verma", roleKey: "home.team.creative" },
   { name: "Ananya Iyer", roleKey: "home.team.marketing" },
-];
-
-const blogs = [
-  { titleKey: "home.blog.tipTitle", catKey: "home.blog.tips", date: "Jun 12, 2026" },
-  { titleKey: "home.blog.winnersTitle", catKey: "home.blog.stories", date: "May 28, 2026" },
-  { titleKey: "home.blog.citiesTitle", catKey: "home.blog.updates", date: "May 05, 2026" },
 ];
 
 const reviews = [
@@ -76,6 +69,16 @@ const reviews = [
 
 function Home() {
   const { t } = useLang();
+  const [concert, setConcert] = React.useState<{ settings: ConcertSettings; artists: ConcertArtist[] } | null>(null);
+  const [posts, setPosts] = React.useState<BlogPost[]>([]);
+
+  React.useEffect(() => {
+    fetchConcertContent().then(setConcert).catch(() => undefined);
+    fetchPublishedBlogPosts({ data: { limit: 3 } }).then(setPosts).catch(() => undefined);
+  }, []);
+
+  const concertSettings = concert?.settings;
+  const concertArtists = concert?.artists ?? [];
 
   return (
     <>
@@ -89,7 +92,7 @@ function Home() {
       >
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {services.map((s) => (
-            <Link key={s.key} to="/register" className="block rounded-2xl border border-border bg-card p-6 hover-lift">
+            <Link key={s.key} to="/entry-pass" className="block rounded-2xl border border-border bg-card p-6 hover-lift">
               <div className="mb-4 grid h-11 w-11 place-items-center rounded-xl gradient-primary text-foreground">
                 <s.icon className="h-5 w-5" />
               </div>
@@ -111,7 +114,7 @@ function Home() {
             <div className="mx-auto flex aspect-[9/16] w-full max-w-xs items-end justify-center overflow-hidden rounded-3xl border border-primary/35 bg-white shadow-elegant sm:max-w-sm lg:max-w-md">
               <img
                 src="/people/jb-ahir-founder.png"
-                alt="JB Ahir – Founder of Talent Fest"
+                alt="JB Ahir – Founder of Telent Fest"
                 className="h-full w-full object-contain object-bottom"
                 loading="lazy"
               />
@@ -142,49 +145,40 @@ function Home() {
         </div>
       </Section>
 
-      <Section id="participate" eyebrow={t("home.participate.eyebrow")} title={t("home.participate.title")} subtitle={t("home.participate.subtitle")}>
-        <div className="grid gap-5 md:grid-cols-3">
-          {steps.map((s, i) => (
-            <Link key={s.key} to="/register" className="relative block rounded-3xl border border-border bg-card p-8 hover-lift">
-              <div className="absolute -left-4 -top-4 grid h-10 w-10 place-items-center rounded-2xl gradient-accent font-bold text-foreground shadow-elegant">
-                {i + 1}
-              </div>
-              <s.icon className="mb-4 h-8 w-8 text-primary" />
-              <h3 className="text-lg font-semibold">{t(`home.participate.${s.key}.title`)}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{t(`home.participate.${s.key}.desc`)}</p>
-            </Link>
-          ))}
-        </div>
-        <div className="mt-8 flex flex-wrap justify-center gap-2 text-xs">
-          {["video", "audio", "images", "pdf", "documents"].map((key) => (
-            <span key={key} className="rounded-full bg-accent px-3 py-1.5 font-medium text-accent-foreground">{t(`home.participate.fileTypes.${key}`)}</span>
-          ))}
-        </div>
-        <p className="mt-4 text-center text-sm text-muted-foreground">{t("home.participate.note")}</p>
-      </Section>
-
       <RealTalentCategories />
 
-      <Section id="concert" eyebrow={t("home.concert.eyebrow")} title={t("home.concert.title")} subtitle={t("home.concert.subtitle")}>
+      <Section
+        id="concert"
+        eyebrow={concertSettings?.eyebrow ?? t("home.concert.eyebrow")}
+        title={concertSettings?.title ?? t("home.concert.title")}
+        subtitle={concertSettings?.subtitle ?? t("home.concert.subtitle")}
+      >
         <div className="grid gap-5 lg:grid-cols-3">
-          <Link to="/register" className="block rounded-3xl p-8 gradient-primary text-foreground shadow-elegant lg:col-span-2">
-            <div className="text-xs uppercase tracking-widest opacity-80">{t("home.concert.grandFinale")}</div>
-            <h3 className="mt-2 text-3xl font-bold">{t("home.concert.eventTitle")}</h3>
+          <a href={concertSettings?.button_url || "/entry-pass"} className="block rounded-3xl p-8 gradient-primary text-foreground shadow-elegant lg:col-span-2">
+            <div className="text-xs uppercase tracking-widest opacity-80">{concertSettings?.event_label ?? t("home.concert.grandFinale")}</div>
+            <h3 className="mt-2 text-3xl font-bold">{concertSettings?.event_title ?? t("home.concert.eventTitle")}</h3>
             <div className="mt-6 grid grid-cols-2 gap-4 text-sm">
-              <div className="flex items-center gap-2"><MapPin className="h-4 w-4" /> {t("home.concert.venue")}</div>
-              <div className="flex items-center gap-2"><Calendar className="h-4 w-4" /> {t("home.concert.date")}</div>
-              <div className="flex items-center gap-2"><Clock className="h-4 w-4" /> {t("home.concert.time")}</div>
-              <div className="flex items-center gap-2"><Ticket className="h-4 w-4" /> {t("home.concert.seats")}</div>
+              <div className="flex items-center gap-2"><MapPin className="h-4 w-4" /> {concertSettings?.venue ?? t("home.concert.venue")}</div>
+              <div className="flex items-center gap-2"><Calendar className="h-4 w-4" /> {formatDisplayDate(concertSettings?.event_date) || t("home.concert.date")}</div>
+              <div className="flex items-center gap-2"><Clock className="h-4 w-4" /> {formatDisplayTime(concertSettings?.start_time) || t("home.concert.time")}</div>
+              <div className="flex items-center gap-2"><Ticket className="h-4 w-4" /> {concertSettings?.price_text ?? t("home.concert.seats")}</div>
             </div>
             <div className="mt-8">
-              <span className="inline-flex h-11 items-center rounded-md bg-primary px-8 text-sm font-medium text-primary-foreground hover:bg-primary/90">{t("home.concert.bookTickets")}</span>
+              <span className="inline-flex h-11 items-center rounded-md bg-primary px-8 text-sm font-medium text-primary-foreground hover:bg-primary/90">{concertSettings?.button_text ?? t("home.concert.bookTickets")}</span>
             </div>
-          </Link>
-          <Link to="/register" className="block rounded-3xl border border-border bg-card p-6 hover-lift">
+          </a>
+          <Link to="/entry-pass" className="block rounded-3xl border border-border bg-card p-6 hover-lift">
             <h4 className="mb-4 font-semibold">{t("home.concert.lineup")}</h4>
             <ul className="space-y-3 text-sm">
-              {["aarav", "nritya", "studio", "neha", "kabir"].map((key) => (
-                <li key={key} className="flex gap-2"><Star className="mt-0.5 h-4 w-4 shrink-0 text-primary" />{t(`home.concert.artists.${key}`)}</li>
+              {(concertArtists.length ? concertArtists : ["aarav", "nritya", "studio", "neha", "kabir"]).map((artist) => (
+                typeof artist === "string" ? (
+                  <li key={artist} className="flex gap-2"><Star className="mt-0.5 h-4 w-4 shrink-0 text-primary" />{t(`home.concert.artists.${artist}`)}</li>
+                ) : (
+                  <li key={artist.id ?? artist.artist_name} className="flex gap-2">
+                    <Star className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                    <span><strong>{artist.artist_name}</strong>{artist.performance_type ? ` - ${artist.performance_type}` : ""}</span>
+                  </li>
+                )
               ))}
             </ul>
           </Link>
@@ -192,7 +186,7 @@ function Home() {
         <div className="mt-6 h-64 overflow-hidden rounded-3xl border border-border">
           <iframe
             title="Venue map"
-            src="https://www.openstreetmap.org/export/embed.html?bbox=72.82%2C19.02%2C72.87%2C19.06&layer=mapnik"
+            src={concertSettings?.map_embed_url || "https://maps.google.com/maps?q=Rajkot%2C%20Gujarat&z=12&output=embed"}
             className="h-full w-full"
             loading="lazy"
           />
@@ -254,17 +248,27 @@ function Home() {
 
       <Section id="blog" eyebrow={t("home.blog.eyebrow")} title={t("home.blog.title")} subtitle={t("home.blog.subtitle")}>
         <div className="grid gap-5 md:grid-cols-3">
-          {blogs.map((b, i) => (
-            <Link key={b.titleKey} to="/gallery" className="block overflow-hidden rounded-3xl border border-border bg-card hover-lift">
-              <div className={`h-40 ${["gradient-primary", "gradient-accent", "gradient-bronze"][i]}`} />
+          {posts.map((post, i) => (
+            <a key={post.slug} href={`/blog/${post.slug}`} className="block overflow-hidden rounded-3xl border border-border bg-card hover-lift">
+              <div className={`h-40 overflow-hidden ${post.thumbnail_url ? "" : ["gradient-primary", "gradient-accent", "gradient-bronze"][i % 3]}`}>
+                {post.thumbnail_url && (
+                  <img
+                    src={post.thumbnail_url}
+                    alt={post.thumbnail_alt || post.title}
+                    className="h-full w-full object-cover transition duration-500 hover:scale-105"
+                    loading="lazy"
+                  />
+                )}
+              </div>
               <div className="p-6">
-                <div className="text-xs font-medium text-primary">{t(b.catKey)} · {b.date}</div>
-                <h3 className="mt-2 font-semibold">{t(b.titleKey)}</h3>
+                <div className="text-xs font-medium text-primary">{post.category} - {formatDisplayDate(post.published_at)}</div>
+                <h3 className="mt-2 font-semibold">{post.title}</h3>
+                <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{post.excerpt}</p>
                 <span className="mt-3 inline-flex items-center gap-1 text-sm text-primary transition-all group-hover:gap-2">
                   {t("home.blog.readMore")} <ArrowRight className="h-3 w-3" />
                 </span>
               </div>
-            </Link>
+            </a>
           ))}
         </div>
       </Section>
@@ -272,7 +276,7 @@ function Home() {
       <Section id="reviews" eyebrow={t("home.reviews.eyebrow")} title={t("home.reviews.title")} subtitle={t("home.reviews.subtitle")}>
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
           {reviews.map((r) => (
-            <Link key={r.name} to="/register" className="block rounded-3xl border border-border bg-card p-6 hover-lift">
+            <Link key={r.name} to="/entry-pass" className="block rounded-3xl border border-border bg-card p-6 hover-lift">
               <div className="mb-3 flex gap-1 text-secondary">
                 {Array.from({ length: 5 }).map((_, i) => <Star key={i} className="h-4 w-4 fill-current" />)}
               </div>
@@ -355,4 +359,20 @@ function ProjectCard({ project }: { project: (typeof projectCards)[0] }) {
       </div>
     </article>
   );
+}
+
+function formatDisplayDate(value?: string | null) {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(parsed);
+}
+
+function formatDisplayTime(value?: string | null) {
+  if (!value) return "";
+  const [hours, minutes] = value.split(":");
+  if (!hours || !minutes) return value;
+  const parsed = new Date();
+  parsed.setHours(Number(hours), Number(minutes), 0, 0);
+  return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(parsed);
 }

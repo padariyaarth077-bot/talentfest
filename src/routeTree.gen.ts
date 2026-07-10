@@ -9,22 +9,30 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ThankYouRouteImport } from './routes/thank-you'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SignupRouteImport } from './routes/signup'
-import { Route as RegisterRouteImport } from './routes/register'
+import { Route as PaymentRouteImport } from './routes/payment'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as EntryPassRouteImport } from './routes/entry-pass'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as VerifyPassEntryIdRouteImport } from './routes/verify-pass.$entryId'
+import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedPassEntryIdRouteImport } from './routes/_authenticated/pass.$entryId'
 
+const ThankYouRoute = ThankYouRouteImport.update({
+  id: '/thank-you',
+  path: '/thank-you',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
@@ -35,9 +43,9 @@ const SignupRoute = SignupRouteImport.update({
   path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RegisterRoute = RegisterRouteImport.update({
-  id: '/register',
-  path: '/register',
+const PaymentRoute = PaymentRouteImport.update({
+  id: '/payment',
+  path: '/payment',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -65,6 +73,11 @@ const ContactRoute = ContactRouteImport.update({
   path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CheckoutRoute = CheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
@@ -77,6 +90,11 @@ const IndexRoute = IndexRouteImport.update({
 const VerifyPassEntryIdRoute = VerifyPassEntryIdRouteImport.update({
   id: '/verify-pass/$entryId',
   path: '/verify-pass/$entryId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogSlugRoute = BlogSlugRouteImport.update({
+  id: '/blog/$slug',
+  path: '/blog/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminLoginRoute = AdminLoginRouteImport.update({
@@ -103,33 +121,39 @@ const AuthenticatedPassEntryIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
   '/entry-pass': typeof EntryPassRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/gallery': typeof GalleryRoute
   '/login': typeof LoginRoute
-  '/register': typeof RegisterRoute
+  '/payment': typeof PaymentRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/thank-you': typeof ThankYouRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/admin/login': typeof AdminLoginRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/verify-pass/$entryId': typeof VerifyPassEntryIdRoute
   '/pass/$entryId': typeof AuthenticatedPassEntryIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
   '/entry-pass': typeof EntryPassRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/gallery': typeof GalleryRoute
   '/login': typeof LoginRoute
-  '/register': typeof RegisterRoute
+  '/payment': typeof PaymentRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/thank-you': typeof ThankYouRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/admin/login': typeof AdminLoginRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/verify-pass/$entryId': typeof VerifyPassEntryIdRoute
   '/pass/$entryId': typeof AuthenticatedPassEntryIdRoute
 }
@@ -137,17 +161,20 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
   '/entry-pass': typeof EntryPassRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/gallery': typeof GalleryRoute
   '/login': typeof LoginRoute
-  '/register': typeof RegisterRoute
+  '/payment': typeof PaymentRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/thank-you': typeof ThankYouRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/admin/login': typeof AdminLoginRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/verify-pass/$entryId': typeof VerifyPassEntryIdRoute
   '/_authenticated/pass/$entryId': typeof AuthenticatedPassEntryIdRoute
 }
@@ -155,50 +182,59 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/checkout'
     | '/contact'
     | '/entry-pass'
     | '/forgot-password'
     | '/gallery'
     | '/login'
-    | '/register'
+    | '/payment'
     | '/signup'
     | '/sitemap.xml'
+    | '/thank-you'
     | '/admin'
     | '/dashboard'
     | '/admin/login'
+    | '/blog/$slug'
     | '/verify-pass/$entryId'
     | '/pass/$entryId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/checkout'
     | '/contact'
     | '/entry-pass'
     | '/forgot-password'
     | '/gallery'
     | '/login'
-    | '/register'
+    | '/payment'
     | '/signup'
     | '/sitemap.xml'
+    | '/thank-you'
     | '/admin'
     | '/dashboard'
     | '/admin/login'
+    | '/blog/$slug'
     | '/verify-pass/$entryId'
     | '/pass/$entryId'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/checkout'
     | '/contact'
     | '/entry-pass'
     | '/forgot-password'
     | '/gallery'
     | '/login'
-    | '/register'
+    | '/payment'
     | '/signup'
     | '/sitemap.xml'
+    | '/thank-you'
     | '/_authenticated/admin'
     | '/_authenticated/dashboard'
     | '/admin/login'
+    | '/blog/$slug'
     | '/verify-pass/$entryId'
     | '/_authenticated/pass/$entryId'
   fileRoutesById: FileRoutesById
@@ -206,20 +242,30 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  CheckoutRoute: typeof CheckoutRoute
   ContactRoute: typeof ContactRoute
   EntryPassRoute: typeof EntryPassRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   GalleryRoute: typeof GalleryRoute
   LoginRoute: typeof LoginRoute
-  RegisterRoute: typeof RegisterRoute
+  PaymentRoute: typeof PaymentRoute
   SignupRoute: typeof SignupRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  ThankYouRoute: typeof ThankYouRoute
   AdminLoginRoute: typeof AdminLoginRoute
+  BlogSlugRoute: typeof BlogSlugRoute
   VerifyPassEntryIdRoute: typeof VerifyPassEntryIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/thank-you': {
+      id: '/thank-you'
+      path: '/thank-you'
+      fullPath: '/thank-you'
+      preLoaderRoute: typeof ThankYouRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sitemap.xml': {
       id: '/sitemap.xml'
       path: '/sitemap.xml'
@@ -234,11 +280,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignupRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/register': {
-      id: '/register'
-      path: '/register'
-      fullPath: '/register'
-      preLoaderRoute: typeof RegisterRouteImport
+    '/payment': {
+      id: '/payment'
+      path: '/payment'
+      fullPath: '/payment'
+      preLoaderRoute: typeof PaymentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -276,6 +322,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/checkout': {
+      id: '/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof CheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated': {
       id: '/_authenticated'
       path: ''
@@ -295,6 +348,13 @@ declare module '@tanstack/react-router' {
       path: '/verify-pass/$entryId'
       fullPath: '/verify-pass/$entryId'
       preLoaderRoute: typeof VerifyPassEntryIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/$slug': {
+      id: '/blog/$slug'
+      path: '/blog/$slug'
+      fullPath: '/blog/$slug'
+      preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/login': {
@@ -346,15 +406,18 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  CheckoutRoute: CheckoutRoute,
   ContactRoute: ContactRoute,
   EntryPassRoute: EntryPassRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   GalleryRoute: GalleryRoute,
   LoginRoute: LoginRoute,
-  RegisterRoute: RegisterRoute,
+  PaymentRoute: PaymentRoute,
   SignupRoute: SignupRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  ThankYouRoute: ThankYouRoute,
   AdminLoginRoute: AdminLoginRoute,
+  BlogSlugRoute: BlogSlugRoute,
   VerifyPassEntryIdRoute: VerifyPassEntryIdRoute,
 }
 export const routeTree = rootRouteImport

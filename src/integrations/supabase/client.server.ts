@@ -5,6 +5,33 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
+// Ensure a WebSocket constructor exists for Node.js < 22.
+// @supabase/realtime-js checks for globalThis.WebSocket at client init.
+// Since we only use the admin client for REST queries (never realtime subscriptions),
+// a minimal shim is sufficient.
+function ensureWebSocket(): void {
+  if (typeof globalThis.WebSocket !== 'undefined') return;
+  // Minimal mock — never actually used for connections; satisfies the existence check
+  globalThis.WebSocket = class MockWebSocket {
+    static CONNECTING = 0;
+    static OPEN = 1;
+    static CLOSING = 2;
+    static CLOSED = 3;
+    url: string = '';
+    readyState: number = 3;
+    onopen: ((ev: any) => void) | null = null;
+    onclose: ((ev: any) => void) | null = null;
+    onerror: ((ev: any) => void) | null = null;
+    onmessage: ((ev: any) => void) | null = null;
+    constructor(url?: string) { this.url = url || ''; }
+    close() {}
+    send() {}
+    addEventListener() {}
+    removeEventListener() {}
+    dispatchEvent() { return true; }
+  } as unknown as typeof WebSocket;
+}
+
 function isNewSupabaseApiKey(value: string): boolean {
   return value.startsWith('sb_publishable_') || value.startsWith('sb_secret_');
 }
@@ -30,6 +57,7 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 }
 
 function createSupabaseAdminClient() {
+  ensureWebSocket();
   const SUPABASE_URL = process.env.SUPABASE_URL;
   const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 

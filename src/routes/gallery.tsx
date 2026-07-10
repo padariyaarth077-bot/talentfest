@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, ChevronLeft, ChevronRight, Image as ImageIcon, Loader2, Trophy, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Image as ImageIcon, Loader2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Section } from "@/components/site/Section";
@@ -18,18 +18,6 @@ import { cn } from "@/lib/utils";
 type GallerySearch = {
   city?: string;
 };
-
-type MediaFilter = "all" | "photos" | "highlights" | "winners";
-type TalentFilter =
-  | "all"
-  | "music"
-  | "dance"
-  | "singing"
-  | "arts"
-  | "painting"
-  | "acting"
-  | "creative-writing"
-  | "photography";
 
 type RemoteCity = {
   id: string;
@@ -50,46 +38,16 @@ type RemoteMedia = {
   is_active: boolean;
 };
 
-const mediaFilters: Array<{ id: MediaFilter; label: string }> = [
-  { id: "all", label: "All" },
-  { id: "photos", label: "Photos" },
-  { id: "highlights", label: "Highlights" },
-  { id: "winners", label: "Winners" },
-];
-
-const talentFilters: Array<{ id: TalentFilter; label: string }> = [
-  { id: "all", label: "All Categories" },
-  { id: "music", label: "Music" },
-  { id: "dance", label: "Dance" },
-  { id: "singing", label: "Singing" },
-  { id: "arts", label: "Arts" },
-  { id: "painting", label: "Painting" },
-  { id: "acting", label: "Acting" },
-  { id: "creative-writing", label: "Creative Writing" },
-  { id: "photography", label: "Photography" },
-];
-
-const categoryLabels: Record<GalleryCategory, string> = {
-  dance: "Dance",
-  singing: "Singing",
-  music: "Music",
-  painting: "Painting",
-  acting: "Acting",
-  "creative-writing": "Creative Writing",
-  photography: "Photography",
-  highlights: "Highlights",
-};
-
 export const Route = createFileRoute("/gallery")({
   validateSearch: (search: Record<string, unknown>): GallerySearch => ({
     city: typeof search.city === "string" ? search.city : undefined,
   }),
   head: () => ({
     meta: [
-      { title: "Event Gallery - Talent Fest" },
-      { name: "description", content: "Explore Talent Fest event photos by city." },
-      { property: "og:title", content: "Event Gallery - Talent Fest" },
-      { property: "og:description", content: "Select a city to view Talent Fest event galleries." },
+      { title: "Event Gallery - Telent Fest" },
+      { name: "description", content: "Explore Telent Fest event photos by city." },
+      { property: "og:title", content: "Event Gallery - Telent Fest" },
+      { property: "og:description", content: "Select a city to view Telent Fest event galleries." },
     ],
   }),
   component: GalleryPage,
@@ -100,8 +58,6 @@ function GalleryPage() {
   const navigate = useNavigate();
   const search = Route.useSearch();
   const selectedCity = galleryCities.find((city) => city.slug === search.city);
-  const [mediaFilter, setMediaFilter] = useState<MediaFilter>("all");
-  const [talentFilter, setTalentFilter] = useState<TalentFilter>("all");
   const [remoteItems, setRemoteItems] = useState<GalleryItem[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const cardRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -142,9 +98,9 @@ function GalleryPage() {
               category,
               mediaType: "photo",
               title: item.title,
-              description: item.description ?? `Talent Fest ${city.name} event moment.`,
+              description: item.description ?? `Telent Fest ${city.name} event moment.`,
               image: item.thumbnail_url ?? item.media_url,
-              alt: `${item.title} at Talent Fest ${city.name}`,
+              alt: `${item.title} at Telent Fest ${city.name}`,
               featured: item.display_order <= 3,
               winner: category === "highlights" || item.category.toLowerCase().includes("winner"),
               highlight: category === "highlights",
@@ -167,27 +123,25 @@ function GalleryPage() {
   }, []);
 
   useEffect(() => {
-    setMediaFilter("all");
-    setTalentFilter("all");
     setLightboxIndex(null);
   }, [selectedCity?.slug]);
 
-  const allItems = useMemo(() => [...eventGallery, ...remoteItems], [remoteItems]);
+  const allItems = useMemo(() => dedupeGalleryItems([...eventGallery, ...remoteItems]), [remoteItems]);
   const cityItems = useMemo(
     () => (selectedCity ? allItems.filter((item) => item.city === selectedCity.slug) : []),
     [allItems, selectedCity],
-  );
-  const filteredItems = useMemo(
-    () => cityItems.filter((item) => matchesMediaFilter(item, mediaFilter) && matchesTalentFilter(item, talentFilter)),
-    [cityItems, mediaFilter, talentFilter],
   );
   const featuredItems = useMemo(() => {
     const featured = cityItems.filter((item) => item.featured);
     return featured.length > 0 ? featured : cityItems.slice(0, 4);
   }, [cityItems]);
+  const gridItems = useMemo(() => {
+    const featuredIds = new Set(featuredItems.map((item) => item.id));
+    return cityItems.filter((item) => !featuredIds.has(item.id));
+  }, [cityItems, featuredItems]);
 
   const openLightbox = (item: GalleryItem) => {
-    const index = filteredItems.findIndex((galleryItem) => galleryItem.id === item.id);
+    const index = cityItems.findIndex((galleryItem) => galleryItem.id === item.id);
     if (index >= 0) setLightboxIndex(index);
   };
 
@@ -213,7 +167,7 @@ function GalleryPage() {
   }
 
   return (
-    <Section eyebrow={t("gallery.eyebrow")} title={`${selectedCity.name} Event Gallery`} subtitle="Explore premium Talent Fest moments from this city.">
+    <Section eyebrow={t("gallery.eyebrow")} title={`${selectedCity.name} Event Gallery`} subtitle="Explore premium Telent Fest moments from this city.">
       <div className="mx-auto max-w-7xl space-y-8">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <button
@@ -224,22 +178,17 @@ function GalleryPage() {
             <ArrowLeft className="h-4 w-4" />
             {t("gallery.backToCities")}
           </button>
-
-          <div className="min-w-0 space-y-3 lg:max-w-4xl">
-            <FilterRow label="Media filter" filters={mediaFilters} active={mediaFilter} onSelect={(value) => setMediaFilter(value as MediaFilter)} />
-            <FilterRow label="Talent category filter" filters={talentFilters} active={talentFilter} onSelect={(value) => setTalentFilter(value as TalentFilter)} />
-          </div>
         </div>
 
         <FeaturedMoments items={featuredItems} onOpen={openLightbox} />
 
-        {filteredItems.length === 0 ? (
+        {gridItems.length === 0 ? (
           <div className="rounded-3xl border border-primary/20 bg-card/70 px-5 py-12 text-center text-muted-foreground">
             Event moments for this city are coming soon.
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredItems.map((item) => (
+            {gridItems.map((item) => (
               <GalleryCard
                 key={item.id}
                 item={item}
@@ -254,51 +203,16 @@ function GalleryPage() {
       </div>
 
       <Lightbox
-        items={filteredItems}
+        items={cityItems}
         activeIndex={lightboxIndex}
         onClose={() => {
-          const activeItem = lightboxIndex == null ? null : filteredItems[lightboxIndex];
+          const activeItem = lightboxIndex == null ? null : cityItems[lightboxIndex];
           setLightboxIndex(null);
           if (activeItem) requestAnimationFrame(() => cardRefs.current[activeItem.id]?.focus());
         }}
         onChange={setLightboxIndex}
       />
     </Section>
-  );
-}
-
-function FilterRow({
-  label,
-  filters,
-  active,
-  onSelect,
-}: {
-  label: string;
-  filters: Array<{ id: string; label: string }>;
-  active: string;
-  onSelect: (id: string) => void;
-}) {
-  return (
-    <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="group" aria-label={label}>
-      <div className="flex min-w-max gap-2">
-        {filters.map((filter) => (
-          <button
-            key={filter.id}
-            onClick={() => onSelect(filter.id)}
-            className={cn(
-              "rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] transition focus:outline-none focus:ring-2 focus:ring-primary/60",
-              active === filter.id
-                ? "border-primary bg-primary text-primary-foreground shadow-elegant"
-                : "border-border bg-card/80 text-muted-foreground hover:border-primary hover:text-primary",
-            )}
-            aria-label={`Show ${filter.label}`}
-            aria-pressed={active === filter.id}
-          >
-            {filter.label}
-          </button>
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -399,16 +313,6 @@ function GalleryCard({
           />
         )}
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/75 to-transparent p-4 pt-16">
-          <div className="mb-2 flex flex-wrap gap-2">
-            <span className="rounded-full bg-primary px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-primary-foreground">
-              {categoryLabels[item.category]}
-            </span>
-            {item.winner && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-black/50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-primary">
-                <Trophy className="h-3 w-3" /> Winner
-              </span>
-            )}
-          </div>
           <h4 className={cn("font-semibold text-white", compact ? "text-base" : "text-lg")}>{item.title}</h4>
           <p className="mt-1 text-xs text-white/70">{item.cityName}</p>
         </div>
@@ -508,14 +412,7 @@ function Lightbox({
             {activeIndex + 1} / {items.length}
           </div>
           <h3 className="mt-3 text-2xl font-semibold">{activeItem.title}</h3>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <span className="rounded-full bg-primary px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-primary-foreground">
-              {categoryLabels[activeItem.category]}
-            </span>
-            <span className="rounded-full border border-border px-3 py-1 text-xs uppercase tracking-[0.12em] text-muted-foreground">
-              {activeItem.cityName}
-            </span>
-          </div>
+          <p className="mt-2 text-sm text-muted-foreground">{activeItem.cityName}</p>
           <p className="mt-4 leading-7 text-muted-foreground">{activeItem.description}</p>
         </figcaption>
       </figure>
@@ -531,19 +428,14 @@ function Lightbox({
   );
 }
 
-function matchesMediaFilter(item: GalleryItem, filter: MediaFilter) {
-  if (filter === "all") return true;
-  if (filter === "photos") return item.mediaType === "photo";
-  if (filter === "highlights") return item.highlight || item.category === "highlights";
-  if (filter === "winners") return item.winner;
-  return true;
-}
-
-function matchesTalentFilter(item: GalleryItem, filter: TalentFilter) {
-  if (filter === "all") return true;
-  if (filter === "arts") return item.category === "painting";
-  if (filter === "music") return item.category === "music";
-  return item.category === filter;
+function dedupeGalleryItems(items: GalleryItem[]) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = `${item.city}:${item.image.trim().toLowerCase()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function normalizeCategory(category: string): GalleryCategory {

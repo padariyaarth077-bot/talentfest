@@ -3,13 +3,68 @@ import { z } from "zod";
 
 const verifySchema = z.object({
   entryId: z.string().uuid(),
-  token: z.string().min(8).max(128),
+  token: z.string().min(1),
 });
 
 export const verifyPassPublic = createServerFn({ method: "GET" })
   .inputValidator((data: unknown) => verifySchema.parse(data))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // First try new passes table
+    const { data: newPass } = await supabaseAdmin
+      .from("passes")
+      .select("id, pass_number, pass_type, status, checked_in, checked_in_at, secure_qr_token, registration_id")
+      .eq("id", data.entryId)
+      .maybeSingle();
+
+    if (newPass) {
+      const p = newPass as any;
+      if (p.secure_qr_token !== data.token) return { valid: false as const };
+
+      const { data: reg } = await supabaseAdmin
+        .from("registrations")
+        .select("full_name, event_id, activity_category_id")
+        .eq("id", p.registration_id)
+        .single();
+
+      if (!reg) return { valid: false as const };
+      const r = reg as any;
+
+      const { data: event } = await supabaseAdmin
+        .from("events")
+        .select("name, city, event_date, venue")
+        .eq("id", r.event_id)
+        .single();
+
+      let activityName = "";
+      if (r.activity_category_id) {
+        const { data: cat } = await supabaseAdmin
+          .from("activity_categories")
+          .select("name")
+          .eq("id", r.activity_category_id)
+          .single();
+        if (cat) activityName = (cat as any).name;
+      }
+
+      return {
+        valid: true as const,
+        pass: {
+          id: p.id,
+          entry_number: p.pass_number,
+          participant_name: r.full_name,
+          competition: (event as any)?.name ?? "",
+          category: activityName,
+          venue: (event as any)?.venue ?? null,
+          event_date: (event as any)?.event_date ?? null,
+          status: p.status,
+          checked_in: p.checked_in,
+          checked_in_at: p.checked_in_at,
+        },
+      };
+    }
+
+    // Fallback to old entry_passes table
     const { data: pass, error } = await supabaseAdmin
       .from("entry_passes")
       .select(

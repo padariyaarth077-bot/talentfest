@@ -80,6 +80,244 @@ export async function generatePassPdf(
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
+export type SingleSidedPassData = {
+  passNumber: string;
+  passType: string;
+  participantName: string;
+  eventName: string;
+  eventCity: string;
+  eventDate: string;
+  startTime: string;
+  venue: string;
+  activityCategory: string;
+  eventImageUrl?: string;
+  qrDataUrl: string;
+  status: string;
+};
+
+export function renderSingleSidedPassToCanvas(
+  canvas: HTMLCanvasElement,
+  data: SingleSidedPassData
+): Promise<void> {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return Promise.resolve();
+
+  const w = canvas.width;
+  const h = canvas.height;
+
+  ctx.clearRect(0, 0, w, h);
+
+  const bgGrad = ctx.createLinearGradient(0, 0, w, 0);
+  bgGrad.addColorStop(0, '#0B0B0B');
+  bgGrad.addColorStop(1, '#151515');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, w, h);
+
+  const gold = '#C8A96A';
+  const white = '#F8F8F8';
+  const muted = '#9CA3AF';
+
+  const drawText = (
+    text: string,
+    x: number,
+    y: number,
+    color: string,
+    size: number,
+    bold = false,
+    align: CanvasTextAlign = 'left'
+  ) => {
+    ctx.fillStyle = color;
+    ctx.font = `${bold ? 'bold ' : ''}${size}px Inter, sans-serif`;
+    ctx.textAlign = align;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x, y);
+  };
+
+  const passTypeLabels: Record<string, string> = {
+    participant: 'PARTICIPANT PASS',
+    guest_1: 'GUEST 1 PASS',
+    guest_2: 'GUEST 2 PASS',
+    visitor: 'VISITOR ENTRY PASS',
+  };
+
+  // Event image section (left ~40%)
+  const imgSectionW = Math.round(w * 0.4);
+  const imgX = 0;
+  const imgY = 0;
+  const imgH = h;
+
+  ctx.fillStyle = '#151515';
+  ctx.fillRect(imgX, imgY, imgSectionW, imgH);
+  ctx.strokeStyle = 'rgba(200, 169, 106, 0.2)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(imgX, imgY, imgSectionW, imgH);
+
+  // Info section (right ~60%)
+  const infoX = imgSectionW + 20;
+  const infoW = w - imgSectionW - 40;
+
+  // Draw event image or fallback
+  if (data.eventImageUrl) {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    return new Promise<void>(async (resolve) => {
+      img.onload = async () => {
+        const imgRatio = img.width / img.height;
+        const sectionRatio = imgSectionW / imgH;
+        let drawW: number, drawH: number, dx: number, dy: number;
+        if (imgRatio > sectionRatio) {
+          drawH = imgH;
+          drawW = imgH * imgRatio;
+          dx = imgX - (drawW - imgSectionW) / 2;
+          dy = imgY;
+        } else {
+          drawW = imgSectionW;
+          drawH = imgSectionW / imgRatio;
+          dx = imgX;
+          dy = imgY - (drawH - imgH) / 2;
+        }
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(imgX, imgY, imgSectionW, imgH);
+        ctx.clip();
+        ctx.drawImage(img, dx, dy, drawW, drawH);
+        ctx.restore();
+        await drawDetails();
+        resolve();
+      };
+      img.onerror = async () => {
+        drawFallbackImage();
+        await drawDetails();
+        resolve();
+      };
+      img.src = data.eventImageUrl;
+    });
+  }
+
+  drawFallbackImage();
+  return drawDetails();
+
+  function drawFallbackImage() {
+    ctx.fillStyle = '#1A1A1A';
+    ctx.fillRect(imgX, imgY, imgSectionW, imgH);
+
+    const goldGradSmall = ctx.createLinearGradient(0, 0, 0, 60);
+    goldGradSmall.addColorStop(0, '#B8963A');
+    goldGradSmall.addColorStop(1, '#D4B87A');
+    ctx.fillStyle = goldGradSmall;
+    ctx.font = 'bold 28px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('TF', imgX + imgSectionW / 2, imgY + imgH / 2 - 20);
+    ctx.font = '14px Inter, sans-serif';
+    ctx.fillStyle = muted;
+    ctx.fillText(data.eventName || 'Talent Fest', imgX + imgSectionW / 2, imgY + imgH / 2 + 30);
+  }
+
+  async function drawDetails(): Promise<void> {
+    const label = passTypeLabels[data.passType] || 'PASS';
+
+    // Gold top bar with pass type
+    const goldBarGrad = ctx.createLinearGradient(infoX, 0, infoX + infoW, 0);
+    goldBarGrad.addColorStop(0, '#B8963A');
+    goldBarGrad.addColorStop(0.5, '#C8A96A');
+    goldBarGrad.addColorStop(1, '#D4B87A');
+
+    ctx.fillStyle = '#1A1A1A';
+    ctx.beginPath();
+    ctx.roundRect(infoX, 20, infoW, 44, 8);
+    ctx.fill();
+
+    ctx.fillStyle = goldBarGrad;
+    ctx.font = 'bold 16px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, infoX + infoW / 2, 42);
+
+    // Event name
+    drawText(data.eventName, infoX, 90, gold, 14, true);
+    drawText(data.eventCity, infoX + infoW, 90, muted, 11, false, 'right');
+
+    // Divider
+    ctx.strokeStyle = 'rgba(200, 169, 106, 0.2)';
+    ctx.beginPath();
+    ctx.moveTo(infoX, 110);
+    ctx.lineTo(infoX + infoW, 110);
+    ctx.stroke();
+
+    // Details section
+    const detailsY = 130;
+    const lineH = 38;
+
+    drawText('PARTICIPANT / VISITOR', infoX, detailsY, muted, 9);
+    drawText(data.participantName || 'Name', infoX, detailsY + lineH, white, 18, true);
+    drawText('PASS NUMBER', infoX, detailsY + lineH * 2 + 5, muted, 9);
+    drawText(data.passNumber || '—', infoX, detailsY + lineH * 3 + 5, gold, 16, true);
+
+    if (data.activityCategory && data.passType === 'participant') {
+      drawText('CATEGORY', infoX, detailsY + lineH * 4 + 10, muted, 9);
+      drawText(data.activityCategory, infoX, detailsY + lineH * 5 + 10, white, 13);
+    }
+
+    drawText('DATE / TIME', infoX + infoW / 2, detailsY + lineH * 4 + 10, muted, 9);
+    drawText(`${data.eventDate || 'TBD'} ${data.startTime || ''}`, infoX + infoW / 2, detailsY + lineH * 5 + 10, white, 13);
+
+    if (data.venue) {
+      drawText('VENUE', infoX, detailsY + lineH * 6 + 10, muted, 9);
+      drawText(data.venue, infoX, detailsY + lineH * 7 + 10, white, 13);
+    }
+
+    // Status badge
+    const statusColor = data.status === 'active' ? '#10B981' : data.status === 'checked_in' ? '#3B82F6' : '#EF4444';
+    const statusBg = data.status === 'active' ? 'rgba(16, 185, 129, 0.15)' : data.status === 'checked_in' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+    const statusText = data.status === 'active' ? 'PAYMENT CONFIRMED' : data.status.toUpperCase().replace('_', ' ');
+
+    ctx.fillStyle = statusBg;
+    ctx.beginPath();
+    ctx.roundRect(infoX + infoW - 160, 20, 150, 28, 14);
+    ctx.fill();
+
+    ctx.fillStyle = statusColor;
+    ctx.font = 'bold 10px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(statusText, infoX + infoW - 85, 34);
+
+    // QR code
+    const qrSize = 180;
+    const qrPadding = 14;
+    const qrBox = qrSize + qrPadding * 2;
+    const qrX = infoX + infoW - qrBox;
+    const qrY = h - qrBox - 25;
+
+    if (data.qrDataUrl) {
+      await new Promise<void>((resolve) => {
+        const qrImg = new Image();
+        qrImg.onload = () => {
+          ctx.fillStyle = '#FFFFFF';
+          ctx.beginPath();
+          ctx.roundRect(qrX, qrY, qrBox, qrBox, 12);
+          ctx.fill();
+          ctx.drawImage(qrImg, qrX + qrPadding, qrY + qrPadding, qrSize, qrSize);
+          resolve();
+        };
+        qrImg.onerror = () => resolve();
+        qrImg.src = data.qrDataUrl;
+      });
+    }
+
+    // Gate instruction
+    drawText('Present this pass and a valid identification document at the entry gate.', infoX, h - 12, muted, 8, false, 'left');
+
+    // Gold border
+    ctx.strokeStyle = 'rgba(200, 169, 106, 0.5)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.roundRect(2, 2, w - 4, h - 4, 16);
+    ctx.stroke();
+  }
+}
+
 export function renderPassToCanvas(
   canvas: HTMLCanvasElement,
   data: {
