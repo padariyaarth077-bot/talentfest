@@ -25,6 +25,11 @@ type TalentItem = {
   labelKey: string;
   statKey: string;
   image: string;
+  heroImage: string;
+  heroImageSize: {
+    width: number;
+    height: number;
+  };
   alt: string;
   icon: LucideIcon;
   cardTone: string;
@@ -37,6 +42,8 @@ const talentItems: TalentItem[] = [
     labelKey: "talents.singer",
     statKey: "talents.vocalStage",
     image: "/talent-assets/real-singer.webp",
+    heroImage: "/talent-assets/hero-real-singer.webp",
+    heroImageSize: { width: 678, height: 1430 },
     alt: "Real singer holding a handheld microphone",
     icon: Play,
     cardTone: "from-[#1d130b] to-[#0d0a08]",
@@ -47,6 +54,8 @@ const talentItems: TalentItem[] = [
     labelKey: "talents.painter",
     statKey: "talents.visualArts",
     image: "/talent-assets/real-painter.webp",
+    heroImage: "/talent-assets/hero-real-painter.webp",
+    heroImageSize: { width: 635, height: 1463 },
     alt: "Real painter holding brushes and an artist palette",
     icon: Palette,
     cardTone: "from-[#2a160d] to-[#0d0a08]",
@@ -56,6 +65,8 @@ const talentItems: TalentItem[] = [
     labelKey: "talents.writer",
     statKey: "talents.storyShowcase",
     image: "/talent-assets/real-writer.webp",
+    heroImage: "/talent-assets/hero-real-writer.webp",
+    heroImageSize: { width: 478, height: 1426 },
     alt: "Real creative writer holding an open notebook and pen",
     icon: BookOpen,
     cardTone: "from-[#201811] to-[#0d0a08]",
@@ -65,6 +76,8 @@ const talentItems: TalentItem[] = [
     labelKey: "talents.actor",
     statKey: "talents.stageCraft",
     image: "/talent-assets/real-actor.webp",
+    heroImage: "/talent-assets/hero-real-actor.webp",
+    heroImageSize: { width: 596, height: 1442 },
     alt: "Real actor holding a film clapperboard",
     icon: Drama,
     cardTone: "from-[#1b120e] to-[#0d0a08]",
@@ -74,6 +87,8 @@ const talentItems: TalentItem[] = [
     labelKey: "talents.dancer",
     statKey: "talents.performanceFloor",
     image: "/talent-assets/real-dancer.webp",
+    heroImage: "/talent-assets/hero-real-dancer.webp",
+    heroImageSize: { width: 787, height: 1504 },
     alt: "Real dancer in an expressive performance pose",
     icon: Music,
     cardTone: "from-[#2b170f] to-[#0d0a08]",
@@ -84,6 +99,8 @@ const talentItems: TalentItem[] = [
     labelKey: "talents.musician",
     statKey: "talents.liveRhythm",
     image: "/talent-assets/real-musician.webp",
+    heroImage: "/talent-assets/hero-real-musician.webp",
+    heroImageSize: { width: 705, height: 1449 },
     alt: "Real musician holding a violin and bow",
     icon: Mic2,
     cardTone: "from-[#25170f] to-[#0d0a08]",
@@ -93,6 +110,8 @@ const talentItems: TalentItem[] = [
     labelKey: "talents.photographer",
     statKey: "talents.frameStories",
     image: "/talent-assets/real-photographer.webp",
+    heroImage: "/talent-assets/hero-real-photographer.webp",
+    heroImageSize: { width: 614, height: 1444 },
     alt: "Real photographer holding a professional camera",
     icon: Camera,
     cardTone: "from-[#1a1713] to-[#0d0a08]",
@@ -129,12 +148,16 @@ export function MotionImage({
   className,
   loading = "lazy",
   style,
+  width,
+  height,
 }: {
   src: string;
   alt: string;
   className?: string;
   loading?: "eager" | "lazy";
   style?: CSSProperties;
+  width?: number;
+  height?: number;
 }) {
   return (
     <img
@@ -142,6 +165,8 @@ export function MotionImage({
       alt={alt}
       loading={loading}
       decoding="async"
+      width={width}
+      height={height}
       className={className}
       style={style}
       draggable={false}
@@ -211,7 +236,7 @@ export function TalentHeroCarousel() {
   const [paused, setPaused] = useState(false);
   const [direction, setDirection] = useState<"next" | "prev">("next");
 
-  const touchStart = useRef<number | null>(null);
+  const pointerStart = useRef<number | null>(null);
   const reducedMotion = useReducedMotion();
   const { t } = useLang();
 
@@ -252,15 +277,15 @@ export function TalentHeroCarousel() {
   }, [paused, reducedMotion]);
 
   const handleSwipeEnd = (clientX: number) => {
-    if (touchStart.current === null) return;
+    if (pointerStart.current === null) return;
 
-    const distance = touchStart.current - clientX;
+    const distance = pointerStart.current - clientX;
 
     if (Math.abs(distance) > 42) {
       move(distance > 0 ? 1 : -1);
     }
 
-    touchStart.current = null;
+    pointerStart.current = null;
   };
 
   return (
@@ -268,14 +293,16 @@ export function TalentHeroCarousel() {
       className="group relative mx-auto w-full max-w-[640px]"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
-      onTouchStart={(event) => {
-        touchStart.current = event.touches[0]?.clientX ?? null;
+      onPointerDown={(event) => {
+        pointerStart.current = event.clientX;
+        event.currentTarget.setPointerCapture?.(event.pointerId);
       }}
-      onTouchEnd={(event) =>
-        handleSwipeEnd(event.changedTouches[0]?.clientX ?? 0)
-      }
+      onPointerUp={(event) => handleSwipeEnd(event.clientX)}
+      onPointerCancel={() => {
+        pointerStart.current = null;
+      }}
     >
-      <div className="relative aspect-[1.05/1] overflow-hidden rounded-[2rem] border border-primary/25 bg-[#090604] shadow-elegant sm:rounded-[2.5rem]">
+      <div className="relative aspect-[0.94/1] overflow-hidden rounded-[2rem] border border-primary/25 bg-[#090604] shadow-elegant sm:aspect-[1.05/1] sm:rounded-[2.5rem]">
         <div className="absolute inset-5 rounded-[1.7rem] bg-[radial-gradient(circle_at_62%_32%,rgba(244,196,48,0.7),rgba(200,169,106,0.4)_36%,rgba(23,13,7,0.22)_68%,transparent_72%)]" />
 
         <div className="absolute right-0 top-0 h-full w-[76%] bg-[linear-gradient(135deg,#f0cd63_0%,#c8a96a_48%,#5b3a17_100%)] opacity-95 [clip-path:polygon(18%_0,100%_0,100%_100%,0_100%)]" />
@@ -299,13 +326,15 @@ export function TalentHeroCarousel() {
           {talentItems.map((talent, index) => (
             <div
               key={talent.nameKey}
-              className="grid min-w-full place-items-end px-2 pt-16 sm:px-8"
+              className="flex h-full min-w-full items-end justify-center px-2 pt-10 sm:grid sm:place-items-end sm:px-8 sm:pt-16"
             >
               <MotionImage
-                src={talent.image}
+                src={talent.heroImage}
                 alt={talent.alt}
                 loading={index === 0 ? "eager" : "lazy"}
-                className={`talent-hero-person h-[94%] max-h-[540px] w-full object-contain object-bottom drop-shadow-[0_30px_36px_rgba(0,0,0,0.52)] ${
+                width={talent.heroImageSize.width}
+                height={talent.heroImageSize.height}
+                className={`talent-hero-person h-[94%] max-h-[360px] w-auto max-w-[90%] object-contain object-bottom drop-shadow-[0_30px_36px_rgba(0,0,0,0.52)] sm:max-h-[540px] sm:w-full sm:max-w-none ${
                   active === index ? "is-active" : ""
                 }`}
                 style={{
