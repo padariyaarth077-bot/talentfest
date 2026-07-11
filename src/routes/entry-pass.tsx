@@ -46,7 +46,7 @@ function EntryPassPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background pt-24 pb-16">
+    <div className="min-h-screen bg-background pt-8 pb-16">
       <div className="mx-auto max-w-7xl px-6 sm:px-8 lg:px-10">
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full text-xs font-medium tracking-widest uppercase text-primary border border-primary/30 bg-primary/5 mb-4">

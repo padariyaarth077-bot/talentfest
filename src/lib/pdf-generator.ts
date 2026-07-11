@@ -211,7 +211,7 @@ export function renderSingleSidedPassToCanvas(
     ctx.fillText('TELENT FEST', imgX + imgSectionW / 2, imgY + imgH / 2 - 20);
     ctx.font = '14px Inter, sans-serif';
     ctx.fillStyle = muted;
-    ctx.fillText(data.eventName || 'Talent Fest', imgX + imgSectionW / 2, imgY + imgH / 2 + 30);
+    ctx.fillText(data.eventName || 'TelentFest', imgX + imgSectionW / 2, imgY + imgH / 2 + 30);
   }
 
   async function drawDetails(): Promise<void> {

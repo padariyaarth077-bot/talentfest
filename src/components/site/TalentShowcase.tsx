@@ -34,6 +34,7 @@ type TalentItem = {
   icon: LucideIcon;
   cardTone: string;
   objectPosition?: string;
+  cardImageStyle?: string;
 };
 
 const talentItems: TalentItem[] = [
@@ -115,6 +116,7 @@ const talentItems: TalentItem[] = [
     alt: "Real photographer holding a professional camera",
     icon: Camera,
     cardTone: "from-[#1a1713] to-[#0d0a08]",
+    cardImageStyle: "right-[-12%] w-[72%]",
   },
 ];
 
@@ -381,7 +383,7 @@ export function PremiumHero({
 
       <HeroBackground />
 
-      <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-4 pb-8 pt-20 sm:px-6 sm:pt-24 lg:grid-cols-[0.92fr_1.08fr] lg:px-8 lg:pb-10 lg:pt-28">
+      <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-4 pb-8 pt-8 sm:px-6 sm:pt-12 lg:grid-cols-[0.92fr_1.08fr] lg:px-8 lg:pb-10 lg:pt-16">
         <div className="text-center lg:text-left">
           <div className="inline-flex items-center gap-2 rounded-full border border-foreground/25 bg-foreground/15 px-4 py-1.5 text-xs font-medium backdrop-blur">
             <Sparkles className="h-3.5 w-3.5" />
@@ -402,7 +404,7 @@ export function PremiumHero({
               size="lg"
               className="gradient-primary border-0 px-8 text-primary-foreground shadow-elegant hover:opacity-95"
             >
-              <Link to="/entry-pass">
+              <Link to="/registration">
                 {registerLabel}
                 <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
@@ -456,7 +458,7 @@ export function TalentCategoryCard({
 
   return (
     <Link
-      to="/entry-pass"
+      to="/registration"
       className={`talent-category-card group relative flex min-h-[360px] overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-br ${category.cardTone} shadow-soft transition duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-2 hover:border-primary/50 hover:shadow-elegant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:min-h-[390px]`}
       style={{
         animationDelay: `${index * 95}ms`,
@@ -484,7 +486,7 @@ export function TalentCategoryCard({
         <MotionImage
           src={category.image}
           alt={category.alt}
-          className="talent-card-person absolute bottom-0 right-[-7%] h-[78%] w-[86%] object-contain object-bottom drop-shadow-[0_24px_30px_rgba(0,0,0,0.48)] transition duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-x-1 group-hover:scale-[1.04] sm:right-[-5%]"
+          className={`talent-card-person absolute bottom-0 object-contain object-bottom drop-shadow-[0_24px_30px_rgba(0,0,0,0.48)] transition duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-x-1 group-hover:scale-[1.04] ${category.cardImageStyle || "right-[-7%] h-[78%] w-[86%] sm:right-[-5%]"}`}
           style={{
             objectPosition: category.objectPosition,
           }}

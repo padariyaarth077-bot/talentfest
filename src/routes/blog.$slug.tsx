@@ -24,7 +24,7 @@ function BlogDetailsPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-background px-6 pt-28">
+      <main className="min-h-screen bg-background px-6 pt-8">
         <div className="mx-auto h-96 max-w-4xl animate-pulse rounded-3xl bg-white/10" />
       </main>
     );
@@ -32,7 +32,7 @@ function BlogDetailsPage() {
 
   if (!post) {
     return (
-      <main className="min-h-screen bg-background px-6 pt-28 text-center">
+      <main className="min-h-screen bg-background px-6 pt-8 text-center">
         <h1 className="font-display text-4xl font-semibold">Blog Post Not Found</h1>
         <p className="mx-auto mt-3 max-w-xl text-muted-foreground">This post is unavailable or has not been published yet.</p>
         <Link to="/#blog" className="mt-6 inline-flex">
@@ -43,7 +43,7 @@ function BlogDetailsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background px-4 pb-20 pt-24 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-background px-4 pb-20 pt-4 sm:px-6 lg:px-8">
       <article className="mx-auto max-w-4xl">
         <Link to="/#blog" className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary">
           <ArrowLeft className="h-4 w-4" />

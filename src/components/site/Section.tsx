@@ -18,10 +18,10 @@ export function Section({
   center?: boolean;
 }) {
   return (
-    <section id={id} className={`scroll-mt-24 py-20 sm:py-24 ${className}`}>
+    <section id={id} className={`scroll-mt-20 py-12 sm:py-16 lg:py-20 ${className}`}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {(eyebrow || title || subtitle) && (
-          <div className={`mb-12 ${center ? "text-center max-w-2xl mx-auto" : "max-w-2xl"}`}>
+          <div className={`mb-8 sm:mb-10 ${center ? "text-center max-w-2xl mx-auto" : "max-w-2xl"}`}>
             {eyebrow && (
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-accent text-accent-foreground mb-4">
                 <span className="h-1.5 w-1.5 rounded-full gradient-accent" />

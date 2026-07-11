@@ -53,7 +53,7 @@ function ThankYouPage() {
         status: "active",
       });
       const prefix = pass.passType === "visitor" ? "Visitor" : pass.passType === "guest_1" || pass.passType === "guest_2" ? "Guest" : "Participant";
-      const filename = `TalentFest-${prefix}-${pass.passNumber}.pdf`;
+      const filename = `TelentFest-${prefix}-${pass.passNumber}.pdf`;
       await generatePassPdf(canvas, filename);
     } catch (e) {
       console.error("Download failed", e);
@@ -69,11 +69,11 @@ function ThankYouPage() {
     }
   };
 
-  if (loading) return <div className="min-h-screen pt-24 pb-16 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  if (loading) return <div className="min-h-screen pt-8 pb-16 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   if (error || !reg) {
     return (
-      <div className="min-h-screen pt-24 pb-16">
+      <div className="min-h-screen pt-8 pb-16">
         <div className="max-w-md mx-auto px-6 text-center">
           <AlertCircle className="mx-auto h-12 w-12 text-primary/50" />
           <h2 className="mt-4 text-2xl font-semibold">Pass Not Found</h2>
@@ -85,7 +85,7 @@ function ThankYouPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background pt-24 pb-16">
+    <div className="min-h-screen bg-background pt-8 pb-16">
       <div className="mx-auto max-w-4xl px-6 sm:px-8">
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 mb-4">
@@ -133,7 +133,7 @@ function ThankYouPage() {
                   <div className="lg:w-[62%] p-6 flex flex-col">
                     <div className="flex items-center justify-between mb-4">
                       <div>
-                        <span className="text-xs font-bold tracking-wider text-primary">TALENT FEST</span>
+                        <span className="text-xs font-bold tracking-wider text-primary">TELENT FEST</span>
                         <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
                       </div>
                       <span className="text-[10px] px-2.5 py-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-500 uppercase tracking-wider">Active</span>

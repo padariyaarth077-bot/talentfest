@@ -34,6 +34,7 @@ import {
   type ConcertSettings,
   fetchConcertContent,
   fetchPublishedBlogPosts,
+  resolveConcertMapUrls,
 } from "@/lib/public-content.functions";
 
 export const Route = createFileRoute("/")({
@@ -92,7 +93,7 @@ function Home() {
       >
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {services.map((s) => (
-            <Link key={s.key} to="/entry-pass" className="block rounded-2xl border border-border bg-card p-6 hover-lift">
+            <Link key={s.key} to="/registration" className="block rounded-2xl border border-border bg-card p-6 hover-lift">
               <div className="mb-4 grid h-11 w-11 place-items-center rounded-xl gradient-primary text-foreground">
                 <s.icon className="h-5 w-5" />
               </div>
@@ -147,51 +148,84 @@ function Home() {
 
       <RealTalentCategories />
 
-      <Section
-        id="concert"
-        eyebrow={concertSettings?.eyebrow ?? t("home.concert.eyebrow")}
-        title={concertSettings?.title ?? t("home.concert.title")}
-        subtitle={concertSettings?.subtitle ?? t("home.concert.subtitle")}
-      >
-        <div className="grid gap-5 lg:grid-cols-3">
-          <a href={concertSettings?.button_url || "/entry-pass"} className="block rounded-3xl p-8 gradient-primary text-foreground shadow-elegant lg:col-span-2">
-            <div className="text-xs uppercase tracking-widest opacity-80">{concertSettings?.event_label ?? t("home.concert.grandFinale")}</div>
-            <h3 className="mt-2 text-3xl font-bold">{concertSettings?.event_title ?? t("home.concert.eventTitle")}</h3>
-            <div className="mt-6 grid grid-cols-2 gap-4 text-sm">
-              <div className="flex items-center gap-2"><MapPin className="h-4 w-4" /> {concertSettings?.venue ?? t("home.concert.venue")}</div>
-              <div className="flex items-center gap-2"><Calendar className="h-4 w-4" /> {formatDisplayDate(concertSettings?.event_date) || t("home.concert.date")}</div>
-              <div className="flex items-center gap-2"><Clock className="h-4 w-4" /> {formatDisplayTime(concertSettings?.start_time) || t("home.concert.time")}</div>
-              <div className="flex items-center gap-2"><Ticket className="h-4 w-4" /> {concertSettings?.price_text ?? t("home.concert.seats")}</div>
+      {concertSettings && (
+        <Section
+          id="concert"
+          eyebrow={concertSettings.eyebrow || t("home.concert.eyebrow")}
+          title={concertSettings.title || t("home.concert.title")}
+          subtitle={concertSettings.subtitle || t("home.concert.subtitle")}
+        >
+          <div className="grid gap-5 lg:grid-cols-3">
+            <a
+              href={concertSettings.button_url || "/registration"}
+              className="block rounded-3xl p-8 gradient-primary text-foreground shadow-elegant lg:col-span-2"
+              target={concertSettings.button_url?.startsWith("http") ? "_blank" : undefined}
+              rel={concertSettings.button_url?.startsWith("http") ? "noopener noreferrer" : undefined}
+            >
+              <div className="text-xs uppercase tracking-widest opacity-80">{concertSettings.event_label || t("home.concert.grandFinale")}</div>
+              <h3 className="mt-2 text-3xl font-bold">{concertSettings.event_title || t("home.concert.eventTitle")}</h3>
+              <div className="mt-6 grid grid-cols-2 gap-4 text-sm">
+                <div className="flex items-center gap-2"><MapPin className="h-4 w-4" /> {concertSettings.venue || t("home.concert.venue")}</div>
+                <div className="flex items-center gap-2"><Calendar className="h-4 w-4" /> {formatDisplayDate(concertSettings.event_date) || t("home.concert.date")}</div>
+                <div className="flex items-center gap-2"><Clock className="h-4 w-4" /> {formatDisplayTimeRange(concertSettings.start_time, concertSettings.end_time) || formatDisplayTime(concertSettings.start_time) || t("home.concert.time")}</div>
+                <div className="flex items-center gap-2"><Ticket className="h-4 w-4" /> {concertSettings.price_text || t("home.concert.seats")}</div>
+              </div>
+              <div className="mt-8">
+                <span className="inline-flex h-11 items-center rounded-md bg-primary px-8 text-sm font-medium text-primary-foreground hover:bg-primary/90">{concertSettings.button_text || t("home.concert.bookTickets")}</span>
+              </div>
+            </a>
+            <div className="block rounded-3xl border border-border bg-card p-6">
+              {concertArtists.length > 0 ? (
+                <>
+                  <h4 className="mb-4 font-semibold">{t("home.concert.lineup")}</h4>
+                  <ul className="space-y-3 text-sm">
+                    {concertArtists.map((artist) => (
+                      <li key={artist.id ?? artist.artist_name} className="flex gap-2">
+                        <Star className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                        <span><strong>{artist.artist_name}</strong>{artist.performance_type ? ` — ${artist.performance_type}` : ""}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <div className="flex flex-col items-center gap-2 py-4 text-center text-sm text-muted-foreground">
+                  <Music className="h-6 w-6 opacity-40" />
+                  <p>Lineup will be announced soon.</p>
+                </div>
+              )}
             </div>
-            <div className="mt-8">
-              <span className="inline-flex h-11 items-center rounded-md bg-primary px-8 text-sm font-medium text-primary-foreground hover:bg-primary/90">{concertSettings?.button_text ?? t("home.concert.bookTickets")}</span>
-            </div>
-          </a>
-          <Link to="/entry-pass" className="block rounded-3xl border border-border bg-card p-6 hover-lift">
-            <h4 className="mb-4 font-semibold">{t("home.concert.lineup")}</h4>
-            <ul className="space-y-3 text-sm">
-              {(concertArtists.length ? concertArtists : ["aarav", "nritya", "studio", "neha", "kabir"]).map((artist) => (
-                typeof artist === "string" ? (
-                  <li key={artist} className="flex gap-2"><Star className="mt-0.5 h-4 w-4 shrink-0 text-primary" />{t(`home.concert.artists.${artist}`)}</li>
-                ) : (
-                  <li key={artist.id ?? artist.artist_name} className="flex gap-2">
-                    <Star className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    <span><strong>{artist.artist_name}</strong>{artist.performance_type ? ` - ${artist.performance_type}` : ""}</span>
-                  </li>
-                )
-              ))}
-            </ul>
-          </Link>
-        </div>
-        <div className="mt-6 h-64 overflow-hidden rounded-3xl border border-border">
-          <iframe
-            title="Venue map"
-            src={concertSettings?.map_embed_url || "https://maps.google.com/maps?q=Rajkot%2C%20Gujarat&z=12&output=embed"}
-            className="h-full w-full"
-            loading="lazy"
-          />
-        </div>
-      </Section>
+          </div>
+          <div className="mt-6 h-64 overflow-hidden rounded-3xl border border-border">
+            {(() => {
+              const { embedUrl, openInMapsUrl } = resolveConcertMapUrls(concertSettings);
+              // Security: reject non-Google-Maps URLs
+              const safeSrc = embedUrl.startsWith("https://www.google.com/maps") ? embedUrl : "";
+              return safeSrc ? (
+                <iframe
+                  title="TelentFest Grand Finale venue map"
+                  src={safeSrc}
+                  className="h-full w-full"
+                  loading="lazy"
+                  allowFullScreen
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              ) : (
+                <a
+                  href={openInMapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="grid h-full w-full place-items-center text-sm text-muted-foreground hover:text-foreground"
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    <MapPin className="h-6 w-6 opacity-40" />
+                    <span>View on Google Maps</span>
+                  </div>
+                </a>
+              );
+            })()}
+          </div>
+        </Section>
+      )}
 
       <Section id="team" eyebrow={t("home.team.eyebrow")} title={t("home.team.title")} subtitle={t("home.team.subtitle")}>
         <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
@@ -217,30 +251,6 @@ function Home() {
         </div>
       </Section>
 
-      <Section id="awards" eyebrow={t("home.awards.eyebrow")} title={t("home.awards.title")} subtitle={t("home.awards.subtitle")}>
-        <div className="relative">
-          <div className="absolute bottom-0 left-4 top-0 w-px bg-border md:left-1/2" />
-          {[
-            { year: "2023", key: "creative" },
-            { year: "2024", key: "organizer" },
-            { year: "2025", key: "impact" },
-          ].map((e, i) => (
-            <div key={e.year} className={`relative mb-8 flex md:items-center ${i % 2 ? "md:flex-row-reverse" : ""}`}>
-              <div className="hidden md:block md:w-1/2" />
-              <div className="absolute left-4 grid h-8 w-8 -translate-x-1/2 place-items-center rounded-full gradient-primary text-xs font-bold text-foreground shadow-elegant md:left-1/2">
-                {e.year.slice(2)}
-              </div>
-              <div className="pl-14 md:w-1/2 md:px-8">
-                <Link to="/gallery" className="block rounded-2xl border border-border bg-card p-6 shadow-soft hover-lift">
-                  <div className="text-xs font-medium text-primary">{e.year}</div>
-                  <h4 className="mt-1 font-semibold">{t(`home.awards.${e.key}.title`)}</h4>
-                  <p className="mt-1 text-sm text-muted-foreground">{t(`home.awards.${e.key}.desc`)}</p>
-                </Link>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Section>
 
       <Section id="sponsor" eyebrow={t("home.sponsor.eyebrow")} title={t("home.sponsor.title")} subtitle={t("home.sponsor.subtitle")}>
         <SponsorshipTabs />
@@ -250,13 +260,14 @@ function Home() {
         <div className="grid gap-5 md:grid-cols-3">
           {posts.map((post, i) => (
             <a key={post.slug} href={`/blog/${post.slug}`} className="block overflow-hidden rounded-3xl border border-border bg-card hover-lift">
-              <div className={`h-40 overflow-hidden ${post.thumbnail_url ? "" : ["gradient-primary", "gradient-accent", "gradient-bronze"][i % 3]}`}>
+              <div className={`h-40 overflow-hidden bg-[#0B0B0B] ${post.thumbnail_url ? "" : ["gradient-primary", "gradient-accent", "gradient-bronze"][i % 3]}`}>
                 {post.thumbnail_url && (
                   <img
                     src={post.thumbnail_url}
                     alt={post.thumbnail_alt || post.title}
-                    className="h-full w-full object-cover transition duration-500 hover:scale-105"
+                    className="h-full w-full object-contain object-center transition duration-500"
                     loading="lazy"
+                    decoding="async"
                   />
                 )}
               </div>
@@ -276,7 +287,7 @@ function Home() {
       <Section id="reviews" eyebrow={t("home.reviews.eyebrow")} title={t("home.reviews.title")} subtitle={t("home.reviews.subtitle")}>
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
           {reviews.map((r) => (
-            <Link key={r.name} to="/entry-pass" className="block rounded-3xl border border-border bg-card p-6 hover-lift">
+            <Link key={r.name} to="/registration" className="block rounded-3xl border border-border bg-card p-6 hover-lift">
               <div className="mb-3 flex gap-1 text-secondary">
                 {Array.from({ length: 5 }).map((_, i) => <Star key={i} className="h-4 w-4 fill-current" />)}
               </div>
@@ -303,12 +314,12 @@ function Home() {
 const projectCards = [
   {
     id: "recent",
-    headingKey: "home.projects.recentHeading",
-    titleKey: "home.projects.recentTitle",
-    descKey: "home.projects.recentDesc",
-    statusKey: "home.projects.completed",
+    headingKey: "home.projects.upcomingHeading",
+    titleKey: "home.projects.upcomingTitle",
+    descKey: "home.projects.upcomingDesc",
+    statusKey: "home.projects.comingSoon",
     image: "/project-assets/registered-students-post.png",
-    altKey: "home.projects.recentAlt",
+    altKey: null,
   },
   {
     id: "upcoming",
@@ -316,13 +327,14 @@ const projectCards = [
     titleKey: "home.projects.upcomingTitle",
     descKey: "home.projects.upcomingDesc",
     statusKey: "home.projects.comingSoon",
-    image: null,
+    image: "/project-assets/upcoming-project-poster.jpeg",
     altKey: null,
   },
 ];
 
 function ProjectCard({ project }: { project: (typeof projectCards)[0] }) {
   const { t } = useLang();
+  const [imgError, setImgError] = React.useState(false);
 
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-3xl border border-primary/20 bg-[linear-gradient(180deg,#15110c,#090604)] p-5 shadow-soft transition duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-elegant motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:p-6">
@@ -332,14 +344,19 @@ function ProjectCard({ project }: { project: (typeof projectCards)[0] }) {
           {t(project.statusKey)}
         </span>
       </div>
-      <div className="relative aspect-[5/7] overflow-hidden rounded-2xl border border-white/10 bg-[#0B0B0B]">
-        {project.image ? (
+      <div className="relative min-h-[280px] overflow-hidden rounded-2xl border border-white/10 bg-[#0B0B0B] sm:min-h-[340px]">
+        {project.image && !imgError ? (
           <img
             src={project.image}
-            alt={t(project.altKey ?? project.titleKey)}
-            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+            alt={project.altKey ? t(project.altKey) : "Upcoming Project Image"}
+            className="h-full w-full object-contain object-center transition duration-500 motion-reduce:transition-none"
             draggable="false"
             loading="lazy"
+            decoding="async"
+            onError={() => {
+              console.warn("Project image failed to load:", project.image);
+              setImgError(true);
+            }}
           />
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.16),transparent_58%)] px-8 text-center">
@@ -363,6 +380,13 @@ function ProjectCard({ project }: { project: (typeof projectCards)[0] }) {
 
 function formatDisplayDate(value?: string | null) {
   if (!value) return "";
+  if (/^\d{1,2}\s+[A-Za-z]+\s+\d{4}$/.test(value.trim())) {
+    const d = new Date(value);
+    if (!Number.isNaN(d.getTime())) {
+      return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(d);
+    }
+    return value;
+  }
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
   return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(parsed);
@@ -370,9 +394,24 @@ function formatDisplayDate(value?: string | null) {
 
 function formatDisplayTime(value?: string | null) {
   if (!value) return "";
-  const [hours, minutes] = value.split(":");
-  if (!hours || !minutes) return value;
-  const parsed = new Date();
-  parsed.setHours(Number(hours), Number(minutes), 0, 0);
-  return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(parsed);
+  if (/^\d{1,2}:\d{2}\s*(AM|PM)$/i.test(value.trim())) {
+    return value.trim().toUpperCase();
+  }
+  const parts = value.split(":");
+  const hours = parseInt(parts[0], 10);
+  const minutes = parts[1] || "00";
+  if (isNaN(hours)) return value;
+  const ampm = hours >= 12 ? "PM" : "AM";
+  const displayHours = hours % 12 || 12;
+  return `${displayHours}:${minutes} ${ampm}`;
 }
+
+function formatDisplayTimeRange(start?: string | null, end?: string | null) {
+  if (!start) return "";
+  const fStart = formatDisplayTime(start);
+  if (!end) return fStart;
+  const fEnd = formatDisplayTime(end);
+  return `${fStart} to ${fEnd}`;
+}
+
+

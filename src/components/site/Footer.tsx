@@ -21,7 +21,7 @@ export function Footer() {
   )}`;
 
   return (
-    <footer className="mt-24 border-t border-border bg-gradient-to-b from-transparent to-accent/40">
+    <footer className="mt-12 sm:mt-16 border-t border-border bg-gradient-to-b from-transparent to-accent/40">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-4 lg:px-8">
         {/* Brand Information */}
         <div>
@@ -67,9 +67,9 @@ export function Footer() {
 
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li>
-              <a href="/#about" className="transition hover:text-foreground">
+              <Link to="/about" className="transition hover:text-foreground">
                 {t("nav.about")}
-              </a>
+              </Link>
             </li>
 
             <li>
@@ -80,7 +80,7 @@ export function Footer() {
 
             <li>
               <Link
-                to="/entry-pass"
+                to="/registration"
                 className="transition hover:text-foreground"
               >
                 {t("nav.registration")}
@@ -104,6 +104,12 @@ export function Footer() {
                 {t("nav.entryPass")}
               </Link>
             </li>
+
+            <li>
+              <Link to="/contact" className="transition hover:text-foreground">
+                Contact Us
+              </Link>
+            </li>
           </ul>
         </div>
 
@@ -113,15 +119,15 @@ export function Footer() {
 
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li>
-              <a href="#" className="transition hover:text-foreground">
+              <Link to="/privacy-policy" className="transition hover:text-foreground">
                 {t("footer.privacy")}
-              </a>
+              </Link>
             </li>
 
             <li>
-              <a href="#" className="transition hover:text-foreground">
+              <Link to="/terms-and-conditions" className="transition hover:text-foreground">
                 {t("footer.terms")}
-              </a>
+              </Link>
             </li>
 
             <li>

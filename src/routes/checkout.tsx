@@ -26,11 +26,11 @@ function CheckoutPage() {
       .catch((err) => { setError(err.message); setLoading(false); });
   }, [regId]);
 
-  if (loading) return <div className="min-h-screen pt-24 pb-16 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  if (loading) return <div className="min-h-screen pt-8 pb-16 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   if (!regId || !reg) {
     return (
-      <div className="min-h-screen pt-24 pb-16">
+      <div className="min-h-screen pt-8 pb-16">
         <div className="max-w-md mx-auto px-6 text-center">
           <AlertCircle className="mx-auto h-12 w-12 text-primary/50" />
           <h2 className="mt-4 text-2xl font-semibold">No Registration Found</h2>
@@ -49,7 +49,7 @@ function CheckoutPage() {
   const isVisitor = reg.type === "visitor";
 
   return (
-    <div className="min-h-screen bg-background pt-24 pb-16">
+    <div className="min-h-screen bg-background pt-8 pb-16">
       <div className="mx-auto max-w-3xl px-6 sm:px-8">
         <div className="text-center mb-8">
           <h1 className="text-4xl sm:text-5xl font-display font-semibold tracking-tight">

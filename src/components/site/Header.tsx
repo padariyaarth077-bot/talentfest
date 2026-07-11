@@ -10,16 +10,18 @@ const menu = [
   { to: "/#services", labelKey: "nav.services" },
   { to: "/gallery", labelKey: "nav.gallery" },
   { to: "/#team", labelKey: "nav.team" },
-  { to: "/entry-pass", labelKey: "nav.entryPass" },
+  { to: "/registration", labelKey: "nav.entryPass" },
   { to: "/#projects", labelKey: "nav.projects" },
   { to: "/#blog", labelKey: "nav.blog" },
-  { to: "/#about", labelKey: "nav.about" },
+  { to: "/about", labelKey: "nav.about" },
+  { to: "/contact", labelKey: "nav.contact" },
 ];
 
 export function Header() {
   const { lang, setLang, t } = useLang();
   const router = useRouter();
   const currentPath = router.state.location.pathname;
+  const currentHash = router.state.location.hash;
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
@@ -44,7 +46,11 @@ export function Header() {
 
   const isActive = (to: string) => {
     if (to.startsWith("/#")) {
-      return false;
+      const hash = "#" + to.slice(2);
+      return currentPath === "/" && currentHash === hash;
+    }
+    if (to === "/") {
+      return currentPath === "/" && (!currentHash || currentHash === "#" || currentHash === "#home");
     }
     return currentPath === to;
   };

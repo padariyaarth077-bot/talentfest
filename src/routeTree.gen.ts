@@ -10,18 +10,24 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ThankYouRouteImport } from './routes/thank-you'
+import { Route as TermsAndConditionsRouteImport } from './routes/terms-and-conditions'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as RegistrationRouteImport } from './routes/registration'
+import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as PaymentRouteImport } from './routes/payment'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as EntryPassRouteImport } from './routes/entry-pass'
+import { Route as EmployeeAwardCeremony2026RouteImport } from './routes/employee-award-ceremony-2026'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as CheckoutRouteImport } from './routes/checkout'
+import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as VerifyPassEntryIdRouteImport } from './routes/verify-pass.$entryId'
+import { Route as EmployeeAwardCeremony2026SuccessRouteImport } from './routes/employee-award-ceremony-2026.success'
 import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -33,6 +39,11 @@ const ThankYouRoute = ThankYouRouteImport.update({
   path: '/thank-you',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TermsAndConditionsRoute = TermsAndConditionsRouteImport.update({
+  id: '/terms-and-conditions',
+  path: '/terms-and-conditions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
@@ -41,6 +52,16 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegistrationRoute = RegistrationRouteImport.update({
+  id: '/registration',
+  path: '/registration',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
+  id: '/privacy-policy',
+  path: '/privacy-policy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PaymentRoute = PaymentRouteImport.update({
@@ -68,6 +89,12 @@ const EntryPassRoute = EntryPassRouteImport.update({
   path: '/entry-pass',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EmployeeAwardCeremony2026Route =
+  EmployeeAwardCeremony2026RouteImport.update({
+    id: '/employee-award-ceremony-2026',
+    path: '/employee-award-ceremony-2026',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
@@ -76,6 +103,11 @@ const ContactRoute = ContactRouteImport.update({
 const CheckoutRoute = CheckoutRouteImport.update({
   id: '/checkout',
   path: '/checkout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
@@ -92,6 +124,12 @@ const VerifyPassEntryIdRoute = VerifyPassEntryIdRouteImport.update({
   path: '/verify-pass/$entryId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EmployeeAwardCeremony2026SuccessRoute =
+  EmployeeAwardCeremony2026SuccessRouteImport.update({
+    id: '/success',
+    path: '/success',
+    getParentRoute: () => EmployeeAwardCeremony2026Route,
+  } as any)
 const BlogSlugRoute = BlogSlugRouteImport.update({
   id: '/blog/$slug',
   path: '/blog/$slug',
@@ -121,39 +159,51 @@ const AuthenticatedPassEntryIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
+  '/employee-award-ceremony-2026': typeof EmployeeAwardCeremony2026RouteWithChildren
   '/entry-pass': typeof EntryPassRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/gallery': typeof GalleryRoute
   '/login': typeof LoginRoute
   '/payment': typeof PaymentRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
+  '/registration': typeof RegistrationRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms-and-conditions': typeof TermsAndConditionsRoute
   '/thank-you': typeof ThankYouRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/admin/login': typeof AdminLoginRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/employee-award-ceremony-2026/success': typeof EmployeeAwardCeremony2026SuccessRoute
   '/verify-pass/$entryId': typeof VerifyPassEntryIdRoute
   '/pass/$entryId': typeof AuthenticatedPassEntryIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
+  '/employee-award-ceremony-2026': typeof EmployeeAwardCeremony2026RouteWithChildren
   '/entry-pass': typeof EntryPassRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/gallery': typeof GalleryRoute
   '/login': typeof LoginRoute
   '/payment': typeof PaymentRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
+  '/registration': typeof RegistrationRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms-and-conditions': typeof TermsAndConditionsRoute
   '/thank-you': typeof ThankYouRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/admin/login': typeof AdminLoginRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/employee-award-ceremony-2026/success': typeof EmployeeAwardCeremony2026SuccessRoute
   '/verify-pass/$entryId': typeof VerifyPassEntryIdRoute
   '/pass/$entryId': typeof AuthenticatedPassEntryIdRoute
 }
@@ -161,20 +211,26 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/about': typeof AboutRoute
   '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
+  '/employee-award-ceremony-2026': typeof EmployeeAwardCeremony2026RouteWithChildren
   '/entry-pass': typeof EntryPassRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/gallery': typeof GalleryRoute
   '/login': typeof LoginRoute
   '/payment': typeof PaymentRoute
+  '/privacy-policy': typeof PrivacyPolicyRoute
+  '/registration': typeof RegistrationRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms-and-conditions': typeof TermsAndConditionsRoute
   '/thank-you': typeof ThankYouRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/admin/login': typeof AdminLoginRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/employee-award-ceremony-2026/success': typeof EmployeeAwardCeremony2026SuccessRoute
   '/verify-pass/$entryId': typeof VerifyPassEntryIdRoute
   '/_authenticated/pass/$entryId': typeof AuthenticatedPassEntryIdRoute
 }
@@ -182,59 +238,77 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/about'
     | '/checkout'
     | '/contact'
+    | '/employee-award-ceremony-2026'
     | '/entry-pass'
     | '/forgot-password'
     | '/gallery'
     | '/login'
     | '/payment'
+    | '/privacy-policy'
+    | '/registration'
     | '/signup'
     | '/sitemap.xml'
+    | '/terms-and-conditions'
     | '/thank-you'
     | '/admin'
     | '/dashboard'
     | '/admin/login'
     | '/blog/$slug'
+    | '/employee-award-ceremony-2026/success'
     | '/verify-pass/$entryId'
     | '/pass/$entryId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/about'
     | '/checkout'
     | '/contact'
+    | '/employee-award-ceremony-2026'
     | '/entry-pass'
     | '/forgot-password'
     | '/gallery'
     | '/login'
     | '/payment'
+    | '/privacy-policy'
+    | '/registration'
     | '/signup'
     | '/sitemap.xml'
+    | '/terms-and-conditions'
     | '/thank-you'
     | '/admin'
     | '/dashboard'
     | '/admin/login'
     | '/blog/$slug'
+    | '/employee-award-ceremony-2026/success'
     | '/verify-pass/$entryId'
     | '/pass/$entryId'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/about'
     | '/checkout'
     | '/contact'
+    | '/employee-award-ceremony-2026'
     | '/entry-pass'
     | '/forgot-password'
     | '/gallery'
     | '/login'
     | '/payment'
+    | '/privacy-policy'
+    | '/registration'
     | '/signup'
     | '/sitemap.xml'
+    | '/terms-and-conditions'
     | '/thank-you'
     | '/_authenticated/admin'
     | '/_authenticated/dashboard'
     | '/admin/login'
     | '/blog/$slug'
+    | '/employee-award-ceremony-2026/success'
     | '/verify-pass/$entryId'
     | '/_authenticated/pass/$entryId'
   fileRoutesById: FileRoutesById
@@ -242,15 +316,20 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AboutRoute: typeof AboutRoute
   CheckoutRoute: typeof CheckoutRoute
   ContactRoute: typeof ContactRoute
+  EmployeeAwardCeremony2026Route: typeof EmployeeAwardCeremony2026RouteWithChildren
   EntryPassRoute: typeof EntryPassRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   GalleryRoute: typeof GalleryRoute
   LoginRoute: typeof LoginRoute
   PaymentRoute: typeof PaymentRoute
+  PrivacyPolicyRoute: typeof PrivacyPolicyRoute
+  RegistrationRoute: typeof RegistrationRoute
   SignupRoute: typeof SignupRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  TermsAndConditionsRoute: typeof TermsAndConditionsRoute
   ThankYouRoute: typeof ThankYouRoute
   AdminLoginRoute: typeof AdminLoginRoute
   BlogSlugRoute: typeof BlogSlugRoute
@@ -266,6 +345,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ThankYouRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/terms-and-conditions': {
+      id: '/terms-and-conditions'
+      path: '/terms-and-conditions'
+      fullPath: '/terms-and-conditions'
+      preLoaderRoute: typeof TermsAndConditionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sitemap.xml': {
       id: '/sitemap.xml'
       path: '/sitemap.xml'
@@ -278,6 +364,20 @@ declare module '@tanstack/react-router' {
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/registration': {
+      id: '/registration'
+      path: '/registration'
+      fullPath: '/registration'
+      preLoaderRoute: typeof RegistrationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy-policy': {
+      id: '/privacy-policy'
+      path: '/privacy-policy'
+      fullPath: '/privacy-policy'
+      preLoaderRoute: typeof PrivacyPolicyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/payment': {
@@ -315,6 +415,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EntryPassRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/employee-award-ceremony-2026': {
+      id: '/employee-award-ceremony-2026'
+      path: '/employee-award-ceremony-2026'
+      fullPath: '/employee-award-ceremony-2026'
+      preLoaderRoute: typeof EmployeeAwardCeremony2026RouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/contact': {
       id: '/contact'
       path: '/contact'
@@ -327,6 +434,13 @@ declare module '@tanstack/react-router' {
       path: '/checkout'
       fullPath: '/checkout'
       preLoaderRoute: typeof CheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -349,6 +463,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/verify-pass/$entryId'
       preLoaderRoute: typeof VerifyPassEntryIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/employee-award-ceremony-2026/success': {
+      id: '/employee-award-ceremony-2026/success'
+      path: '/success'
+      fullPath: '/employee-award-ceremony-2026/success'
+      preLoaderRoute: typeof EmployeeAwardCeremony2026SuccessRouteImport
+      parentRoute: typeof EmployeeAwardCeremony2026Route
     }
     '/blog/$slug': {
       id: '/blog/$slug'
@@ -403,18 +524,38 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface EmployeeAwardCeremony2026RouteChildren {
+  EmployeeAwardCeremony2026SuccessRoute: typeof EmployeeAwardCeremony2026SuccessRoute
+}
+
+const EmployeeAwardCeremony2026RouteChildren: EmployeeAwardCeremony2026RouteChildren =
+  {
+    EmployeeAwardCeremony2026SuccessRoute:
+      EmployeeAwardCeremony2026SuccessRoute,
+  }
+
+const EmployeeAwardCeremony2026RouteWithChildren =
+  EmployeeAwardCeremony2026Route._addFileChildren(
+    EmployeeAwardCeremony2026RouteChildren,
+  )
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AboutRoute: AboutRoute,
   CheckoutRoute: CheckoutRoute,
   ContactRoute: ContactRoute,
+  EmployeeAwardCeremony2026Route: EmployeeAwardCeremony2026RouteWithChildren,
   EntryPassRoute: EntryPassRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   GalleryRoute: GalleryRoute,
   LoginRoute: LoginRoute,
   PaymentRoute: PaymentRoute,
+  PrivacyPolicyRoute: PrivacyPolicyRoute,
+  RegistrationRoute: RegistrationRoute,
   SignupRoute: SignupRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  TermsAndConditionsRoute: TermsAndConditionsRoute,
   ThankYouRoute: ThankYouRoute,
   AdminLoginRoute: AdminLoginRoute,
   BlogSlugRoute: BlogSlugRoute,

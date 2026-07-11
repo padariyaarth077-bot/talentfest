@@ -4,13 +4,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 import {
   Activity,
+  Award,
   BarChart3,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   ClipboardList,
   CreditCard,
   Download,
   Eye,
+  EyeOff,
   FileText,
   Filter,
   Film,
@@ -18,6 +22,7 @@ import {
   KeyRound,
   LayoutDashboard,
   LogOut,
+  MessageCircle,
   Menu,
   Music,
   Newspaper,
@@ -51,7 +56,27 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { generatePassPdf, renderSingleSidedPassToCanvas } from "@/lib/pdf-generator";
-import { checkInAdminPass, fetchAdminData, verifyAdminQr } from "@/lib/admin.functions";
+import {
+  checkInAdminPass,
+  fetchAdminData,
+  verifyAdminQr,
+  saveConcertSettings,
+  saveConcertArtist,
+  deleteConcertArtist,
+  reorderConcertArtist,
+  toggleConcertArtistStatus,
+  resolveGoogleMapsUrl,
+} from "@/lib/admin.functions";
+import {
+  updateEmployeeAwardStatus,
+  type EmployeeAwardRecord,
+} from "@/lib/employee-awards.functions";
+import {
+  fetchContactMessages,
+  updateContactMessageStatus,
+  deleteContactMessage,
+  type ContactMessageRecord,
+} from "@/lib/contact.functions";
 import { cn } from "@/lib/utils";
 import { getSupabaseConfigError, supabase } from "@/integrations/supabase/client";
 
@@ -60,6 +85,8 @@ type AdminView =
   | "passes"
   | "scanner"
   | "participants"
+  | "employee_awards"
+  | "contact_messages"
   | "reports"
   | "gallery"
   | "events"
@@ -181,21 +208,27 @@ type ConcertSettingsRecord = {
   event_label: string;
   event_title: string;
   venue: string;
+  city: string;
   event_date: string | null;
   start_time: string | null;
+  end_time: string | null;
   price_text: string;
   button_text: string;
   button_url: string;
   map_url: string;
   map_embed_url: string;
+  latitude: number | null;
+  longitude: number | null;
   is_published: boolean;
 };
 
 type ConcertArtistRecord = {
   id: string;
+  concert_info_id: string | null;
   artist_name: string;
   performance_type: string;
   description: string | null;
+  image_url: string | null;
   display_order: number;
   is_active: boolean;
 };
@@ -223,6 +256,8 @@ const sidebarItems: Array<{ view: AdminView; label: string; icon: typeof LayoutD
   { view: "passes", label: "Entry Passes", icon: ClipboardList },
   { view: "scanner", label: "QR Scanner", icon: ScanLine },
   { view: "participants", label: "Participants", icon: Users },
+  { view: "employee_awards", label: "Employee Awards", icon: Award },
+  { view: "contact_messages", label: "Contact Messages", icon: MessageCircle },
   { view: "events", label: "Events", icon: CalendarDays },
   { view: "reports", label: "Reports", icon: BarChart3 },
   { view: "gallery", label: "Gallery Cities", icon: ImageIcon },
@@ -273,6 +308,7 @@ function AdminPanel() {
   const [concertDataError, setConcertDataError] = useState("");
   const [blogPosts, setBlogPosts] = useState<BlogPostRecord[]>([]);
   const [blogDataError, setBlogDataError] = useState("");
+  const [employeeAwards, setEmployeeAwards] = useState<EmployeeAwardRecord[]>([]);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<PassFilter>("all");
   const [page, setPage] = useState(1);
@@ -338,6 +374,7 @@ function AdminPanel() {
         setConcertArtists((adminData.concertArtists ?? []) as ConcertArtistRecord[]);
         setBlogDataError("");
         setBlogPosts((adminData.blogPosts ?? []) as BlogPostRecord[]);
+        setEmployeeAwards((adminData.employeeAwards ?? []) as EmployeeAwardRecord[]);
         return;
       } catch (serverError) {
         console.warn("Server admin fetch failed, falling back to browser queries", serverError);
@@ -850,6 +887,23 @@ function AdminPanel() {
     void logActivity(`Exported ${rows.length} participant records`);
   };
 
+  const changeEmployeeAwardStatus = async (
+    award: EmployeeAwardRecord,
+    status: EmployeeAwardRecord["status"],
+  ) => {
+    try {
+      const updated = await updateEmployeeAwardStatus({
+        data: { adminUserId, id: award.id, status },
+      });
+      setEmployeeAwards((current) =>
+        current.map((item) => (item.id === award.id ? updated : item)),
+      );
+      toast.success("Employee Award status updated");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to update status");
+    }
+  };
+
   const logout = async () => {
     await supabase.auth.signOut();
     window.location.href = "/admin/login";
@@ -953,6 +1007,15 @@ function AdminPanel() {
             )}
             onView={setSelectedPass}
           />
+        )}
+        {activeView === "employee_awards" && (
+          <EmployeeAwardsView
+            awards={employeeAwards}
+            onStatusChange={changeEmployeeAwardStatus}
+          />
+        )}
+        {activeView === "contact_messages" && (
+          <ContactMessagesView setConfirmAction={setConfirmAction} />
         )}
         {activeView === "events" && (
           <EventsView
@@ -1932,102 +1995,206 @@ function ConcertInformationView({
     value: { title: string; description: string; action: () => Promise<void> } | null,
   ) => void;
 }) {
+  const [concertId, setConcertId] = useState<string | null>(settings?.id ?? null);
   const [form, setForm] = useState({
     eyebrow: "Live Concert",
     title: "Concert Information",
-    subtitle: "",
-    event_label: "Grand Finale",
-    event_title: "Telent Fest Grand Finale",
+    subtitle: "The main stage lineup you do not want to miss.",
+    event_label: "GRAND FINALE",
+    event_title: "TelentFest Grand Finale",
     venue: "",
+    city: "",
     event_date: "",
     start_time: "",
-    price_text: "",
-    button_text: "Entry Pass",
-    button_url: "/entry-pass",
+    end_time: "",
+    price_text: "Registration Fee ₹1,500",
+    button_text: "Registration Form",
+    button_url: "/registration",
     map_url: "",
     map_embed_url: "",
+    latitude: "",
+    longitude: "",
     is_published: true,
   });
   const [artistForm, setArtistForm] = useState({
     artist_name: "",
     performance_type: "",
     description: "",
+    image_url: "",
     display_order: "0",
     is_active: true,
   });
   const [editingArtist, setEditingArtist] = useState<ConcertArtistRecord | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [savingArtist, setSavingArtist] = useState(false);
+  const [showMapPreview, setShowMapPreview] = useState(false);
+  const [resolvingMap, setResolvingMap] = useState(false);
+  const [showAdvancedMap, setShowAdvancedMap] = useState(false);
 
   useEffect(() => {
     if (!settings) return;
+    setConcertId(settings.id);
+    const rawMapEmbed = settings.map_embed_url ?? "";
     setForm({
-      eyebrow: settings.eyebrow ?? "",
-      title: settings.title ?? "",
-      subtitle: settings.subtitle ?? "",
-      event_label: settings.event_label ?? "",
-      event_title: settings.event_title ?? "",
+      eyebrow: settings.eyebrow ?? "Live Concert",
+      title: settings.title ?? "Concert Information",
+      subtitle: settings.subtitle ?? "The main stage lineup you do not want to miss.",
+      event_label: settings.event_label ?? "GRAND FINALE",
+      event_title: settings.event_title ?? "TelentFest Grand Finale",
       venue: settings.venue ?? "",
+      city: settings.city ?? "",
       event_date: settings.event_date ?? "",
       start_time: settings.start_time ?? "",
-      price_text: settings.price_text ?? "",
-      button_text: settings.button_text ?? "",
-      button_url: settings.button_url ?? "/entry-pass",
+      end_time: settings.end_time ?? "",
+      price_text: settings.price_text ?? "Registration Fee ₹1,500",
+      button_text: settings.button_text ?? "Registration Form",
+      button_url: settings.button_url ?? "/registration",
       map_url: settings.map_url ?? "",
-      map_embed_url: settings.map_embed_url ?? "",
+      map_embed_url: normalizeMapEmbed(rawMapEmbed) || rawMapEmbed,
+      latitude: settings.latitude != null ? String(settings.latitude) : "",
+      longitude: settings.longitude != null ? String(settings.longitude) : "",
       is_published: settings.is_published ?? true,
     });
   }, [settings]);
 
+  const getMapEmbedUrl = useCallback(() => {
+    const lat = parseFloat(form.latitude);
+    const lng = parseFloat(form.longitude);
+    if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+      return `https://www.google.com/maps?q=${lat},${lng}&z=15&output=embed`;
+    }
+    if (form.map_embed_url && (form.map_embed_url.includes("/embed") || form.map_embed_url.includes("output=embed"))) {
+      return form.map_embed_url;
+    }
+    if (form.map_url) {
+      return normalizeMapEmbed(form.map_url);
+    }
+    const address = [form.venue, form.city].filter(Boolean).join(", ");
+    if (address) {
+      return `https://www.google.com/maps?q=${encodeURIComponent(address)}&z=14&output=embed`;
+    }
+    return "";
+  }, [form.latitude, form.longitude, form.map_embed_url, form.map_url, form.venue, form.city]);
+
+  const getMapHref = useCallback(() => {
+    const lat = parseFloat(form.latitude);
+    const lng = parseFloat(form.longitude);
+    if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+      return `https://www.google.com/maps?q=${lat},${lng}`;
+    }
+    if (form.map_url && !form.map_url.includes("output=embed")) return form.map_url;
+    const address = [form.venue, form.city].filter(Boolean).join(", ");
+    if (address) return `https://www.google.com/maps?q=${encodeURIComponent(address)}`;
+    return "https://www.google.com/maps";
+  }, [form.latitude, form.longitude, form.map_url, form.venue, form.city]);
+
+  const resolveMapUrl = async () => {
+    const url = form.map_url.trim();
+    if (!url) return toast.error("Paste a Google Maps URL first.");
+    setResolvingMap(true);
+    try {
+      const result = await resolveGoogleMapsUrl({ data: { url } });
+      if (!result.resolved) {
+        toast.error(result.error || "Unable to resolve this URL.");
+        return;
+      }
+      setForm((f) => ({
+        ...f,
+        map_url: result.map_url || f.map_url,
+        map_embed_url: result.map_embed_url || f.map_embed_url,
+        latitude: result.latitude != null ? String(result.latitude) : f.latitude,
+        longitude: result.longitude != null ? String(result.longitude) : f.longitude,
+      }));
+      setShowMapPreview(true);
+      toast.success("Map location resolved");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to resolve map URL.");
+    } finally {
+      setResolvingMap(false);
+    }
+  };
+
   const saveSettings = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!form.title.trim() || !form.event_title.trim())
-      return toast.error("Concert section title and event title are required.");
-    setSaving(true);
+      return toast.error("Section title and event title are required.");
+    setSavingSettings(true);
     try {
+      const latStr = form.latitude.trim();
+      const lngStr = form.longitude.trim();
+      let latNum: number | null = null;
+      let lngNum: number | null = null;
+      if (latStr && lngStr) {
+        latNum = parseFloat(latStr);
+        lngNum = parseFloat(lngStr);
+        if (isNaN(latNum) || latNum < -90 || latNum > 90) throw new Error("Latitude must be between -90 and 90.");
+        if (isNaN(lngNum) || lngNum < -180 || lngNum > 180) throw new Error("Longitude must be between -180 and 180.");
+      }
+      // Validate map URL is not an internal route
+      const rawMapUrl = form.map_url.trim();
+      if (rawMapUrl.startsWith("/")) throw new Error("Map URL must be a full Google Maps URL, not an internal route.");
+
+      const normalizedEmbed = normalizeMapEmbed(form.map_embed_url || rawMapUrl);
+      // Ensure map_embed_url is never an internal route
+      if (normalizedEmbed.startsWith("/")) throw new Error("Map embed URL resolved to an internal route. Provide a valid Google Maps URL.");
+
       const payload = {
-        ...form,
+        id: concertId || undefined,
+        eyebrow: form.eyebrow,
+        title: form.title,
+        subtitle: form.subtitle,
+        event_label: form.event_label,
+        event_title: form.event_title,
+        venue: form.venue,
+        city: form.city,
         event_date: form.event_date || null,
         start_time: form.start_time || null,
-        map_embed_url: normalizeMapEmbed(form.map_embed_url || form.map_url),
-        updated_at: new Date().toISOString(),
+        end_time: form.end_time || null,
+        price_text: form.price_text,
+        button_text: form.button_text,
+        button_url: form.button_url,
+        map_url: rawMapUrl,
+        map_embed_url: normalizedEmbed,
+        latitude: latNum,
+        longitude: lngNum,
+        is_published: form.is_published,
       };
-      const db = supabase as any;
-      const result = settings
-        ? await db.from("concert_settings").update(payload).eq("id", settings.id)
-        : await db.from("concert_settings").insert(payload);
-      if (result.error) throw result.error;
+      const result = await saveConcertSettings({ data: payload });
+      if (result.id && result.id !== concertId) {
+        setConcertId(result.id);
+      }
       await logActivity("Updated concert information");
       toast.success("Concert information saved");
       await onRefresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to save concert information.");
     } finally {
-      setSaving(false);
+      setSavingSettings(false);
     }
   };
 
-  const saveArtist = async (event: React.FormEvent) => {
+  const saveArtistHandler = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!artistForm.artist_name.trim()) return toast.error("Artist name is required.");
-    setSaving(true);
+    if (!concertId) return toast.error("Save concert information first before adding artists.");
+    setSavingArtist(true);
     try {
-      const payload = {
-        artist_name: artistForm.artist_name.trim(),
-        performance_type: artistForm.performance_type.trim(),
-        description: artistForm.description.trim() || null,
-        display_order: Number(artistForm.display_order) || 0,
-        is_active: artistForm.is_active,
-        updated_at: new Date().toISOString(),
-      };
-      const db = supabase as any;
-      const result = editingArtist
-        ? await db.from("concert_artists").update(payload).eq("id", editingArtist.id)
-        : await db.from("concert_artists").insert(payload);
-      if (result.error) throw result.error;
+      await saveConcertArtist({
+        data: {
+          id: editingArtist?.id || undefined,
+          concert_info_id: concertId,
+          artist_name: artistForm.artist_name.trim(),
+          performance_type: artistForm.performance_type.trim(),
+          description: artistForm.description.trim(),
+          image_url: artistForm.image_url.trim(),
+          display_order: Number(artistForm.display_order) || 0,
+          is_active: artistForm.is_active,
+        },
+      });
       await logActivity(
         editingArtist
-          ? `Updated concert artist ${payload.artist_name}`
-          : `Added concert artist ${payload.artist_name}`,
+          ? `Updated concert artist ${artistForm.artist_name.trim()}`
+          : `Added concert artist ${artistForm.artist_name.trim()}`,
       );
       toast.success(editingArtist ? "Artist updated" : "Artist added");
       setEditingArtist(null);
@@ -2035,6 +2202,7 @@ function ConcertInformationView({
         artist_name: "",
         performance_type: "",
         description: "",
+        image_url: "",
         display_order: "0",
         is_active: true,
       });
@@ -2042,8 +2210,41 @@ function ConcertInformationView({
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to save artist.");
     } finally {
-      setSaving(false);
+      setSavingArtist(false);
     }
+  };
+
+  const deleteArtist = async (artist: ConcertArtistRecord) => {
+    setConfirmAction({
+      title: "Delete artist?",
+      description: `Remove "${artist.artist_name}" from the lineup.`,
+      action: async () => {
+        await deleteConcertArtist({ data: { id: artist.id } });
+        await logActivity(`Deleted concert artist ${artist.artist_name}`);
+        toast.success("Artist deleted");
+        await onRefresh();
+      },
+    });
+  };
+
+  const toggleArtist = async (artist: ConcertArtistRecord) => {
+    await toggleConcertArtistStatus({ data: { id: artist.id, is_active: !artist.is_active } });
+    await logActivity(`${artist.is_active ? "Deactivated" : "Activated"} artist ${artist.artist_name}`);
+    toast.success(`Artist ${artist.is_active ? "deactivated" : "activated"}`);
+    await onRefresh();
+  };
+
+  const moveArtist = async (artist: ConcertArtistRecord, direction: "up" | "down") => {
+    const sorted = [...artists].sort((a, b) => a.display_order - b.display_order);
+    const idx = sorted.findIndex((a) => a.id === artist.id);
+    if (idx === -1) return;
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= sorted.length) return;
+    const currentOrder = artist.display_order;
+    const swapOrder = sorted[swapIdx].display_order;
+    await reorderConcertArtist({ data: { id: artist.id, display_order: swapOrder } });
+    await reorderConcertArtist({ data: { id: sorted[swapIdx].id, display_order: currentOrder } });
+    await onRefresh();
   };
 
   return (
@@ -2054,120 +2255,220 @@ function ConcertInformationView({
           Supabase said: {dataError}
         </div>
       )}
+
       <Panel title="Concert Information">
-        <form onSubmit={saveSettings} className="grid gap-3 lg:grid-cols-2">
-          {(
-            [
-              ["eyebrow", "Eyebrow label"],
-              ["title", "Section heading"],
-              ["subtitle", "Section subtitle"],
-              ["event_label", "Event label"],
-              ["event_title", "Event title"],
-              ["venue", "Venue"],
-              ["price_text", "Price or seats text"],
-              ["button_text", "Button text"],
-              ["button_url", "Button URL"],
-              ["map_url", "Map URL"],
-              ["map_embed_url", "Map embed URL"],
-            ] as const
-          ).map(([key, placeholder]) => (
-            <input
-              key={key}
-              value={form[key]}
-              onChange={(e) => setForm((current) => ({ ...current, [key]: e.target.value }))}
-              placeholder={placeholder}
-              className="field-input"
-            />
-          ))}
-          <input
-            type="date"
-            value={form.event_date}
-            onChange={(e) => setForm((current) => ({ ...current, event_date: e.target.value }))}
-            className="field-input"
-          />
-          <input
-            type="time"
-            value={form.start_time}
-            onChange={(e) => setForm((current) => ({ ...current, start_time: e.target.value }))}
-            className="field-input"
-          />
-          <label className="flex items-center gap-2 field-input cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.is_published}
-              onChange={(e) =>
-                setForm((current) => ({ ...current, is_published: e.target.checked }))
-              }
-            />
-            Published on website
-          </label>
-          <div className="lg:col-span-2">
-            <Button type="submit" disabled={saving}>
-              {settings ? "Update Concert Info" : "Create Concert Info"}
+        <div className="mb-4 flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            {concertId
+              ? "Edit the existing concert record. Changes appear on the homepage after saving."
+              : "No concert record exists yet. Create one to display on the homepage."}
+          </p>
+        </div>
+        <form onSubmit={saveSettings} className="space-y-5">
+          {/* Section Content */}
+          <fieldset className="rounded-xl border border-border/60 p-4">
+            <legend className="px-2 text-xs font-semibold uppercase tracking-wider text-primary">Section Content</legend>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Section Badge">
+                <input value={form.eyebrow} onChange={(e) => setForm((f) => ({ ...f, eyebrow: e.target.value }))} placeholder="Live Concert" className="field-input" />
+              </Field>
+              <Field label="Section Heading">
+                <input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Concert Information" className="field-input" />
+              </Field>
+              <Field label="Section Subtitle" className="sm:col-span-2">
+                <input value={form.subtitle} onChange={(e) => setForm((f) => ({ ...f, subtitle: e.target.value }))} placeholder="The main stage lineup you do not want to miss." className="field-input" />
+              </Field>
+            </div>
+          </fieldset>
+
+          {/* Event Details */}
+          <fieldset className="rounded-xl border border-border/60 p-4">
+            <legend className="px-2 text-xs font-semibold uppercase tracking-wider text-primary">Event Details</legend>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Event Label">
+                <input value={form.event_label} onChange={(e) => setForm((f) => ({ ...f, event_label: e.target.value }))} placeholder="GRAND FINALE" className="field-input" />
+              </Field>
+              <Field label="Concert Title">
+                <input value={form.event_title} onChange={(e) => setForm((f) => ({ ...f, event_title: e.target.value }))} placeholder="TelentFest Grand Finale" className="field-input" />
+              </Field>
+              <Field label="Venue">
+                <input value={form.venue} onChange={(e) => setForm((f) => ({ ...f, venue: e.target.value }))} placeholder="Pramukh Swami Auditorium, Raiya Road, Rajkot, Gujarat" className="field-input" />
+              </Field>
+              <Field label="City">
+                <input value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} placeholder="Rajkot, Gujarat" className="field-input" />
+              </Field>
+              <Field label="Price / Seats Text">
+                <input value={form.price_text} onChange={(e) => setForm((f) => ({ ...f, price_text: e.target.value }))} placeholder="Registration Fee ₹1,500" className="field-input" />
+              </Field>
+            </div>
+          </fieldset>
+
+          {/* CTA Settings */}
+          <fieldset className="rounded-xl border border-border/60 p-4">
+            <legend className="px-2 text-xs font-semibold uppercase tracking-wider text-primary">CTA Settings</legend>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Button Text">
+                <input value={form.button_text} onChange={(e) => setForm((f) => ({ ...f, button_text: e.target.value }))} placeholder="Registration Form" className="field-input" />
+              </Field>
+              <Field label="Button URL">
+                <input value={form.button_url} onChange={(e) => setForm((f) => ({ ...f, button_url: e.target.value }))} placeholder="/registration" className="field-input" />
+              </Field>
+            </div>
+          </fieldset>
+
+          {/* Date and Time */}
+          <fieldset className="rounded-xl border border-border/60 p-4">
+            <legend className="px-2 text-xs font-semibold uppercase tracking-wider text-primary">Date and Time</legend>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="Event Date">
+                <input type="date" value={form.event_date} onChange={(e) => setForm((f) => ({ ...f, event_date: e.target.value }))} className="field-input" />
+              </Field>
+              <Field label="Start Time">
+                <input type="time" value={form.start_time} onChange={(e) => setForm((f) => ({ ...f, start_time: e.target.value }))} className="field-input" />
+              </Field>
+              <Field label="End Time">
+                <input type="time" value={form.end_time} onChange={(e) => setForm((f) => ({ ...f, end_time: e.target.value }))} className="field-input" />
+              </Field>
+            </div>
+          </fieldset>
+
+          {/* Map and Venue */}
+          <fieldset className="rounded-xl border border-border/60 p-4">
+            <legend className="px-2 text-xs font-semibold uppercase tracking-wider text-primary">Map and Venue</legend>
+            <div className="space-y-3">
+              <Field label="Google Maps Location URL">
+                <div className="flex gap-2">
+                  <input value={form.map_url} onChange={(e) => setForm((f) => ({ ...f, map_url: e.target.value }))} placeholder="https://maps.app.goo.gl/..." className="field-input flex-1" />
+                  <Button type="button" variant="outline" size="sm" onClick={resolveMapUrl} disabled={resolvingMap}>
+                    {resolvingMap ? "Resolving..." : "Preview Map"}
+                  </Button>
+                </div>
+              </Field>
+              <p className="text-xs text-muted-foreground">
+                Paste any Google Maps link (place URL, short link, search URL, or embed URL). The system will resolve the location automatically.
+              </p>
+            </div>
+            <details className="mt-3">
+              <summary
+                className="cursor-pointer text-xs text-muted-foreground hover:text-foreground"
+                onToggle={(e) => setShowAdvancedMap((e.target as HTMLDetailsElement).open)}
+              >
+                Advanced Map Settings
+              </summary>
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <Field label="Embed URL (override)">
+                  <input value={form.map_embed_url} onChange={(e) => setForm((f) => ({ ...f, map_embed_url: e.target.value }))} placeholder="Auto-resolved" className="field-input" />
+                </Field>
+                <Field label="Latitude">
+                  <input type="number" step="any" value={form.latitude} onChange={(e) => setForm((f) => ({ ...f, latitude: e.target.value }))} placeholder="Auto-resolved" className="field-input" />
+                </Field>
+                <Field label="Longitude">
+                  <input type="number" step="any" value={form.longitude} onChange={(e) => setForm((f) => ({ ...f, longitude: e.target.value }))} placeholder="Auto-resolved" className="field-input" />
+                </Field>
+              </div>
+            </details>
+            <div className="mt-3 flex gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setShowMapPreview(!showMapPreview)}>
+                {showMapPreview ? "Hide Map Preview" : "Show Map Preview"}
+              </Button>
+              {(form.map_url || getMapEmbedUrl()) && (
+                <a href={getMapHref()} target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center rounded-md border border-border px-4 text-xs text-muted-foreground hover:text-foreground">
+                  Open in Google Maps
+                </a>
+              )}
+            </div>
+            {showMapPreview && (
+              <div className="mt-3 h-48 overflow-hidden rounded-xl border border-border/60">
+                {getMapEmbedUrl() ? (
+                  <iframe
+                    title="Map preview"
+                    src={getMapEmbedUrl()}
+                    className="h-full w-full"
+                    loading="lazy"
+                    allowFullScreen
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
+                ) : (
+                  <div className="grid h-full place-items-center text-sm text-muted-foreground">
+                    No map data available. Paste a Google Maps URL and click Preview Map.
+                  </div>
+                )}
+              </div>
+            )}
+          </fieldset>
+
+          {/* Publishing */}
+          <fieldset className="rounded-xl border border-border/60 p-4">
+            <legend className="px-2 text-xs font-semibold uppercase tracking-wider text-primary">Publishing</legend>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.is_published}
+                onChange={(e) => setForm((f) => ({ ...f, is_published: e.target.checked }))}
+                className="h-4 w-4"
+              />
+              <span className="text-sm">Published on website</span>
+            </label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              When checked, this concert information appears on the public homepage.
+            </p>
+          </fieldset>
+
+          <div className="flex items-center gap-3">
+            <Button type="submit" disabled={savingSettings}>
+              {savingSettings ? "Saving..." : concertId ? "Update Concert Info" : "Create Concert Info"}
             </Button>
+            {concertId && (
+              <span className="text-xs text-muted-foreground font-mono">ID: {concertId.slice(0, 8)}…</span>
+            )}
           </div>
         </form>
       </Panel>
 
       <Panel title="Artist Lineup">
-        <form
-          onSubmit={saveArtist}
-          className="mb-5 grid gap-3 lg:grid-cols-[1fr_1fr_1fr_100px_140px_auto]"
-        >
-          <input
-            value={artistForm.artist_name}
-            onChange={(e) => setArtistForm((f) => ({ ...f, artist_name: e.target.value }))}
-            placeholder="Artist name"
-            className="field-input"
-          />
-          <input
-            value={artistForm.performance_type}
-            onChange={(e) => setArtistForm((f) => ({ ...f, performance_type: e.target.value }))}
-            placeholder="Performance type"
-            className="field-input"
-          />
-          <input
-            value={artistForm.description}
-            onChange={(e) => setArtistForm((f) => ({ ...f, description: e.target.value }))}
-            placeholder="Short description"
-            className="field-input"
-          />
-          <input
-            value={artistForm.display_order}
-            onChange={(e) => setArtistForm((f) => ({ ...f, display_order: e.target.value }))}
-            placeholder="Order"
-            className="field-input"
-            inputMode="numeric"
-          />
-          <label className="flex items-center gap-2 field-input cursor-pointer">
-            <input
-              type="checkbox"
-              checked={artistForm.is_active}
-              onChange={(e) => setArtistForm((f) => ({ ...f, is_active: e.target.checked }))}
-            />{" "}
-            Active
-          </label>
-          <div className="flex gap-2">
-            <Button type="submit" disabled={saving}>
-              {editingArtist ? "Update" : "Add"}
-            </Button>
-            {editingArtist && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setEditingArtist(null);
-                  setArtistForm({
-                    artist_name: "",
-                    performance_type: "",
-                    description: "",
-                    display_order: "0",
-                    is_active: true,
-                  });
-                }}
-              >
-                Cancel
+        {!concertId && (
+          <div className="mb-4 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">
+            Save concert information first, then add artists.
+          </div>
+        )}
+        <form onSubmit={saveArtistHandler} className="mb-5 space-y-3">
+          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_100px_auto]">
+            <Field label="Artist Name">
+              <input value={artistForm.artist_name} onChange={(e) => setArtistForm((f) => ({ ...f, artist_name: e.target.value }))} placeholder="Artist name" className="field-input" />
+            </Field>
+            <Field label="Performance Type">
+              <input value={artistForm.performance_type} onChange={(e) => setArtistForm((f) => ({ ...f, performance_type: e.target.value }))} placeholder="Singer, Band, etc." className="field-input" />
+            </Field>
+            <Field label="Description">
+              <input value={artistForm.description} onChange={(e) => setArtistForm((f) => ({ ...f, description: e.target.value }))} placeholder="Short description" className="field-input" />
+            </Field>
+            <Field label="Display Order">
+              <input type="number" min="0" value={artistForm.display_order} onChange={(e) => setArtistForm((f) => ({ ...f, display_order: e.target.value }))} placeholder="0" className="field-input" />
+            </Field>
+            <div className="flex items-end gap-2">
+              <Button type="submit" disabled={savingArtist || !concertId}>
+                {savingArtist ? "Saving..." : editingArtist ? "Update Artist" : "Add Artist"}
               </Button>
+              {editingArtist && (
+                <Button type="button" variant="outline" onClick={() => {
+                  setEditingArtist(null);
+                  setArtistForm({ artist_name: "", performance_type: "", description: "", image_url: "", display_order: "0", is_active: true });
+                }}>
+                  Cancel
+                </Button>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={artistForm.is_active} onChange={(e) => setArtistForm((f) => ({ ...f, is_active: e.target.checked }))} />
+              Active
+            </label>
+            <Field label="Image URL" className="flex-1">
+              <input value={artistForm.image_url} onChange={(e) => setArtistForm((f) => ({ ...f, image_url: e.target.value }))} placeholder="https://example.com/artist.jpg" className="field-input" />
+            </Field>
+            {artistForm.image_url && (
+              <img src={artistForm.image_url} alt="Preview" className="h-10 w-10 rounded-lg object-cover border border-border" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
             )}
           </div>
         </form>
@@ -2175,6 +2476,7 @@ function ConcertInformationView({
           <table className="w-full min-w-[760px] text-sm">
             <thead className="bg-white/[0.04] text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
+                <th className="px-4 py-3 text-left w-10">#</th>
                 <th className="px-4 py-3 text-left">Artist</th>
                 <th className="px-4 py-3 text-left">Type</th>
                 <th className="px-4 py-3 text-left">Order</th>
@@ -2183,56 +2485,46 @@ function ConcertInformationView({
               </tr>
             </thead>
             <tbody>
-              {artists.map((artist) => (
+              {[...artists].sort((a, b) => a.display_order - b.display_order).map((artist, idx, arr) => (
                 <tr key={artist.id} className="border-t border-border/60">
+                  <td className="px-4 py-3 text-muted-foreground">{idx + 1}</td>
                   <td className="px-4 py-3 font-medium">{artist.artist_name}</td>
                   <td className="px-4 py-3">{artist.performance_type}</td>
                   <td className="px-4 py-3">{artist.display_order}</td>
-                  <td className="px-4 py-3">{artist.is_active ? "Active" : "Hidden"}</td>
                   <td className="px-4 py-3">
-                    <div className="flex justify-end gap-1.5">
-                      <IconButton
-                        label="Edit artist"
-                        icon={Pencil}
-                        onClick={() => {
-                          setEditingArtist(artist);
-                          setArtistForm({
-                            artist_name: artist.artist_name,
-                            performance_type: artist.performance_type ?? "",
-                            description: artist.description ?? "",
-                            display_order: String(artist.display_order),
-                            is_active: artist.is_active,
-                          });
-                        }}
-                      />
-                      <IconButton
-                        label="Delete artist"
-                        icon={Trash2}
-                        danger
-                        onClick={() =>
-                          setConfirmAction({
-                            title: "Delete artist?",
-                            description: "This removes the artist from the public lineup.",
-                            action: async () => {
-                              const result = await (supabase as any)
-                                .from("concert_artists")
-                                .delete()
-                                .eq("id", artist.id);
-                              if (result.error) throw result.error;
-                              await logActivity(`Deleted concert artist ${artist.artist_name}`);
-                              toast.success("Artist deleted");
-                              await onRefresh();
-                            },
-                          })
-                        }
-                      />
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${artist.is_active ? "bg-emerald-500/15 text-emerald-500" : "bg-zinc-500/15 text-zinc-400"}`}>
+                      {artist.is_active ? "Active" : "Hidden"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end gap-1">
+                      <IconButton label="Move up" icon={ChevronUp} onClick={() => moveArtist(artist, "up")} disabled={idx === 0} />
+                      <IconButton label="Move down" icon={ChevronDown} onClick={() => moveArtist(artist, "down")} disabled={idx === arr.length - 1} />
+                      <IconButton label="Toggle active" icon={artist.is_active ? EyeOff : Eye} onClick={() => toggleArtist(artist)} />
+                      <IconButton label="Edit artist" icon={Pencil} onClick={() => {
+                        setEditingArtist(artist);
+                        setArtistForm({
+                          artist_name: artist.artist_name,
+                          performance_type: artist.performance_type ?? "",
+                          description: artist.description ?? "",
+                          image_url: artist.image_url ?? "",
+                          display_order: String(artist.display_order),
+                          is_active: artist.is_active,
+                        });
+                      }} />
+                      <IconButton label="Delete artist" icon={Trash2} danger onClick={() => deleteArtist(artist)} />
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {artists.length === 0 && <EmptyState text="No artists have been added yet." />}
+          {artists.length === 0 && (
+            <div className="flex flex-col items-center gap-2 px-6 py-10 text-center text-sm text-muted-foreground">
+              <Music className="h-8 w-8 opacity-40" />
+              <p>No artists have been added yet. Add the lineup above.</p>
+            </div>
+          )}
         </div>
       </Panel>
     </div>
@@ -2509,15 +2801,41 @@ function BlogPostsView({
   );
 }
 
+const ALLOWED_MAP_DOMAINS = [
+  "google.com", "www.google.com", "maps.google.com",
+  "maps.app.goo.gl", "goo.gl", "google.co.in", "google.co.uk",
+];
+
+function isApprovedMapUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.replace(/^www\./, "");
+    return ALLOWED_MAP_DOMAINS.some((d) => hostname === d || hostname.endsWith("." + d));
+  } catch {
+    return false;
+  }
+}
+
 function normalizeMapEmbed(value: string) {
   const trimmed = value.trim();
   if (!trimmed) return "";
-  if (trimmed.includes("/embed") || trimmed.includes("output=embed")) return trimmed;
+  // Extract src from iframe HTML
+  const iframeMatch = trimmed.match(/src=["']([^"']+)["']/i);
+  const src = iframeMatch ? iframeMatch[1] : trimmed;
+  // Reject internal routes
+  if (src.startsWith("/")) return "";
+  // Reject if not a Google Maps domain
+  if (!isApprovedMapUrl(src)) return "";
+  if (src.includes("/embed") || src.includes("output=embed")) return src;
   try {
-    const url = new URL(trimmed);
-    return `https://maps.google.com/maps?q=${encodeURIComponent(url.searchParams.get("q") || trimmed)}&z=14&output=embed`;
+    const url = new URL(src);
+    const q = url.searchParams.get("q") || "";
+    if (q) return `https://maps.google.com/maps?q=${encodeURIComponent(q)}&z=14&output=embed`;
+    const coordMatch = src.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (coordMatch) return `https://maps.google.com/maps?q=${coordMatch[1]},${coordMatch[2]}&z=15&output=embed`;
+    return `https://maps.google.com/maps?q=${encodeURIComponent(src)}&z=14&output=embed`;
   } catch {
-    return `https://maps.google.com/maps?q=${encodeURIComponent(trimmed)}&z=14&output=embed`;
+    return "";
   }
 }
 
@@ -2799,7 +3117,7 @@ async function validateScannedCode(
   if (error || !data) {
     setResult({
       state: "invalid",
-      message: "Invalid Talent Fest Pass. This QR code could not be verified.",
+      message: "Invalid TelentFest Pass. This QR code could not be verified.",
     });
     return;
   }
@@ -2900,6 +3218,184 @@ function ParticipantsView({
       </div>
       {passes.length === 0 && <EmptyState text="No participant records found." />}
     </Panel>
+  );
+}
+
+function EmployeeAwardsView({
+  awards,
+  onStatusChange,
+}: {
+  awards: EmployeeAwardRecord[];
+  onStatusChange: (award: EmployeeAwardRecord, status: EmployeeAwardRecord["status"]) => Promise<void>;
+}) {
+  const [selected, setSelected] = useState<EmployeeAwardRecord | null>(null);
+  const exportAwards = () => {
+    const headers = [
+      "application_number",
+      "employee_full_name",
+      "company_name",
+      "mobile_number",
+      "employee_email",
+      "award_categories",
+      "status",
+      "submitted_at",
+    ];
+    const csv = [
+      headers.join(","),
+      ...awards.map((row) =>
+        headers
+          .map((key) => {
+            const value = row[key as keyof EmployeeAwardRecord];
+            return `"${String(Array.isArray(value) ? value.join("; ") : value ?? "").replace(/"/g, '""')}"`;
+          })
+          .join(","),
+      ),
+    ].join("\n");
+    downloadText(csv, "employee-award-registrations.csv", "text/csv;charset=utf-8");
+  };
+
+  return (
+    <>
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-soft">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="font-display text-xl font-semibold">Employee Award Registrations</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Real Employee Award Ceremony 2026 submissions. Payment details are not collected.
+            </p>
+          </div>
+          <Button variant="outline" onClick={exportAwards} disabled={awards.length === 0}>
+            <Download className="h-4 w-4" />
+            Export CSV
+          </Button>
+        </div>
+
+        <div className="mt-6 overflow-x-auto rounded-2xl border border-border">
+          <table className="min-w-[1100px] w-full text-left text-sm">
+            <thead className="bg-accent text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3">Application</th>
+                <th className="px-4 py-3">Nominee</th>
+                <th className="px-4 py-3">Company</th>
+                <th className="px-4 py-3">Contact</th>
+                <th className="px-4 py-3">Award Category</th>
+                <th className="px-4 py-3">Submitted</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {awards.map((award) => (
+                <tr key={award.id} className="border-t border-border">
+                  <td className="px-4 py-4 font-semibold text-primary">{award.application_number}</td>
+                  <td className="px-4 py-4">
+                    <div className="font-semibold">{award.employee_full_name}</div>
+                    <div className="text-xs text-muted-foreground">{award.designation}</div>
+                  </td>
+                  <td className="px-4 py-4">{award.company_name}</td>
+                  <td className="px-4 py-4">
+                    <div>{award.mobile_number}</div>
+                    <div className="text-xs text-muted-foreground">{award.employee_email}</div>
+                  </td>
+                  <td className="px-4 py-4">
+                    {[...award.award_categories, award.other_award_category].filter(Boolean).join(", ")}
+                  </td>
+                  <td className="px-4 py-4">{formatDateTime(award.submitted_at)}</td>
+                  <td className="px-4 py-4">
+                    <select
+                      value={award.status}
+                      onChange={(event) =>
+                        onStatusChange(
+                          award,
+                          event.target.value as EmployeeAwardRecord["status"],
+                        )
+                      }
+                      className="rounded-full border border-border bg-background px-3 py-2 text-xs font-semibold uppercase"
+                    >
+                      <option value="submitted">Submitted</option>
+                      <option value="reviewing">Reviewing</option>
+                      <option value="approved">Approved</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" size="sm" onClick={() => setSelected(award)}>
+                        <Eye className="h-4 w-4" />
+                        View
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => printEmployeeAward(award)}>
+                        <Printer className="h-4 w-4" />
+                        Print
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {awards.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
+                    No Employee Award registrations found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Employee Award Registration</DialogTitle>
+            <DialogDescription>
+              {selected?.application_number} - no payment details are collected for this form.
+            </DialogDescription>
+          </DialogHeader>
+          {selected && (
+            <div className="grid gap-4 text-sm sm:grid-cols-2">
+              <Detail label="Application Number" value={selected.application_number} />
+              <Detail label="Status" value={selected.status} />
+              <Detail label="Company Name" value={selected.company_name} />
+              <Detail label="Company Address" value={selected.company_address} />
+              <Detail label="HR / Coordinator" value={selected.coordinator_name} />
+              <Detail label="Company Contact" value={selected.contact_number} />
+              <Detail label="Company Email" value={selected.company_email} />
+              <Detail label="Employee Full Name" value={selected.employee_full_name} />
+              <Detail label="Designation" value={selected.designation} />
+              <Detail label="Department" value={selected.department} />
+              <Detail label="Gender" value={selected.gender} />
+              <Detail label="Mobile Number" value={selected.mobile_number} />
+              <Detail label="Email Address" value={selected.employee_email} />
+              <Detail
+                label="Award Category"
+                value={[...selected.award_categories, selected.other_award_category]
+                  .filter(Boolean)
+                  .join(", ")}
+              />
+              <Detail label="Working Since" value={selected.working_since || "Not provided"} />
+              <Detail label="Total Experience" value={selected.total_experience} />
+              <Detail label="Major Achievements" value={selected.major_achievements} wide />
+              <Detail
+                label="Event Participation"
+                value={participationLabel(selected.event_participation)}
+              />
+              <Detail
+                label="Number of Participants"
+                value={String(selected.number_of_participants)}
+              />
+              <Detail label="Employee Signature" value={selected.employee_signature_name} />
+              <Detail
+                label="Authorized Company Signature"
+                value={selected.authorized_company_signature_name}
+              />
+              <Detail label="Declaration Date" value={selected.declaration_date} />
+              <Detail label="Submitted At" value={formatDateTime(selected.submitted_at)} />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -3661,11 +4157,13 @@ function IconButton({
   icon: Icon,
   onClick,
   danger,
+  disabled,
 }: {
   label: string;
   icon: typeof Eye;
   onClick: () => void;
   danger?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
@@ -3673,13 +4171,24 @@ function IconButton({
       title={label}
       aria-label={label}
       onClick={onClick}
+      disabled={disabled}
       className={cn(
         "grid h-8 w-8 place-items-center rounded-lg border border-border/60 hover:border-primary/50 hover:bg-primary/10",
         danger && "hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-300",
+        disabled && "pointer-events-none opacity-30",
       )}
     >
       <Icon className="h-4 w-4" />
     </button>
+  );
+}
+
+function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
+  return (
+    <label className={cn("flex flex-col gap-1", className)}>
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      {children}
+    </label>
   );
 }
 
@@ -3812,6 +4321,71 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+function participationLabel(value: EmployeeAwardRecord["event_participation"]) {
+  const labels: Record<EmployeeAwardRecord["event_participation"], string> = {
+    employee_only: "Employee Only",
+    employee_family: "Employee + Family",
+    company_team: "Company Team Participation",
+  };
+  return labels[value] ?? value;
+}
+
+function Detail({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
+  return (
+    <div className={wide ? "sm:col-span-2" : ""}>
+      <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">{label}</div>
+      <div className="mt-1 whitespace-pre-wrap font-medium">{value || "Not provided"}</div>
+    </div>
+  );
+}
+
+function printEmployeeAward(award: EmployeeAwardRecord) {
+  const win = window.open("", "_blank", "noopener,noreferrer");
+  if (!win) return toast.error("Allow popups to print this registration.");
+  win.document.write(`
+    <html>
+      <head>
+        <title>${escapeHtml(award.application_number)}</title>
+        <style>
+          body{font-family:Inter,Arial,sans-serif;padding:28px;color:#111}
+          h1{margin:0 0 6px;font-size:26px}
+          .muted{color:#555;margin-bottom:22px}
+          .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+          .item{border:1px solid #ddd;border-radius:10px;padding:10px}
+          .label{font-size:11px;text-transform:uppercase;color:#666;letter-spacing:.12em}
+          .value{margin-top:4px;font-weight:600;white-space:pre-wrap}
+          .wide{grid-column:1 / -1}
+        </style>
+      </head>
+      <body>
+        <h1>Employee Award Ceremony 2026 Registration</h1>
+        <div class="muted">Application ${escapeHtml(award.application_number)} - Payment details excluded</div>
+        <div class="grid">
+          ${employeeAwardPrintItem("Company", award.company_name)}
+          ${employeeAwardPrintItem("Nominee", award.employee_full_name)}
+          ${employeeAwardPrintItem("Designation", award.designation)}
+          ${employeeAwardPrintItem("Department", award.department)}
+          ${employeeAwardPrintItem("Phone", award.mobile_number)}
+          ${employeeAwardPrintItem("Email", award.employee_email)}
+          ${employeeAwardPrintItem("Award Category", [...award.award_categories, award.other_award_category].filter(Boolean).join(", "), true)}
+          ${employeeAwardPrintItem("Major Achievements", award.major_achievements, true)}
+          ${employeeAwardPrintItem("Participation", participationLabel(award.event_participation))}
+          ${employeeAwardPrintItem("Participants", String(award.number_of_participants))}
+          ${employeeAwardPrintItem("Status", award.status)}
+          ${employeeAwardPrintItem("Submitted", formatDateTime(award.submitted_at))}
+        </div>
+      </body>
+    </html>
+  `);
+  win.document.close();
+  win.focus();
+  win.print();
+}
+
+function employeeAwardPrintItem(label: string, value: string, wide = false) {
+  return `<div class="item ${wide ? "wide" : ""}"><div class="label">${escapeHtml(label)}</div><div class="value">${escapeHtml(value || "Not provided")}</div></div>`;
+}
+
 function formatDateTime(value?: string | null) {
   if (!value) return "Not available";
   return new Intl.DateTimeFormat(undefined, {
@@ -3901,6 +4475,145 @@ function buildPrintablePass(pass: PublicEntryPass, qrDataUrl?: string) {
     <style>body{font-family:Inter,Arial,sans-serif;background:#07111f;color:#fff;padding:32px}.card{max-width:460px;margin:auto;border:1px solid #c8a96a;border-radius:24px;padding:28px;text-align:center}.qr{width:220px;height:220px;margin:18px auto;padding:14px;background:#fff;border-radius:18px}.qr img{width:100%;height:100%;display:block;image-rendering:pixelated}.entry{color:#c8a96a;font-family:monospace}.muted{color:#b6bdc8}@media(max-width:640px){.card{max-width:100%}.qr{width:170px;height:170px}}</style>
     </head><body><div class="card"><h1>Telent Fest Entry Pass</h1><h2>${escapeHtml(pass.participant_name)}</h2><p class="muted">${escapeHtml(pass.event_name)}</p><p class="entry">${escapeHtml(pass.entry_number)}</p>${qrDataUrl ? `<div class="qr"><img src="${qrDataUrl}" alt="Entry QR code" /></div>` : ""}<p>${isCheckedIn(pass) ? "Checked in" : "Not checked in"}</p></div></body></html>
   `;
+}
+
+function ContactMessagesView({
+  setConfirmAction,
+}: {
+  setConfirmAction: (value: { title: string; description: string; action: () => Promise<void> } | null) => void;
+}) {
+  const [messages, setMessages] = useState<ContactMessageRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<ContactMessageRecord | null>(null);
+
+  const loadMessages = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await fetchContactMessages();
+      setMessages(data);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadMessages(); }, [loadMessages]);
+
+  const handleStatusChange = async (id: string, status: string) => {
+    try {
+      await updateContactMessageStatus({ data: { id, status: status as "new" | "in_progress" | "resolved" } });
+      await loadMessages();
+      toast.success("Status updated");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update status.");
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    setConfirmAction({
+      title: "Delete Contact Message",
+      description: "Are you sure you want to delete this contact message?",
+      action: async () => {
+        await deleteContactMessage({ data: { id } });
+        await loadMessages();
+        if (selected?.id === id) setSelected(null);
+        toast.success("Message deleted");
+      },
+    });
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-6 shadow-soft">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-display text-xl font-semibold">Contact Messages</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Messages submitted through the Contact Us form.
+          </p>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="mt-6 grid place-items-center py-16 text-muted-foreground">Loading...</div>
+      ) : (
+        <div className="mt-6 overflow-x-auto rounded-2xl border border-border">
+          <table className="min-w-[900px] w-full text-left text-sm">
+            <thead className="bg-accent text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3">Name</th>
+                <th className="px-4 py-3">Phone</th>
+                <th className="px-4 py-3">Email</th>
+                <th className="px-4 py-3">Subject</th>
+                <th className="px-4 py-3">Submitted</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {messages.map((msg) => (
+                <tr key={msg.id} className="border-t border-border">
+                  <td className="px-4 py-4 font-semibold">{msg.full_name}</td>
+                  <td className="px-4 py-4">{msg.phone}</td>
+                  <td className="px-4 py-4 text-xs">{msg.email}</td>
+                  <td className="px-4 py-4 max-w-[160px] truncate">{msg.subject}</td>
+                  <td className="px-4 py-4 text-xs">{formatDateTime(msg.submitted_at)}</td>
+                  <td className="px-4 py-4">
+                    <select
+                      value={msg.status}
+                      onChange={(e) => handleStatusChange(msg.id, e.target.value)}
+                      className="rounded-full border border-border bg-background px-3 py-2 text-xs font-semibold uppercase"
+                    >
+                      <option value="new">New</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="resolved">Resolved</option>
+                    </select>
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" size="sm" onClick={() => setSelected(msg)}>
+                        <Eye className="h-4 w-4" />
+                        View
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => handleDelete(msg.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {messages.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
+                    No contact messages yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* View Dialog */}
+      {selected && (
+        <Dialog open={!!selected} onOpenChange={(open) => { if (!open) setSelected(null); }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Message from {selected.full_name}</DialogTitle>
+              <DialogDescription>Submitted on {formatDateTime(selected.submitted_at)}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 text-sm">
+              <div><span className="font-semibold">Phone:</span> {selected.phone}</div>
+              <div><span className="font-semibold">Email:</span> {selected.email}</div>
+              <div><span className="font-semibold">Subject:</span> {selected.subject}</div>
+              <div><span className="font-semibold">Status:</span> <span className="uppercase text-xs font-semibold">{selected.status}</span></div>
+              <div className="pt-2 border-t border-border">
+                <p className="whitespace-pre-wrap leading-relaxed">{selected.message}</p>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
+  );
 }
 
 function escapeHtml(value: unknown) {

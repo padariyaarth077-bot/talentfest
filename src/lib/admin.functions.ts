@@ -220,7 +220,16 @@ export const fetchAdminData = createServerFn({ method: "GET" })
       .map(normalizeLegacyPass)
       .filter((pass) => !modernNumbers.has(pass.entry_number));
 
-    const [activities, events, galleryCities, galleryMedia, concertSettingsRows, concertArtists, blogPosts] =
+    const [
+      activities,
+      events,
+      galleryCities,
+      galleryMedia,
+      concertSettingsRows,
+      concertArtists,
+      blogPosts,
+      employeeAwards,
+    ] =
       await Promise.all([
         safeList<any>(
           (supabaseAdmin as any)
@@ -269,6 +278,12 @@ export const fetchAdminData = createServerFn({ method: "GET" })
             .order("display_order", { ascending: true })
             .order("published_at", { ascending: false }),
         ),
+        safeList<any>(
+          (supabaseAdmin as any)
+            .from("employee_award_registrations")
+            .select("*")
+            .order("created_at", { ascending: false }),
+        ),
       ]);
 
     return {
@@ -280,6 +295,7 @@ export const fetchAdminData = createServerFn({ method: "GET" })
       concertSettings: concertSettingsRows[0] ?? null,
       concertArtists,
       blogPosts,
+      employeeAwards,
     };
   });
 
@@ -440,4 +456,210 @@ export const checkInAdminPass = createServerFn({ method: "POST" })
       .eq("id", data.passId);
     if (error) throw error;
     return { ok: true };
+  });
+
+// ─── Concert Settings CRUD ──────────────────────────────────
+
+const concertSettingsSchema = z.object({
+  id: z.string().uuid().optional(),
+  eyebrow: z.string().optional().default(""),
+  title: z.string().optional().default(""),
+  subtitle: z.string().optional().default(""),
+  event_label: z.string().optional().default(""),
+  event_title: z.string().optional().default(""),
+  venue: z.string().optional().default(""),
+  city: z.string().optional().default(""),
+  event_date: z.string().optional().default(""),
+  start_time: z.string().optional().default(""),
+  end_time: z.string().optional().default(""),
+  price_text: z.string().optional().default(""),
+  button_text: z.string().optional().default(""),
+  button_url: z.string().optional().default(""),
+  map_url: z.string().optional().default(""),
+  map_embed_url: z.string().optional().default(""),
+  latitude: z.number().nullable().optional().default(null),
+  longitude: z.number().nullable().optional().default(null),
+  is_published: z.boolean().optional().default(true),
+});
+
+export const saveConcertSettings = createServerFn({ method: "POST" })
+  .validator((data: unknown) => concertSettingsSchema.parse(data))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const db = supabaseAdmin as any;
+    const now = new Date().toISOString();
+
+    if (data.id) {
+      const { error } = await db
+        .from("concert_settings")
+        .update({ ...data, updated_at: now })
+        .eq("id", data.id);
+      if (error) throw new Error(error.message);
+    } else {
+      const { data: inserted, error } = await db
+        .from("concert_settings")
+        .insert({ ...data, updated_at: now, created_at: now })
+        .select("id")
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      data.id = inserted?.id;
+    }
+    return { success: true, id: data.id };
+  });
+
+const concertArtistSchema = z.object({
+  id: z.string().uuid().optional(),
+  concert_info_id: z.string().uuid(),
+  artist_name: z.string().min(1, "Artist name is required"),
+  performance_type: z.string().optional().default(""),
+  description: z.string().optional().default(""),
+  image_url: z.string().optional().default(""),
+  display_order: z.number().int().min(0).default(0),
+  is_active: z.boolean().optional().default(true),
+});
+
+export const saveConcertArtist = createServerFn({ method: "POST" })
+  .validator((data: unknown) => concertArtistSchema.parse(data))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const db = supabaseAdmin as any;
+    const now = new Date().toISOString();
+
+    if (data.id) {
+      const { error } = await db
+        .from("concert_artists")
+        .update({
+          artist_name: data.artist_name,
+          performance_type: data.performance_type,
+          description: data.description,
+          image_url: data.image_url,
+          display_order: data.display_order,
+          is_active: data.is_active,
+          updated_at: now,
+        })
+        .eq("id", data.id);
+      if (error) throw new Error(error.message);
+    } else {
+      const { error } = await db
+        .from("concert_artists")
+        .insert({
+          concert_info_id: data.concert_info_id,
+          artist_name: data.artist_name,
+          performance_type: data.performance_type,
+          description: data.description,
+          image_url: data.image_url,
+          display_order: data.display_order,
+          is_active: data.is_active,
+          created_at: now,
+          updated_at: now,
+        });
+      if (error) throw new Error(error.message);
+    }
+    return { success: true };
+  });
+
+export const deleteConcertArtist = createServerFn({ method: "POST" })
+  .validator((data: unknown) => z.object({ id: z.string().uuid() }).parse(data))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const db = supabaseAdmin as any;
+    const { error } = await db.from("concert_artists").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { success: true };
+  });
+
+export const reorderConcertArtist = createServerFn({ method: "POST" })
+  .validator((data: unknown) =>
+    z.object({ id: z.string().uuid(), display_order: z.number().int().min(0) }).parse(data),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const db = supabaseAdmin as any;
+    const { error } = await db
+      .from("concert_artists")
+      .update({ display_order: data.display_order, updated_at: new Date().toISOString() })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { success: true };
+  });
+
+export const toggleConcertArtistStatus = createServerFn({ method: "POST" })
+  .validator((data: unknown) => z.object({ id: z.string().uuid(), is_active: z.boolean() }).parse(data))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const db = supabaseAdmin as any;
+    const { error } = await db
+      .from("concert_artists")
+      .update({ is_active: data.is_active, updated_at: new Date().toISOString() })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { success: true };
+  });
+
+// ─── Google Maps URL Resolver ────────────────────────────────
+
+const GOOGLE_DOMAINS = ["maps.app.goo.gl", "goo.gl", "google.com", "www.google.com", "maps.google.com"];
+
+export const resolveGoogleMapsUrl = createServerFn({ method: "GET" })
+  .validator((data: unknown) => z.object({ url: z.string().min(1) }).parse(data))
+  .handler(async ({ data }) => {
+    let url = data.url.trim();
+
+    // Extract src from iframe HTML
+    const iframeMatch = url.match(/src=["']([^"']+)["']/i);
+    if (iframeMatch) url = iframeMatch[1];
+
+    try {
+      const parsed = new URL(url);
+      const hostname = parsed.hostname.replace(/^www\./, "");
+      if (!GOOGLE_DOMAINS.some((d) => hostname === d || hostname.endsWith("." + d))) {
+        return { resolved: false, error: "Only Google Maps URLs are supported." };
+      }
+    } catch {
+      return { resolved: false, error: "Invalid URL format." };
+    }
+
+    // Follow redirect for short links
+    let finalUrl = url;
+    if (url.includes("goo.gl") || url.includes("maps.app.goo.gl")) {
+      try {
+        const resp = await fetch(url, { method: "HEAD", redirect: "follow" });
+        finalUrl = resp.url || url;
+      } catch {
+        // ignore redirect failure, use original url
+      }
+    }
+
+    // Extract coordinates from @lat,lng pattern
+    let lat: number | null = null;
+    let lng: number | null = null;
+    const coordMatch = finalUrl.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (coordMatch) {
+      lat = parseFloat(coordMatch[1]);
+      lng = parseFloat(coordMatch[2]);
+    }
+
+    // Extract query param
+    let query = "";
+    try {
+      const finalParsed = new URL(finalUrl);
+      query = finalParsed.searchParams.get("q") || finalParsed.searchParams.get("query") || "";
+    } catch {
+      // ignore
+    }
+
+    const embedUrl = lat != null && lng != null
+      ? `https://www.google.com/maps?q=${lat},${lng}&z=15&output=embed`
+      : query
+        ? `https://www.google.com/maps?q=${encodeURIComponent(query)}&z=14&output=embed`
+        : `https://www.google.com/maps?q=${encodeURIComponent(finalUrl)}&z=14&output=embed`;
+
+    return {
+      resolved: true,
+      map_url: finalUrl,
+      map_embed_url: embedUrl,
+      latitude: lat,
+      longitude: lng,
+      query: query || null,
+    };
   });

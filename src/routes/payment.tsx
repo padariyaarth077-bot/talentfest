@@ -106,7 +106,7 @@ function PaymentPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background pt-24 pb-16">
+    <div className="min-h-screen bg-background pt-8 pb-16">
       <div className="mx-auto max-w-lg px-6 sm:px-8">
         <div className="mb-8 text-center">
           <h1 className="font-display text-4xl font-semibold tracking-tight sm:text-5xl">
