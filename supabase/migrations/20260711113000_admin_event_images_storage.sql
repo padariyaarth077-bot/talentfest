@@ -39,7 +39,15 @@ begin
     on storage.objects
     for insert
     to authenticated
-    with check (bucket_id = 'event-images' and public.has_role(auth.uid(), 'admin'::public.app_role));
+    with check (
+      bucket_id = 'event-images'
+      and exists (
+        select 1
+        from public.user_roles
+        where user_id = auth.uid()
+          and role::text = 'admin'
+      )
+    );
   end if;
 
   if not exists (
@@ -52,8 +60,24 @@ begin
     on storage.objects
     for update
     to authenticated
-    using (bucket_id = 'event-images' and public.has_role(auth.uid(), 'admin'::public.app_role))
-    with check (bucket_id = 'event-images' and public.has_role(auth.uid(), 'admin'::public.app_role));
+    using (
+      bucket_id = 'event-images'
+      and exists (
+        select 1
+        from public.user_roles
+        where user_id = auth.uid()
+          and role::text = 'admin'
+      )
+    )
+    with check (
+      bucket_id = 'event-images'
+      and exists (
+        select 1
+        from public.user_roles
+        where user_id = auth.uid()
+          and role::text = 'admin'
+      )
+    );
   end if;
 
   if not exists (
@@ -66,6 +90,14 @@ begin
     on storage.objects
     for delete
     to authenticated
-    using (bucket_id = 'event-images' and public.has_role(auth.uid(), 'admin'::public.app_role));
+    using (
+      bucket_id = 'event-images'
+      and exists (
+        select 1
+        from public.user_roles
+        where user_id = auth.uid()
+          and role::text = 'admin'
+      )
+    );
   end if;
 end $$;
