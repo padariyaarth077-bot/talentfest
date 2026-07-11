@@ -13,9 +13,17 @@ import { useLang } from "@/lib/i18n";
 export function Footer() {
   const { t } = useLang();
 
+  const address =
+    "Ward No. 1, Raiya Rd, Opp. Alap Green City, Rameshvar Park, Indian Park, Rajkot, Gujarat 360005";
+
+  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    address,
+  )}`;
+
   return (
     <footer className="mt-24 border-t border-border bg-gradient-to-b from-transparent to-accent/40">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-4 lg:px-8">
+        {/* Brand Information */}
         <div>
           <Link to="/" className="mb-4 flex items-center gap-2">
             <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-xl border border-primary/45 bg-primary/10 shadow-soft">
@@ -38,10 +46,11 @@ export function Footer() {
           </p>
 
           <div className="mt-4 flex gap-2">
-            {[Instagram, Facebook, Youtube, Linkedin].map((Icon, i) => (
+            {[Instagram, Facebook, Youtube, Linkedin].map((Icon, index) => (
               <a
-                key={i}
+                key={index}
                 href="#"
+                aria-label={`Social media link ${index + 1}`}
                 className="grid h-9 w-9 place-items-center rounded-lg border border-border transition hover:bg-accent"
               >
                 <Icon className="h-4 w-4" />
@@ -50,6 +59,7 @@ export function Footer() {
           </div>
         </div>
 
+        {/* Quick Links */}
         <div>
           <h4 className="mb-3 text-sm font-semibold">
             {t("footer.quickLinks")}
@@ -57,108 +67,119 @@ export function Footer() {
 
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li>
-              <a href="/#about" className="hover:text-foreground">
+              <a href="/#about" className="transition hover:text-foreground">
                 {t("nav.about")}
               </a>
             </li>
 
             <li>
-              <a href="/#services" className="hover:text-foreground">
+              <a href="/#services" className="transition hover:text-foreground">
                 {t("nav.services")}
               </a>
             </li>
 
             <li>
-              <Link to="/entry-pass" className="hover:text-foreground">
+              <Link
+                to="/entry-pass"
+                className="transition hover:text-foreground"
+              >
                 {t("nav.registration")}
               </Link>
             </li>
 
             <li>
-              <Link to="/gallery" className="hover:text-foreground">
+              <Link
+                to="/gallery"
+                className="transition hover:text-foreground"
+              >
                 {t("nav.gallery")}
               </Link>
             </li>
 
             <li>
-              <Link to="/entry-pass" className="hover:text-foreground">
+              <Link
+                to="/entry-pass"
+                className="transition hover:text-foreground"
+              >
                 {t("nav.entryPass")}
               </Link>
             </li>
           </ul>
         </div>
 
+        {/* Legal Links */}
         <div>
-          <h4 className="mb-3 text-sm font-semibold">
-            {t("footer.legal")}
-          </h4>
+          <h4 className="mb-3 text-sm font-semibold">{t("footer.legal")}</h4>
 
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li>
-              <a href="#" className="hover:text-foreground">
+              <a href="#" className="transition hover:text-foreground">
                 {t("footer.privacy")}
               </a>
             </li>
 
             <li>
-              <a href="#" className="hover:text-foreground">
+              <a href="#" className="transition hover:text-foreground">
                 {t("footer.terms")}
               </a>
             </li>
 
             <li>
-              <a href="/#sponsor" className="hover:text-foreground">
+              <a href="/#sponsor" className="transition hover:text-foreground">
                 {t("nav.sponsorship")}
               </a>
             </li>
 
             <li>
-              <a href="/#blog" className="hover:text-foreground">
+              <a href="/#blog" className="transition hover:text-foreground">
                 {t("nav.blog")}
               </a>
             </li>
           </ul>
         </div>
 
+        {/* Contact Information */}
         <div>
-          <h4 className="mb-3 text-sm font-semibold">
-            {t("footer.contact")}
-          </h4>
+          <h4 className="mb-3 text-sm font-semibold">{t("footer.contact")}</h4>
 
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            <li className="flex gap-2">
-              <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
-              {t("footer.location")}
+          <ul className="space-y-3 text-sm text-muted-foreground">
+            <li>
+              <a
+                href={googleMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-start gap-2 transition hover:text-foreground"
+              >
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
+
+                <span className="leading-relaxed">{address}</span>
+              </a>
             </li>
 
-            <li className="flex gap-2">
-              <Phone className="mt-0.5 h-4 w-4 shrink-0" />
-              +91 98000 00000
+            <li>
+              <a
+                href="tel:+918401960422"
+                className="flex items-center gap-2 transition hover:text-foreground"
+              >
+                <Phone className="h-4 w-4 shrink-0" />
+                <span>+91 84019 60422</span>
+              </a>
             </li>
 
-            <li className="flex gap-2">
-              <Mail className="mt-0.5 h-4 w-4 shrink-0" />
-              hello@TELENTFEST.in
+            <li>
+              <a
+                href="mailto:telentfestseminar@gmail.com"
+                className="flex items-center gap-2 break-all transition hover:text-foreground"
+              >
+                <Mail className="h-4 w-4 shrink-0" />
+                <span>telentfestseminar@gmail.com</span>
+              </a>
             </li>
           </ul>
-
-          <form
-            className="mt-4 flex gap-2"
-            onSubmit={(e) => e.preventDefault()}
-          >
-            <input
-              type="email"
-              placeholder={t("footer.newsletter")}
-              className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-
-            <button className="gradient-primary rounded-lg px-3 py-2 text-sm font-medium text-primary-foreground">
-              {t("footer.join")}
-            </button>
-          </form>
         </div>
       </div>
 
+      {/* Footer Bottom */}
       <div className="border-t border-border">
         <div className="mx-auto flex max-w-7xl flex-wrap justify-between gap-2 px-4 py-5 text-xs text-muted-foreground sm:px-6 lg:px-8">
           <p>

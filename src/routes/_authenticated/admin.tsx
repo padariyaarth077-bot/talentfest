@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
@@ -7,6 +8,7 @@ import {
   CalendarDays,
   CheckCircle2,
   ClipboardList,
+  CreditCard,
   Download,
   Eye,
   FileText,
@@ -30,6 +32,7 @@ import {
   Settings,
   Shield,
   ShieldAlert,
+  Ticket,
   Trash2,
   Undo2,
   UserRound,
@@ -51,8 +54,30 @@ import { generatePassPdf, renderPassToCanvas } from "@/lib/pdf-generator";
 import { cn } from "@/lib/utils";
 import { getSupabaseConfigError, supabase } from "@/integrations/supabase/client";
 
-type AdminView = "dashboard" | "passes" | "scanner" | "participants" | "reports" | "gallery" | "events" | "concert" | "blog" | "settings";
-type PassFilter = "all" | "today" | "checked_in" | "not_checked_in" | "active" | "revoked" | "participant" | "guest" | "visitor" | "paid" | "payment_pending";
+type AdminView =
+  | "dashboard"
+  | "passes"
+  | "scanner"
+  | "participants"
+  | "reports"
+  | "gallery"
+  | "events"
+  | "concert"
+  | "blog"
+  | "settings";
+type PassFilter =
+  | "all"
+  | "today"
+  | "checked_in"
+  | "not_checked_in"
+  | "active"
+  | "revoked"
+  | "participant"
+  | "guest"
+  | "visitor"
+  | "paid"
+  | "test_paid"
+  | "payment_pending";
 type ScannerState = "idle" | "valid" | "checked_in" | "invalid" | "revoked" | "error";
 
 type PublicEntryPass = {
@@ -72,6 +97,17 @@ type PublicEntryPass = {
   pass_type?: string | null;
   registration_number?: string | null;
   payment_status?: string | null;
+  payment_mode?: string | null;
+  payment_provider?: string | null;
+  transaction_id?: string | null;
+  order_id?: string | null;
+  registration_status?: string | null;
+  event_city?: string | null;
+  event_date?: string | null;
+  event_time?: string | null;
+  venue?: string | null;
+  linked_participant_name?: string | null;
+  aadhaar_last_four?: string | null;
   activity_category?: string | null;
 };
 
@@ -203,6 +239,7 @@ const filterLabels: Record<PassFilter, string> = {
   guest: "Guests",
   visitor: "Visitors",
   paid: "Paid",
+  test_paid: "Test paid",
   payment_pending: "Payment pending",
 };
 
@@ -221,6 +258,7 @@ function AdminPanel() {
   const [refreshing, setRefreshing] = useState(false);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [adminEmail, setAdminEmail] = useState("");
+  const [adminUserId, setAdminUserId] = useState("");
   const [passes, setPasses] = useState<PublicEntryPass[]>([]);
   const [activities, setActivities] = useState<AdminActivity[]>([]);
   const [galleryCities, setGalleryCities] = useState<GalleryCity[]>([]);
@@ -269,6 +307,7 @@ function AdminPanel() {
       }
 
       setAdminEmail(userData.user.email ?? "");
+      setAdminUserId(userData.user.id);
       const { data: roleData, error: roleError } = await supabase
         .from("user_roles")
         .select("role")
@@ -283,13 +322,18 @@ function AdminPanel() {
       }
 
       setIsAdmin(true);
-      const eventsResult = await supabase.from("events").select("*").order("name", { ascending: true });
+      const eventsResult = await supabase
+        .from("events")
+        .select("*")
+        .order("name", { ascending: true });
       if (!eventsResult.error) setEventsList(eventsResult.data ?? []);
 
       // Also load from new passes table
       const { data: newPassesData } = await supabase
         .from("passes")
-        .select("id, pass_number, pass_type, status, checked_in, checked_in_at, registration_id, guest_id, secure_qr_token, created_at")
+        .select(
+          "id, pass_number, pass_type, status, checked_in, checked_in_at, registration_id, guest_id, secure_qr_token, created_at",
+        )
         .order("created_at", { ascending: false });
 
       const newPasses: PublicEntryPass[] = [];
@@ -297,18 +341,31 @@ function AdminPanel() {
         for (const np of newPassesData as any[]) {
           const { data: reg } = await supabase
             .from("registrations")
-            .select("full_name, email, phone, event_id, registration_number, payment_status, activity_category_id, registration_type")
+            .select(
+              "full_name, email, phone, event_id, registration_number, payment_status, registration_status, activity_category_id, registration_type, aadhaar_last_four",
+            )
             .eq("id", np.registration_id)
             .single();
           let eventName = "";
+          let eventCity = "";
+          let eventDate = "";
+          let eventTime = "";
+          let venue = "";
           let activityCategory = "";
+          let payment: any = null;
           if (reg) {
             const { data: ev } = await supabase
               .from("events")
-              .select("name")
+              .select("name, city, event_date, start_time, venue")
               .eq("id", (reg as any).event_id)
               .single();
-            if (ev) eventName = (ev as any).name;
+            if (ev) {
+              eventName = (ev as any).name || "";
+              eventCity = (ev as any).city || "";
+              eventDate = (ev as any).event_date || "";
+              eventTime = (ev as any).start_time || "";
+              venue = (ev as any).venue || "";
+            }
             if ((reg as any).activity_category_id) {
               const { data: cat } = await supabase
                 .from("activity_categories")
@@ -317,11 +374,34 @@ function AdminPanel() {
                 .single();
               activityCategory = (cat as any)?.name || "";
             }
+            const paymentWithMode = await (supabase as any)
+              .from("payments")
+              .select("provider, payment_mode, status, transaction_id, order_id")
+              .eq("registration_id", np.registration_id)
+              .order("created_at", { ascending: false })
+              .limit(1);
+            if (!paymentWithMode.error) {
+              payment = paymentWithMode.data?.[0] ?? null;
+            } else {
+              const paymentFallback = await (supabase as any)
+                .from("payments")
+                .select("provider, status, transaction_id, order_id")
+                .eq("registration_id", np.registration_id)
+                .order("created_at", { ascending: false })
+                .limit(1);
+              payment = paymentFallback.data?.[0] ?? null;
+            }
           }
           let passName = (reg as any)?.full_name || "Unknown";
+          let linkedParticipantName: string | null = null;
           if (np.guest_id) {
-            const { data: guest } = await supabase.from("guests").select("full_name").eq("id", np.guest_id).single();
+            const { data: guest } = await supabase
+              .from("guests")
+              .select("full_name")
+              .eq("id", np.guest_id)
+              .single();
             passName = (guest as any)?.full_name || passName;
+            linkedParticipantName = (reg as any)?.full_name || null;
           }
           newPasses.push({
             id: np.id,
@@ -335,10 +415,25 @@ function AdminPanel() {
             status: np.status,
             email: (reg as any)?.email || null,
             phone: (reg as any)?.phone || null,
-            qr_value: JSON.stringify({ id: np.id, entryNumber: np.pass_number, token: np.secure_qr_token }),
+            qr_value: JSON.stringify({
+              id: np.id,
+              entryNumber: np.pass_number,
+              token: np.secure_qr_token,
+            }),
             pass_type: np.pass_type,
             registration_number: (reg as any)?.registration_number || null,
-            payment_status: (reg as any)?.payment_status || null,
+            payment_status: payment?.status || (reg as any)?.payment_status || null,
+            payment_mode: payment?.payment_mode || (payment?.provider === "dummy" ? "test" : null),
+            payment_provider: payment?.provider || null,
+            transaction_id: payment?.transaction_id || null,
+            order_id: payment?.order_id || null,
+            registration_status: (reg as any)?.registration_status || null,
+            event_city: eventCity || null,
+            event_date: eventDate || null,
+            event_time: eventTime || null,
+            venue: venue || null,
+            linked_participant_name: linkedParticipantName,
+            aadhaar_last_four: (reg as any)?.aadhaar_last_four || null,
             activity_category: activityCategory || null,
           });
         }
@@ -363,13 +458,17 @@ function AdminPanel() {
           .order("name", { ascending: true }),
         supabase
           .from("gallery_media")
-          .select("id, city_id, title, media_type, category, media_url, thumbnail_url, description, display_order, is_active, created_at, updated_at")
+          .select(
+            "id, city_id, title, media_type, category, media_url, thumbnail_url, description, display_order, is_active, created_at, updated_at",
+          )
           .order("display_order", { ascending: true })
           .order("created_at", { ascending: false }),
       ]);
 
       if (passesResult.error) throw passesResult.error;
-      const oldPasses = ((passesResult.data ?? []) as unknown as PublicEntryPass[]).map(normalizePass);
+      const oldPasses = ((passesResult.data ?? []) as unknown as PublicEntryPass[]).map(
+        normalizePass,
+      );
       // Merge new passes, avoiding duplicates by ID
       const merged = [...oldPasses];
       const existingIds = new Set(merged.map((p) => p.id));
@@ -383,7 +482,11 @@ function AdminPanel() {
       if (citiesResult.error || mediaResult.error) {
         setGalleryCities([]);
         setGalleryMedia([]);
-        setGalleryDataError(citiesResult.error?.message ?? mediaResult.error?.message ?? "Gallery tables are not ready yet.");
+        setGalleryDataError(
+          citiesResult.error?.message ??
+            mediaResult.error?.message ??
+            "Gallery tables are not ready yet.",
+        );
       } else {
         setGalleryDataError("");
         setGalleryCities((citiesResult.data ?? []) as unknown as GalleryCity[]);
@@ -392,15 +495,32 @@ function AdminPanel() {
 
       const db = supabase as any;
       const [concertSettingsResult, concertArtistsResult, blogPostsResult] = await Promise.all([
-        db.from("concert_settings").select("*").order("updated_at", { ascending: false }).limit(1).maybeSingle(),
-        db.from("concert_artists").select("*").order("display_order", { ascending: true }).order("artist_name", { ascending: true }),
-        db.from("blog_posts").select("*").order("display_order", { ascending: true }).order("published_at", { ascending: false }),
+        db
+          .from("concert_settings")
+          .select("*")
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        db
+          .from("concert_artists")
+          .select("*")
+          .order("display_order", { ascending: true })
+          .order("artist_name", { ascending: true }),
+        db
+          .from("blog_posts")
+          .select("*")
+          .order("display_order", { ascending: true })
+          .order("published_at", { ascending: false }),
       ]);
 
       if (concertSettingsResult.error || concertArtistsResult.error) {
         setConcertSettings(null);
         setConcertArtists([]);
-        setConcertDataError(concertSettingsResult.error?.message ?? concertArtistsResult.error?.message ?? "Concert tables are not ready yet.");
+        setConcertDataError(
+          concertSettingsResult.error?.message ??
+            concertArtistsResult.error?.message ??
+            "Concert tables are not ready yet.",
+        );
       } else {
         setConcertDataError("");
         setConcertSettings(concertSettingsResult.data ?? null);
@@ -429,7 +549,9 @@ function AdminPanel() {
 
   const today = new Date().toDateString();
   const stats = useMemo(() => {
-    const generatedToday = passes.filter((p) => new Date(p.created_at).toDateString() === today).length;
+    const generatedToday = passes.filter(
+      (p) => new Date(p.created_at).toDateString() === today,
+    ).length;
     const checkedIn = passes.filter((p) => isCheckedIn(p)).length;
     const revoked = passes.filter((p) => isRevoked(p)).length;
     return {
@@ -438,6 +560,14 @@ function AdminPanel() {
       checkedIn,
       pending: passes.length - checkedIn - revoked,
       revoked,
+      participant: passes.filter((p) => p.pass_type === "participant").length,
+      visitor: passes.filter((p) => p.pass_type === "visitor").length,
+      guest: passes.filter((p) => p.pass_type === "guest_1" || p.pass_type === "guest_2").length,
+      testPaid: passes.filter(
+        (p) =>
+          p.payment_status === "paid" &&
+          (p.payment_mode === "test" || p.payment_provider === "dummy"),
+      ).length,
     };
   }, [passes, today]);
 
@@ -449,9 +579,13 @@ function AdminPanel() {
         [
           pass.participant_name,
           pass.entry_number,
+          pass.registration_number ?? "",
+          pass.transaction_id ?? "",
+          pass.order_id ?? "",
           pass.email ?? "",
           pass.phone ?? "",
           pass.event_name,
+          pass.event_city ?? "",
         ]
           .join(" ")
           .toLowerCase()
@@ -467,7 +601,13 @@ function AdminPanel() {
       if (filter === "guest") return pass.pass_type === "guest_1" || pass.pass_type === "guest_2";
       if (filter === "visitor") return pass.pass_type === "visitor";
       if (filter === "paid") return pass.payment_status === "paid";
-      if (filter === "payment_pending") return pass.payment_status === "pending" || !pass.payment_status;
+      if (filter === "test_paid")
+        return (
+          pass.payment_status === "paid" &&
+          (pass.payment_mode === "test" || pass.payment_provider === "dummy")
+        );
+      if (filter === "payment_pending")
+        return pass.payment_status === "pending" || !pass.payment_status;
       return true;
     });
   }, [filter, passes, query, today]);
@@ -489,7 +629,11 @@ function AdminPanel() {
     } as never);
   };
 
-  const updatePass = async (pass: PublicEntryPass, patch: Record<string, unknown>, action: string) => {
+  const updatePass = async (
+    pass: PublicEntryPass,
+    patch: Record<string, unknown>,
+    action: string,
+  ) => {
     const { error } = await supabase
       .from("public_entry_passes")
       .update({ ...patch, updated_at: new Date().toISOString() } as never)
@@ -511,12 +655,32 @@ function AdminPanel() {
       return;
     }
     // Try new passes table first
-    const { data: checkNew } = await supabase.from("passes").select("id").eq("id", pass.id).maybeSingle();
+    const { data: checkNew } = await supabase
+      .from("passes")
+      .select("id")
+      .eq("id", pass.id)
+      .maybeSingle();
     if (checkNew) {
-      await supabase.from("passes").update({ checked_in: true, checked_in_at: new Date().toISOString(), status: "checked_in", updated_at: new Date().toISOString() } as never).eq("id", pass.id);
+      if (pass.payment_status !== "paid") {
+        toast.error("Payment is not paid. This pass cannot be checked in.");
+        return;
+      }
+      await supabase
+        .from("passes")
+        .update({
+          checked_in: true,
+          checked_in_at: new Date().toISOString(),
+          status: "checked_in",
+          updated_at: new Date().toISOString(),
+        } as never)
+        .eq("id", pass.id);
       await supabase.from("check_in_logs").insert({
-        pass_id: pass.id, admin_user_id: adminEmail, previous_status: pass.pass_status || "active",
-        new_status: "checked_in", action: "Checked in", checked_in_at: new Date().toISOString(),
+        pass_id: pass.id,
+        admin_user_id: adminUserId || null,
+        previous_status: pass.pass_status || "active",
+        new_status: "checked_in",
+        action: "Checked in",
+        checked_in_at: new Date().toISOString(),
       } as never);
       toast.success("Marked participant as checked in");
       await logActivity("Marked participant as checked in", pass);
@@ -531,25 +695,56 @@ function AdminPanel() {
   };
 
   const undoCheckIn = async (pass: PublicEntryPass) => {
-    const { data: checkNew } = await supabase.from("passes").select("id").eq("id", pass.id).maybeSingle();
+    const { data: checkNew } = await supabase
+      .from("passes")
+      .select("id")
+      .eq("id", pass.id)
+      .maybeSingle();
     if (checkNew) {
-      await supabase.from("passes").update({ checked_in: false, checked_in_at: null, status: "active", updated_at: new Date().toISOString() } as never).eq("id", pass.id);
+      await supabase
+        .from("passes")
+        .update({
+          checked_in: false,
+          checked_in_at: null,
+          status: "active",
+          updated_at: new Date().toISOString(),
+        } as never)
+        .eq("id", pass.id);
       await supabase.from("check_in_logs").insert({
-        pass_id: pass.id, admin_user_id: adminEmail, previous_status: "checked_in",
-        new_status: "active", action: "Undid check-in", checked_in_at: new Date().toISOString(),
+        pass_id: pass.id,
+        admin_user_id: adminUserId || null,
+        previous_status: "checked_in",
+        new_status: "active",
+        action: "Undid check-in",
+        checked_in_at: new Date().toISOString(),
       } as never);
       toast.success("Undid check-in");
       await logActivity("Undid check-in", pass);
       await loadAdminData(true);
       return;
     }
-    await updatePass(pass, { checked_in: false, checked_in_at: null, status: "generated" }, "Undid check-in");
+    await updatePass(
+      pass,
+      { checked_in: false, checked_in_at: null, status: "generated" },
+      "Undid check-in",
+    );
   };
 
   const revokePass = async (pass: PublicEntryPass) => {
-    const { data: checkNew } = await supabase.from("passes").select("id").eq("id", pass.id).maybeSingle();
+    const { data: checkNew } = await supabase
+      .from("passes")
+      .select("id")
+      .eq("id", pass.id)
+      .maybeSingle();
     if (checkNew) {
-      await supabase.from("passes").update({ status: "revoked", revoked_at: new Date().toISOString(), updated_at: new Date().toISOString() } as never).eq("id", pass.id);
+      await supabase
+        .from("passes")
+        .update({
+          status: "revoked",
+          revoked_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as never)
+        .eq("id", pass.id);
       toast.success("Revoked pass");
       await logActivity("Revoked pass", pass);
       await loadAdminData(true);
@@ -559,19 +754,38 @@ function AdminPanel() {
   };
 
   const restorePass = async (pass: PublicEntryPass) => {
-    const { data: checkNew } = await supabase.from("passes").select("id").eq("id", pass.id).maybeSingle();
+    const { data: checkNew } = await supabase
+      .from("passes")
+      .select("id")
+      .eq("id", pass.id)
+      .maybeSingle();
     if (checkNew) {
-      await supabase.from("passes").update({ status: "active", revoked_at: null, updated_at: new Date().toISOString() } as never).eq("id", pass.id);
+      await supabase
+        .from("passes")
+        .update({
+          status: "active",
+          revoked_at: null,
+          updated_at: new Date().toISOString(),
+        } as never)
+        .eq("id", pass.id);
       toast.success("Restored pass");
       await logActivity("Restored pass", pass);
       await loadAdminData(true);
       return;
     }
-    await updatePass(pass, { pass_status: "active", status: isCheckedIn(pass) ? "checked_in" : "generated" }, "Restored pass");
+    await updatePass(
+      pass,
+      { pass_status: "active", status: isCheckedIn(pass) ? "checked_in" : "generated" },
+      "Restored pass",
+    );
   };
 
   const deletePass = async (pass: PublicEntryPass) => {
-    const { data: checkNew } = await supabase.from("passes").select("id").eq("id", pass.id).maybeSingle();
+    const { data: checkNew } = await supabase
+      .from("passes")
+      .select("id")
+      .eq("id", pass.id)
+      .maybeSingle();
     const { error } = checkNew
       ? await supabase.from("passes").delete().eq("id", pass.id)
       : await supabase.from("public_entry_passes").delete().eq("id", pass.id);
@@ -642,12 +856,21 @@ function AdminPanel() {
     window.location.href = "/admin/login";
   };
 
-  if (loading) return <AdminShell activeView={activeView} onView={setActiveView} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onLogout={logout}><AdminSkeleton /></AdminShell>;
+  if (loading)
+    return (
+      <AdminShell
+        activeView={activeView}
+        onView={setActiveView}
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+        onLogout={logout}
+      >
+        <AdminSkeleton />
+      </AdminShell>
+    );
 
   if (!isAdmin) {
-    return (
-      <AdminAccessDenied onLogout={logout} />
-    );
+    return <AdminAccessDenied onLogout={logout} />;
   }
 
   return (
@@ -663,7 +886,9 @@ function AdminPanel() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.28em] text-primary">Telent Fest Admin</p>
-            <h1 className="mt-1 text-3xl font-semibold tracking-tight">{titleForView(activeView)}</h1>
+            <h1 className="mt-1 text-3xl font-semibold tracking-tight">
+              {titleForView(activeView)}
+            </h1>
           </div>
           <Button variant="outline" onClick={() => loadAdminData(true)} disabled={refreshing}>
             <RefreshCcw className={cn("h-4 w-4", refreshing && "animate-spin")} />
@@ -672,7 +897,12 @@ function AdminPanel() {
         </div>
 
         {activeView === "dashboard" && (
-          <DashboardView stats={stats} activities={activities} passes={passes} onViewPass={setSelectedPass} />
+          <DashboardView
+            stats={stats}
+            activities={activities}
+            passes={passes}
+            onViewPass={setSelectedPass}
+          />
         )}
         {activeView === "passes" && (
           <PassesView
@@ -691,9 +921,21 @@ function AdminPanel() {
             onLargeQr={setLargeQrPass}
             onCheckIn={markCheckedIn}
             onUndo={undoCheckIn}
-            onRevoke={(pass) => setConfirmAction({ title: "Revoke pass?", description: "This will block entry for this participant.", action: () => revokePass(pass) })}
+            onRevoke={(pass) =>
+              setConfirmAction({
+                title: "Revoke pass?",
+                description: "This will block entry for this participant.",
+                action: () => revokePass(pass),
+              })
+            }
             onRestore={restorePass}
-            onDelete={(pass) => setConfirmAction({ title: "Delete record?", description: "This permanently deletes the entry pass record after confirmation.", action: () => deletePass(pass) })}
+            onDelete={(pass) =>
+              setConfirmAction({
+                title: "Delete record?",
+                description: "This permanently deletes the entry pass record after confirmation.",
+                action: () => deletePass(pass),
+              })
+            }
             qrRefs={tableQrRefs}
           />
         )}
@@ -720,7 +962,9 @@ function AdminPanel() {
             passes={passes}
             filteredPasses={filteredPasses}
             onExportAll={() => exportCsv(passes, "talent-fest-all-participants.csv")}
-            onExportFiltered={() => exportCsv(filteredPasses, "talent-fest-filtered-participants.csv")}
+            onExportFiltered={() =>
+              exportCsv(filteredPasses, "talent-fest-filtered-participants.csv")
+            }
             onPrint={() => printParticipantList(filteredPasses)}
           />
         )}
@@ -797,14 +1041,22 @@ function AdminShell({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center overflow-hidden rounded-xl border border-primary/40 bg-primary/10">
-              <img src="/brand/telentfest-icon-tight.png" alt="TelentFest logo" className="h-full w-full object-contain" />
+              <img
+                src="/brand/telentfest-icon-tight.png"
+                alt="TelentFest logo"
+                className="h-full w-full object-contain"
+              />
             </div>
             <div>
               <div className="font-display text-lg font-semibold">Telent Fest</div>
               <div className="text-xs text-muted-foreground">Admin Panel</div>
             </div>
           </div>
-          <button className="lg:hidden" onClick={() => setSidebarOpen(false)} aria-label="Close menu">
+          <button
+            className="lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close menu"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -845,7 +1097,11 @@ function AdminShell({
       <div className="lg:pl-72">
         <header className="sticky top-0 z-30 border-b border-primary/15 bg-[#07111f]/90 backdrop-blur">
           <div className="flex h-16 items-center justify-between px-4 sm:px-6">
-            <button className="lg:hidden" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
+            <button
+              className="lg:hidden"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open menu"
+            >
               <Menu className="h-5 w-5" />
             </button>
             <div className="ml-auto flex items-center gap-3 text-sm text-muted-foreground">
@@ -866,26 +1122,42 @@ function DashboardView({
   passes,
   onViewPass,
 }: {
-  stats: { total: number; today: number; checkedIn: number; pending: number; revoked: number };
+  stats: {
+    total: number;
+    today: number;
+    checkedIn: number;
+    pending: number;
+    revoked: number;
+    participant: number;
+    visitor: number;
+    guest: number;
+    testPaid: number;
+  };
   activities: AdminActivity[];
   passes: PublicEntryPass[];
   onViewPass: (pass: PublicEntryPass) => void;
 }) {
   const cards = [
-    { label: "Total Entry Passes Generated", value: stats.total, icon: FileText },
-    { label: "Entry Passes Generated Today", value: stats.today, icon: CalendarDays },
-    { label: "Checked-In Participants", value: stats.checkedIn, icon: CheckCircle2 },
-    { label: "Pending Participants", value: stats.pending, icon: Activity },
-    { label: "Cancelled or Revoked Passes", value: stats.revoked, icon: XCircle },
+    { label: "Total Registrations", value: stats.total, icon: FileText },
+    { label: "Participant Passes", value: stats.participant, icon: Users },
+    { label: "Visitor Passes", value: stats.visitor, icon: Ticket },
+    { label: "Guest Passes", value: stats.guest, icon: UserRound },
+    { label: "Test Payments", value: stats.testPaid, icon: CreditCard },
+    { label: "Checked In Today", value: stats.checkedIn, icon: CheckCircle2 },
+    { label: "Pending Payments", value: stats.pending, icon: Activity },
+    { label: "Revoked Passes", value: stats.revoked, icon: XCircle },
   ];
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => {
           const Icon = card.icon;
           return (
-            <div key={card.label} className="rounded-2xl border border-primary/15 bg-white/[0.04] p-5 shadow-soft">
+            <div
+              key={card.label}
+              className="rounded-2xl border border-primary/15 bg-white/[0.04] p-5 shadow-soft"
+            >
               <Icon className="h-5 w-5 text-primary" />
               <div className="mt-4 text-3xl font-semibold">{card.value}</div>
               <div className="mt-1 text-xs text-muted-foreground">{card.label}</div>
@@ -898,13 +1170,19 @@ function DashboardView({
         <Panel title="Recent Activity">
           <div className="space-y-3">
             {activities.map((activity) => (
-              <div key={activity.id} className="rounded-xl border border-border/50 bg-background/40 p-3">
+              <div
+                key={activity.id}
+                className="rounded-xl border border-border/50 bg-background/40 p-3"
+              >
                 <div className="flex justify-between gap-3 text-sm">
                   <span className="font-medium">{activity.action}</span>
-                  <span className="text-xs text-muted-foreground">{formatDateTime(activity.created_at)}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {formatDateTime(activity.created_at)}
+                  </span>
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  {activity.participant_name ?? "System"} {activity.entry_number ? `- ${activity.entry_number}` : ""}
+                  {activity.participant_name ?? "System"}{" "}
+                  {activity.entry_number ? `- ${activity.entry_number}` : ""}
                 </div>
               </div>
             ))}
@@ -976,7 +1254,9 @@ function PassesView(props: {
               onClick={() => props.setFilter(value)}
               className={cn(
                 "whitespace-nowrap rounded-lg border px-3 py-2 text-xs",
-                props.filter === value ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground",
+                props.filter === value
+                  ? "border-primary bg-primary/15 text-primary"
+                  : "border-border text-muted-foreground",
               )}
             >
               {filterLabels[value]}
@@ -1008,10 +1288,28 @@ function PassesView(props: {
             {props.passes.map((pass) => (
               <tr key={pass.id} className="border-t border-border/60 align-top">
                 <td className="px-4 py-3 font-medium">{pass.participant_name}</td>
-                <td className="px-4 py-3">{pass.event_name}</td>
-                <td className="px-4 py-3 text-xs capitalize">{(pass.pass_type ?? "legacy").replace("_", " ")}</td>
-                <td className="px-4 py-3 font-mono text-xs">{pass.registration_number ?? "Legacy"}</td>
-                <td className="px-4 py-3 text-xs capitalize">{pass.payment_status ?? "Not tracked"}</td>
+                <td className="px-4 py-3">
+                  <div>{pass.event_name}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {pass.event_city || "City not tracked"}
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-xs capitalize">
+                  {(pass.pass_type ?? "legacy").replace("_", " ")}
+                </td>
+                <td className="px-4 py-3 font-mono text-xs">
+                  {pass.registration_number ?? "Legacy"}
+                </td>
+                <td className="px-4 py-3 text-xs capitalize">
+                  <div>{pass.payment_status ?? "Not tracked"}</div>
+                  {(pass.payment_mode || pass.payment_provider) && (
+                    <div className="mt-1 text-[10px] uppercase tracking-wider text-primary">
+                      {pass.payment_mode === "test" || pass.payment_provider === "dummy"
+                        ? "Test payment"
+                        : pass.payment_provider}
+                    </div>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-xs">{pass.activity_category ?? "N/A"}</td>
                 <td className="px-4 py-3 font-mono text-xs">{pass.entry_number}</td>
                 <td className="px-4 py-3">
@@ -1042,41 +1340,92 @@ function PassesView(props: {
                     <span className="text-muted-foreground">Not checked in</span>
                   )}
                 </td>
-                <td className="px-4 py-3"><StatusBadge pass={pass} /></td>
+                <td className="px-4 py-3">
+                  <StatusBadge pass={pass} />
+                </td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-1.5">
-                    <IconButton label="View complete Entry Pass" onClick={() => props.onView(pass)} icon={Eye} />
-                    <IconButton label="Download Entry Pass PDF" onClick={() => props.onDownload(pass)} icon={Download} />
-                    <IconButton label="Print Entry Pass" onClick={() => props.onPrint(pass)} icon={Printer} />
-                    <IconButton label="View enlarged QR code" onClick={() => props.onLargeQr(pass)} icon={QrCode} />
+                    <IconButton
+                      label="View complete Entry Pass"
+                      onClick={() => props.onView(pass)}
+                      icon={Eye}
+                    />
+                    <IconButton
+                      label="Download Entry Pass PDF"
+                      onClick={() => props.onDownload(pass)}
+                      icon={Download}
+                    />
+                    <IconButton
+                      label="Print Entry Pass"
+                      onClick={() => props.onPrint(pass)}
+                      icon={Printer}
+                    />
+                    <IconButton
+                      label="View enlarged QR code"
+                      onClick={() => props.onLargeQr(pass)}
+                      icon={QrCode}
+                    />
                     {isCheckedIn(pass) ? (
-                      <IconButton label="Undo Check-In" onClick={() => props.onUndo(pass)} icon={Undo2} />
+                      <IconButton
+                        label="Undo Check-In"
+                        onClick={() => props.onUndo(pass)}
+                        icon={Undo2}
+                      />
                     ) : (
-                      <IconButton label="Mark as Checked In" onClick={() => props.onCheckIn(pass)} icon={CheckCircle2} />
+                      <IconButton
+                        label="Mark as Checked In"
+                        onClick={() => props.onCheckIn(pass)}
+                        icon={CheckCircle2}
+                      />
                     )}
                     {isRevoked(pass) ? (
-                      <IconButton label="Restore Pass" onClick={() => props.onRestore(pass)} icon={RotateCcw} />
+                      <IconButton
+                        label="Restore Pass"
+                        onClick={() => props.onRestore(pass)}
+                        icon={RotateCcw}
+                      />
                     ) : (
-                      <IconButton label="Revoke Pass" onClick={() => props.onRevoke(pass)} icon={ShieldAlert} />
+                      <IconButton
+                        label="Revoke Pass"
+                        onClick={() => props.onRevoke(pass)}
+                        icon={ShieldAlert}
+                      />
                     )}
-                    <IconButton label="Delete record" onClick={() => props.onDelete(pass)} icon={Trash2} danger />
+                    <IconButton
+                      label="Delete record"
+                      onClick={() => props.onDelete(pass)}
+                      icon={Trash2}
+                      danger
+                    />
                   </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        {props.passes.length === 0 && <EmptyState text="No records match the current search and filters." />}
+        {props.passes.length === 0 && (
+          <EmptyState text="No records match the current search and filters." />
+        )}
       </div>
 
       <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm text-muted-foreground">{props.filteredCount} records found</div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" disabled={props.page === 1} onClick={() => props.setPage(props.page - 1)}>
+          <Button
+            variant="outline"
+            disabled={props.page === 1}
+            onClick={() => props.setPage(props.page - 1)}
+          >
             Previous
           </Button>
-          <span className="text-sm text-muted-foreground">Page {props.page} of {props.pageCount}</span>
-          <Button variant="outline" disabled={props.page === props.pageCount} onClick={() => props.setPage(props.page + 1)}>
+          <span className="text-sm text-muted-foreground">
+            Page {props.page} of {props.pageCount}
+          </span>
+          <Button
+            variant="outline"
+            disabled={props.page === props.pageCount}
+            onClick={() => props.setPage(props.page + 1)}
+          >
             Next
           </Button>
         </div>
@@ -1098,7 +1447,9 @@ function GalleryCitiesView({
   dataError: string;
   onRefresh: () => Promise<void>;
   logActivity: (action: string) => Promise<void>;
-  setConfirmAction: (value: { title: string; description: string; action: () => Promise<void> } | null) => void;
+  setConfirmAction: (
+    value: { title: string; description: string; action: () => Promise<void> } | null,
+  ) => void;
 }) {
   const [editingCity, setEditingCity] = useState<GalleryCity | null>(null);
   const [cityForm, setCityForm] = useState<GalleryCityForm>(emptyCityForm(cities.length + 1));
@@ -1141,11 +1492,16 @@ function GalleryCitiesView({
         updated_at: new Date().toISOString(),
       };
       const result = editingCity
-        ? await supabase.from("gallery_cities").update(payload as never).eq("id", editingCity.id)
+        ? await supabase
+            .from("gallery_cities")
+            .update(payload as never)
+            .eq("id", editingCity.id)
         : await supabase.from("gallery_cities").insert(payload as never);
 
       if (result.error) throw result.error;
-      await logActivity(editingCity ? `Updated gallery city ${name}` : `Added gallery city ${name}`);
+      await logActivity(
+        editingCity ? `Updated gallery city ${name}` : `Added gallery city ${name}`,
+      );
       toast.success(editingCity ? "Gallery city updated" : "Gallery city added");
       resetCityForm();
       await onRefresh();
@@ -1178,11 +1534,18 @@ function GalleryCitiesView({
         updated_at: new Date().toISOString(),
       };
       const result = editingMedia
-        ? await supabase.from("gallery_media").update(payload as never).eq("id", editingMedia.id)
+        ? await supabase
+            .from("gallery_media")
+            .update(payload as never)
+            .eq("id", editingMedia.id)
         : await supabase.from("gallery_media").insert(payload as never);
 
       if (result.error) throw result.error;
-      await logActivity(editingMedia ? `Updated gallery media ${payload.title}` : `Added gallery media ${payload.title}`);
+      await logActivity(
+        editingMedia
+          ? `Updated gallery media ${payload.title}`
+          : `Added gallery media ${payload.title}`,
+      );
       toast.success(editingMedia ? "Gallery media updated" : "Gallery media added");
       resetMediaForm();
       await onRefresh();
@@ -1226,30 +1589,42 @@ function GalleryCitiesView({
     <div className="space-y-6">
       {dataError && (
         <div className="rounded-2xl border border-primary/25 bg-primary/10 p-4 text-sm text-muted-foreground">
-          Gallery database tables are not ready yet. Review and run the gallery SQL migration, then refresh. Supabase said: {dataError}
+          Gallery database tables are not ready yet. Review and run the gallery SQL migration, then
+          refresh. Supabase said: {dataError}
         </div>
       )}
 
       <Panel title="Gallery Cities">
-        <form onSubmit={saveCity} className="mb-6 grid gap-3 lg:grid-cols-[1fr_1fr_120px_140px_auto]">
+        <form
+          onSubmit={saveCity}
+          className="mb-6 grid gap-3 lg:grid-cols-[1fr_1fr_120px_140px_auto]"
+        >
           <input
             value={cityForm.name}
             onChange={(event) => {
               const name = event.target.value;
-              setCityForm((current) => ({ ...current, name, slug: editingCity ? current.slug : slugify(name) }));
+              setCityForm((current) => ({
+                ...current,
+                name,
+                slug: editingCity ? current.slug : slugify(name),
+              }));
             }}
             placeholder="City name"
             className="rounded-xl border border-border bg-background/70 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
           <input
             value={cityForm.slug}
-            onChange={(event) => setCityForm((current) => ({ ...current, slug: slugify(event.target.value) }))}
+            onChange={(event) =>
+              setCityForm((current) => ({ ...current, slug: slugify(event.target.value) }))
+            }
             placeholder="city-slug"
             className="rounded-xl border border-border bg-background/70 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
           <input
             value={cityForm.display_order}
-            onChange={(event) => setCityForm((current) => ({ ...current, display_order: event.target.value }))}
+            onChange={(event) =>
+              setCityForm((current) => ({ ...current, display_order: event.target.value }))
+            }
             placeholder="Order"
             inputMode="numeric"
             className="rounded-xl border border-border bg-background/70 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
@@ -1258,7 +1633,9 @@ function GalleryCitiesView({
             <input
               type="checkbox"
               checked={cityForm.is_active}
-              onChange={(event) => setCityForm((current) => ({ ...current, is_active: event.target.checked }))}
+              onChange={(event) =>
+                setCityForm((current) => ({ ...current, is_active: event.target.checked }))
+              }
             />
             Active
           </label>
@@ -1267,7 +1644,11 @@ function GalleryCitiesView({
               <Plus className="h-4 w-4" />
               {editingCity ? "Update" : "Add"}
             </Button>
-            {editingCity && <Button type="button" variant="outline" onClick={resetCityForm}>Cancel</Button>}
+            {editingCity && (
+              <Button type="button" variant="outline" onClick={resetCityForm}>
+                Cancel
+              </Button>
+            )}
           </div>
         </form>
 
@@ -1291,7 +1672,14 @@ function GalleryCitiesView({
                   <td className="px-4 py-3">{city.display_order}</td>
                   <td className="px-4 py-3">{mediaCount(city.id)}</td>
                   <td className="px-4 py-3">
-                    <span className={cn("rounded-full border px-2.5 py-1 text-xs", city.is_active ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-border text-muted-foreground")}>
+                    <span
+                      className={cn(
+                        "rounded-full border px-2.5 py-1 text-xs",
+                        city.is_active
+                          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                          : "border-border text-muted-foreground",
+                      )}
+                    >
                       {city.is_active ? "Active" : "Inactive"}
                     </span>
                   </td>
@@ -1305,16 +1693,23 @@ function GalleryCitiesView({
                           setCityForm(cityToForm(city));
                         }}
                       />
-                      <IconButton label={city.is_active ? "Disable city" : "Enable city"} icon={RefreshCcw} onClick={() => toggleCity(city)} />
+                      <IconButton
+                        label={city.is_active ? "Disable city" : "Enable city"}
+                        icon={RefreshCcw}
+                        onClick={() => toggleCity(city)}
+                      />
                       <IconButton
                         label="Delete city"
                         icon={Trash2}
                         danger
-                        onClick={() => setConfirmAction({
-                          title: "Delete gallery city?",
-                          description: "This removes the city record only. Media files and media records are preserved.",
-                          action: () => deleteCity(city),
-                        })}
+                        onClick={() =>
+                          setConfirmAction({
+                            title: "Delete gallery city?",
+                            description:
+                              "This removes the city record only. Media files and media records are preserved.",
+                            action: () => deleteCity(city),
+                          })
+                        }
                       />
                     </div>
                   </td>
@@ -1330,21 +1725,34 @@ function GalleryCitiesView({
         <form onSubmit={saveMedia} className="mb-6 grid gap-3 xl:grid-cols-2">
           <input
             value={mediaForm.title}
-            onChange={(event) => setMediaForm((current) => ({ ...current, title: event.target.value }))}
+            onChange={(event) =>
+              setMediaForm((current) => ({ ...current, title: event.target.value }))
+            }
             placeholder="Media title"
             className="rounded-xl border border-border bg-background/70 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
           <select
             value={mediaForm.city_id}
-            onChange={(event) => setMediaForm((current) => ({ ...current, city_id: event.target.value }))}
+            onChange={(event) =>
+              setMediaForm((current) => ({ ...current, city_id: event.target.value }))
+            }
             className="rounded-xl border border-border bg-background/70 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="">Select city</option>
-            {cities.map((city) => <option key={city.id} value={city.id}>{city.name}</option>)}
+            {cities.map((city) => (
+              <option key={city.id} value={city.id}>
+                {city.name}
+              </option>
+            ))}
           </select>
           <select
             value={mediaForm.media_type}
-            onChange={(event) => setMediaForm((current) => ({ ...current, media_type: event.target.value as "photo" | "video" }))}
+            onChange={(event) =>
+              setMediaForm((current) => ({
+                ...current,
+                media_type: event.target.value as "photo" | "video",
+              }))
+            }
             className="rounded-xl border border-border bg-background/70 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="photo">Photo</option>
@@ -1352,25 +1760,33 @@ function GalleryCitiesView({
           </select>
           <input
             value={mediaForm.category}
-            onChange={(event) => setMediaForm((current) => ({ ...current, category: event.target.value }))}
+            onChange={(event) =>
+              setMediaForm((current) => ({ ...current, category: event.target.value }))
+            }
             placeholder="Category, e.g. Winners"
             className="rounded-xl border border-border bg-background/70 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
           <input
             value={mediaForm.media_url}
-            onChange={(event) => setMediaForm((current) => ({ ...current, media_url: event.target.value }))}
+            onChange={(event) =>
+              setMediaForm((current) => ({ ...current, media_url: event.target.value }))
+            }
             placeholder="Image or video URL"
             className="rounded-xl border border-border bg-background/70 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
           <input
             value={mediaForm.thumbnail_url}
-            onChange={(event) => setMediaForm((current) => ({ ...current, thumbnail_url: event.target.value }))}
+            onChange={(event) =>
+              setMediaForm((current) => ({ ...current, thumbnail_url: event.target.value }))
+            }
             placeholder="Optional video thumbnail URL"
             className="rounded-xl border border-border bg-background/70 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
           <input
             value={mediaForm.display_order}
-            onChange={(event) => setMediaForm((current) => ({ ...current, display_order: event.target.value }))}
+            onChange={(event) =>
+              setMediaForm((current) => ({ ...current, display_order: event.target.value }))
+            }
             placeholder="Display order"
             inputMode="numeric"
             className="rounded-xl border border-border bg-background/70 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
@@ -1379,13 +1795,17 @@ function GalleryCitiesView({
             <input
               type="checkbox"
               checked={mediaForm.is_active}
-              onChange={(event) => setMediaForm((current) => ({ ...current, is_active: event.target.checked }))}
+              onChange={(event) =>
+                setMediaForm((current) => ({ ...current, is_active: event.target.checked }))
+              }
             />
             Active
           </label>
           <textarea
             value={mediaForm.description}
-            onChange={(event) => setMediaForm((current) => ({ ...current, description: event.target.value }))}
+            onChange={(event) =>
+              setMediaForm((current) => ({ ...current, description: event.target.value }))
+            }
             placeholder="Description"
             rows={3}
             className="rounded-xl border border-border bg-background/70 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring xl:col-span-2"
@@ -1395,7 +1815,11 @@ function GalleryCitiesView({
               {editingMedia ? <Pencil className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
               {editingMedia ? "Update Gallery Item" : "Add Gallery Item"}
             </Button>
-            {editingMedia && <Button type="button" variant="outline" onClick={resetMediaForm}>Cancel</Button>}
+            {editingMedia && (
+              <Button type="button" variant="outline" onClick={resetMediaForm}>
+                Cancel
+              </Button>
+            )}
           </div>
         </form>
 
@@ -1420,11 +1844,17 @@ function GalleryCitiesView({
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary/10 text-primary">
-                          {item.media_type === "video" ? <Film className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
+                          {item.media_type === "video" ? (
+                            <Film className="h-4 w-4" />
+                          ) : (
+                            <ImageIcon className="h-4 w-4" />
+                          )}
                         </div>
                         <div>
                           <div className="font-medium">{item.title}</div>
-                          <div className="max-w-xs truncate text-xs text-muted-foreground">{item.media_url}</div>
+                          <div className="max-w-xs truncate text-xs text-muted-foreground">
+                            {item.media_url}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -1447,11 +1877,14 @@ function GalleryCitiesView({
                           label="Delete gallery item"
                           icon={Trash2}
                           danger
-                          onClick={() => setConfirmAction({
-                            title: "Delete gallery item?",
-                            description: "This removes the media record only. It does not delete files from Supabase Storage.",
-                            action: () => deleteMedia(item),
-                          })}
+                          onClick={() =>
+                            setConfirmAction({
+                              title: "Delete gallery item?",
+                              description:
+                                "This removes the media record only. It does not delete files from Supabase Storage.",
+                              action: () => deleteMedia(item),
+                            })
+                          }
                         />
                       </div>
                     </td>
@@ -1480,7 +1913,9 @@ function ConcertInformationView({
   dataError: string;
   onRefresh: () => Promise<void>;
   logActivity: (action: string) => Promise<void>;
-  setConfirmAction: (value: { title: string; description: string; action: () => Promise<void> } | null) => void;
+  setConfirmAction: (
+    value: { title: string; description: string; action: () => Promise<void> } | null,
+  ) => void;
 }) {
   const [form, setForm] = useState({
     eyebrow: "Live Concert",
@@ -1498,7 +1933,13 @@ function ConcertInformationView({
     map_embed_url: "",
     is_published: true,
   });
-  const [artistForm, setArtistForm] = useState({ artist_name: "", performance_type: "", description: "", display_order: "0", is_active: true });
+  const [artistForm, setArtistForm] = useState({
+    artist_name: "",
+    performance_type: "",
+    description: "",
+    display_order: "0",
+    is_active: true,
+  });
   const [editingArtist, setEditingArtist] = useState<ConcertArtistRecord | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -1524,7 +1965,8 @@ function ConcertInformationView({
 
   const saveSettings = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!form.title.trim() || !form.event_title.trim()) return toast.error("Concert section title and event title are required.");
+    if (!form.title.trim() || !form.event_title.trim())
+      return toast.error("Concert section title and event title are required.");
     setSaving(true);
     try {
       const payload = {
@@ -1567,10 +2009,20 @@ function ConcertInformationView({
         ? await db.from("concert_artists").update(payload).eq("id", editingArtist.id)
         : await db.from("concert_artists").insert(payload);
       if (result.error) throw result.error;
-      await logActivity(editingArtist ? `Updated concert artist ${payload.artist_name}` : `Added concert artist ${payload.artist_name}`);
+      await logActivity(
+        editingArtist
+          ? `Updated concert artist ${payload.artist_name}`
+          : `Added concert artist ${payload.artist_name}`,
+      );
       toast.success(editingArtist ? "Artist updated" : "Artist added");
       setEditingArtist(null);
-      setArtistForm({ artist_name: "", performance_type: "", description: "", display_order: "0", is_active: true });
+      setArtistForm({
+        artist_name: "",
+        performance_type: "",
+        description: "",
+        display_order: "0",
+        is_active: true,
+      });
       await onRefresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to save artist.");
@@ -1581,57 +2033,189 @@ function ConcertInformationView({
 
   return (
     <div className="space-y-6">
-      {dataError && <div className="rounded-2xl border border-primary/25 bg-primary/10 p-4 text-sm text-muted-foreground">Concert database tables are not ready yet. Run the latest migration, then refresh. Supabase said: {dataError}</div>}
+      {dataError && (
+        <div className="rounded-2xl border border-primary/25 bg-primary/10 p-4 text-sm text-muted-foreground">
+          Concert database tables are not ready yet. Run the latest migration, then refresh.
+          Supabase said: {dataError}
+        </div>
+      )}
       <Panel title="Concert Information">
         <form onSubmit={saveSettings} className="grid gap-3 lg:grid-cols-2">
-          {([
-            ["eyebrow", "Eyebrow label"],
-            ["title", "Section heading"],
-            ["subtitle", "Section subtitle"],
-            ["event_label", "Event label"],
-            ["event_title", "Event title"],
-            ["venue", "Venue"],
-            ["price_text", "Price or seats text"],
-            ["button_text", "Button text"],
-            ["button_url", "Button URL"],
-            ["map_url", "Map URL"],
-            ["map_embed_url", "Map embed URL"],
-          ] as const).map(([key, placeholder]) => (
-            <input key={key} value={form[key]} onChange={(e) => setForm((current) => ({ ...current, [key]: e.target.value }))} placeholder={placeholder} className="field-input" />
+          {(
+            [
+              ["eyebrow", "Eyebrow label"],
+              ["title", "Section heading"],
+              ["subtitle", "Section subtitle"],
+              ["event_label", "Event label"],
+              ["event_title", "Event title"],
+              ["venue", "Venue"],
+              ["price_text", "Price or seats text"],
+              ["button_text", "Button text"],
+              ["button_url", "Button URL"],
+              ["map_url", "Map URL"],
+              ["map_embed_url", "Map embed URL"],
+            ] as const
+          ).map(([key, placeholder]) => (
+            <input
+              key={key}
+              value={form[key]}
+              onChange={(e) => setForm((current) => ({ ...current, [key]: e.target.value }))}
+              placeholder={placeholder}
+              className="field-input"
+            />
           ))}
-          <input type="date" value={form.event_date} onChange={(e) => setForm((current) => ({ ...current, event_date: e.target.value }))} className="field-input" />
-          <input type="time" value={form.start_time} onChange={(e) => setForm((current) => ({ ...current, start_time: e.target.value }))} className="field-input" />
+          <input
+            type="date"
+            value={form.event_date}
+            onChange={(e) => setForm((current) => ({ ...current, event_date: e.target.value }))}
+            className="field-input"
+          />
+          <input
+            type="time"
+            value={form.start_time}
+            onChange={(e) => setForm((current) => ({ ...current, start_time: e.target.value }))}
+            className="field-input"
+          />
           <label className="flex items-center gap-2 field-input cursor-pointer">
-            <input type="checkbox" checked={form.is_published} onChange={(e) => setForm((current) => ({ ...current, is_published: e.target.checked }))} />
+            <input
+              type="checkbox"
+              checked={form.is_published}
+              onChange={(e) =>
+                setForm((current) => ({ ...current, is_published: e.target.checked }))
+              }
+            />
             Published on website
           </label>
           <div className="lg:col-span-2">
-            <Button type="submit" disabled={saving}>{settings ? "Update Concert Info" : "Create Concert Info"}</Button>
+            <Button type="submit" disabled={saving}>
+              {settings ? "Update Concert Info" : "Create Concert Info"}
+            </Button>
           </div>
         </form>
       </Panel>
 
       <Panel title="Artist Lineup">
-        <form onSubmit={saveArtist} className="mb-5 grid gap-3 lg:grid-cols-[1fr_1fr_1fr_100px_140px_auto]">
-          <input value={artistForm.artist_name} onChange={(e) => setArtistForm((f) => ({ ...f, artist_name: e.target.value }))} placeholder="Artist name" className="field-input" />
-          <input value={artistForm.performance_type} onChange={(e) => setArtistForm((f) => ({ ...f, performance_type: e.target.value }))} placeholder="Performance type" className="field-input" />
-          <input value={artistForm.description} onChange={(e) => setArtistForm((f) => ({ ...f, description: e.target.value }))} placeholder="Short description" className="field-input" />
-          <input value={artistForm.display_order} onChange={(e) => setArtistForm((f) => ({ ...f, display_order: e.target.value }))} placeholder="Order" className="field-input" inputMode="numeric" />
-          <label className="flex items-center gap-2 field-input cursor-pointer"><input type="checkbox" checked={artistForm.is_active} onChange={(e) => setArtistForm((f) => ({ ...f, is_active: e.target.checked }))} /> Active</label>
+        <form
+          onSubmit={saveArtist}
+          className="mb-5 grid gap-3 lg:grid-cols-[1fr_1fr_1fr_100px_140px_auto]"
+        >
+          <input
+            value={artistForm.artist_name}
+            onChange={(e) => setArtistForm((f) => ({ ...f, artist_name: e.target.value }))}
+            placeholder="Artist name"
+            className="field-input"
+          />
+          <input
+            value={artistForm.performance_type}
+            onChange={(e) => setArtistForm((f) => ({ ...f, performance_type: e.target.value }))}
+            placeholder="Performance type"
+            className="field-input"
+          />
+          <input
+            value={artistForm.description}
+            onChange={(e) => setArtistForm((f) => ({ ...f, description: e.target.value }))}
+            placeholder="Short description"
+            className="field-input"
+          />
+          <input
+            value={artistForm.display_order}
+            onChange={(e) => setArtistForm((f) => ({ ...f, display_order: e.target.value }))}
+            placeholder="Order"
+            className="field-input"
+            inputMode="numeric"
+          />
+          <label className="flex items-center gap-2 field-input cursor-pointer">
+            <input
+              type="checkbox"
+              checked={artistForm.is_active}
+              onChange={(e) => setArtistForm((f) => ({ ...f, is_active: e.target.checked }))}
+            />{" "}
+            Active
+          </label>
           <div className="flex gap-2">
-            <Button type="submit" disabled={saving}>{editingArtist ? "Update" : "Add"}</Button>
-            {editingArtist && <Button type="button" variant="outline" onClick={() => { setEditingArtist(null); setArtistForm({ artist_name: "", performance_type: "", description: "", display_order: "0", is_active: true }); }}>Cancel</Button>}
+            <Button type="submit" disabled={saving}>
+              {editingArtist ? "Update" : "Add"}
+            </Button>
+            {editingArtist && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setEditingArtist(null);
+                  setArtistForm({
+                    artist_name: "",
+                    performance_type: "",
+                    description: "",
+                    display_order: "0",
+                    is_active: true,
+                  });
+                }}
+              >
+                Cancel
+              </Button>
+            )}
           </div>
         </form>
         <div className="overflow-x-auto rounded-xl border border-border/60">
           <table className="w-full min-w-[760px] text-sm">
-            <thead className="bg-white/[0.04] text-xs uppercase tracking-wider text-muted-foreground"><tr><th className="px-4 py-3 text-left">Artist</th><th className="px-4 py-3 text-left">Type</th><th className="px-4 py-3 text-left">Order</th><th className="px-4 py-3 text-left">Status</th><th className="px-4 py-3 text-right">Actions</th></tr></thead>
-            <tbody>{artists.map((artist) => (
-              <tr key={artist.id} className="border-t border-border/60">
-                <td className="px-4 py-3 font-medium">{artist.artist_name}</td><td className="px-4 py-3">{artist.performance_type}</td><td className="px-4 py-3">{artist.display_order}</td><td className="px-4 py-3">{artist.is_active ? "Active" : "Hidden"}</td>
-                <td className="px-4 py-3"><div className="flex justify-end gap-1.5"><IconButton label="Edit artist" icon={Pencil} onClick={() => { setEditingArtist(artist); setArtistForm({ artist_name: artist.artist_name, performance_type: artist.performance_type ?? "", description: artist.description ?? "", display_order: String(artist.display_order), is_active: artist.is_active }); }} /><IconButton label="Delete artist" icon={Trash2} danger onClick={() => setConfirmAction({ title: "Delete artist?", description: "This removes the artist from the public lineup.", action: async () => { const result = await (supabase as any).from("concert_artists").delete().eq("id", artist.id); if (result.error) throw result.error; await logActivity(`Deleted concert artist ${artist.artist_name}`); toast.success("Artist deleted"); await onRefresh(); } })} /></div></td>
+            <thead className="bg-white/[0.04] text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3 text-left">Artist</th>
+                <th className="px-4 py-3 text-left">Type</th>
+                <th className="px-4 py-3 text-left">Order</th>
+                <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
-            ))}</tbody>
+            </thead>
+            <tbody>
+              {artists.map((artist) => (
+                <tr key={artist.id} className="border-t border-border/60">
+                  <td className="px-4 py-3 font-medium">{artist.artist_name}</td>
+                  <td className="px-4 py-3">{artist.performance_type}</td>
+                  <td className="px-4 py-3">{artist.display_order}</td>
+                  <td className="px-4 py-3">{artist.is_active ? "Active" : "Hidden"}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end gap-1.5">
+                      <IconButton
+                        label="Edit artist"
+                        icon={Pencil}
+                        onClick={() => {
+                          setEditingArtist(artist);
+                          setArtistForm({
+                            artist_name: artist.artist_name,
+                            performance_type: artist.performance_type ?? "",
+                            description: artist.description ?? "",
+                            display_order: String(artist.display_order),
+                            is_active: artist.is_active,
+                          });
+                        }}
+                      />
+                      <IconButton
+                        label="Delete artist"
+                        icon={Trash2}
+                        danger
+                        onClick={() =>
+                          setConfirmAction({
+                            title: "Delete artist?",
+                            description: "This removes the artist from the public lineup.",
+                            action: async () => {
+                              const result = await (supabase as any)
+                                .from("concert_artists")
+                                .delete()
+                                .eq("id", artist.id);
+                              if (result.error) throw result.error;
+                              await logActivity(`Deleted concert artist ${artist.artist_name}`);
+                              toast.success("Artist deleted");
+                              await onRefresh();
+                            },
+                          })
+                        }
+                      />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
           </table>
           {artists.length === 0 && <EmptyState text="No artists have been added yet." />}
         </div>
@@ -1651,17 +2235,41 @@ function BlogPostsView({
   dataError: string;
   onRefresh: () => Promise<void>;
   logActivity: (action: string) => Promise<void>;
-  setConfirmAction: (value: { title: string; description: string; action: () => Promise<void> } | null) => void;
+  setConfirmAction: (
+    value: { title: string; description: string; action: () => Promise<void> } | null,
+  ) => void;
 }) {
   const [editingPost, setEditingPost] = useState<BlogPostRecord | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
-    title: "", slug: "", excerpt: "", content: "", category: "Updates", thumbnail_url: "", thumbnail_alt: "", status: "draft" as "draft" | "published", published_at: "", is_featured: false, display_order: "0",
+    title: "",
+    slug: "",
+    excerpt: "",
+    content: "",
+    category: "Updates",
+    thumbnail_url: "",
+    thumbnail_alt: "",
+    status: "draft" as "draft" | "published",
+    published_at: "",
+    is_featured: false,
+    display_order: "0",
   });
 
   const resetForm = () => {
     setEditingPost(null);
-    setForm({ title: "", slug: "", excerpt: "", content: "", category: "Updates", thumbnail_url: "", thumbnail_alt: "", status: "draft", published_at: "", is_featured: false, display_order: "0" });
+    setForm({
+      title: "",
+      slug: "",
+      excerpt: "",
+      content: "",
+      category: "Updates",
+      thumbnail_url: "",
+      thumbnail_alt: "",
+      status: "draft",
+      published_at: "",
+      is_featured: false,
+      display_order: "0",
+    });
   };
 
   const savePost = async (event: React.FormEvent) => {
@@ -1684,9 +2292,13 @@ function BlogPostsView({
         updated_at: new Date().toISOString(),
       };
       const db = supabase as any;
-      const result = editingPost ? await db.from("blog_posts").update(payload).eq("id", editingPost.id) : await db.from("blog_posts").insert(payload);
+      const result = editingPost
+        ? await db.from("blog_posts").update(payload).eq("id", editingPost.id)
+        : await db.from("blog_posts").insert(payload);
       if (result.error) throw result.error;
-      await logActivity(editingPost ? `Updated blog post ${payload.title}` : `Created blog post ${payload.title}`);
+      await logActivity(
+        editingPost ? `Updated blog post ${payload.title}` : `Created blog post ${payload.title}`,
+      );
       toast.success(editingPost ? "Blog post updated" : "Blog post created");
       resetForm();
       await onRefresh();
@@ -1699,32 +2311,181 @@ function BlogPostsView({
 
   return (
     <div className="space-y-6">
-      {dataError && <div className="rounded-2xl border border-primary/25 bg-primary/10 p-4 text-sm text-muted-foreground">Blog database table is not ready yet. Run the latest migration, then refresh. Supabase said: {dataError}</div>}
+      {dataError && (
+        <div className="rounded-2xl border border-primary/25 bg-primary/10 p-4 text-sm text-muted-foreground">
+          Blog database table is not ready yet. Run the latest migration, then refresh. Supabase
+          said: {dataError}
+        </div>
+      )}
       <Panel title="Blog Management">
         <form onSubmit={savePost} className="mb-6 grid gap-3 lg:grid-cols-2">
-          <input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value, slug: editingPost ? f.slug : slugify(e.target.value) }))} placeholder="Blog title" className="field-input" />
-          <input value={form.slug} onChange={(e) => setForm((f) => ({ ...f, slug: slugify(e.target.value) }))} placeholder="blog-slug" className="field-input" />
-          <input value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} placeholder="Category" className="field-input" />
-          <input value={form.thumbnail_url} onChange={(e) => setForm((f) => ({ ...f, thumbnail_url: e.target.value }))} placeholder="Thumbnail image URL" className="field-input" />
-          <input value={form.thumbnail_alt} onChange={(e) => setForm((f) => ({ ...f, thumbnail_alt: e.target.value }))} placeholder="Thumbnail alt text" className="field-input" />
-          <input value={form.published_at} onChange={(e) => setForm((f) => ({ ...f, published_at: e.target.value }))} type="date" className="field-input" />
-          <textarea value={form.excerpt} onChange={(e) => setForm((f) => ({ ...f, excerpt: e.target.value }))} placeholder="Excerpt" rows={3} className="field-input lg:col-span-2" />
-          <textarea value={form.content} onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))} placeholder="Full blog content" rows={6} className="field-input lg:col-span-2" />
-          <select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as "draft" | "published" }))} className="field-input"><option value="draft">Draft</option><option value="published">Published</option></select>
-          <label className="flex items-center gap-2 field-input cursor-pointer"><input type="checkbox" checked={form.is_featured} onChange={(e) => setForm((f) => ({ ...f, is_featured: e.target.checked }))} /> Featured</label>
-          <div className="flex gap-2 lg:col-span-2"><Button type="submit" disabled={saving}>{editingPost ? "Update Blog Post" : "Create Blog Post"}</Button>{editingPost && <Button type="button" variant="outline" onClick={resetForm}>Cancel</Button>}</div>
+          <input
+            value={form.title}
+            onChange={(e) =>
+              setForm((f) => ({
+                ...f,
+                title: e.target.value,
+                slug: editingPost ? f.slug : slugify(e.target.value),
+              }))
+            }
+            placeholder="Blog title"
+            className="field-input"
+          />
+          <input
+            value={form.slug}
+            onChange={(e) => setForm((f) => ({ ...f, slug: slugify(e.target.value) }))}
+            placeholder="blog-slug"
+            className="field-input"
+          />
+          <input
+            value={form.category}
+            onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+            placeholder="Category"
+            className="field-input"
+          />
+          <input
+            value={form.thumbnail_url}
+            onChange={(e) => setForm((f) => ({ ...f, thumbnail_url: e.target.value }))}
+            placeholder="Thumbnail image URL"
+            className="field-input"
+          />
+          <input
+            value={form.thumbnail_alt}
+            onChange={(e) => setForm((f) => ({ ...f, thumbnail_alt: e.target.value }))}
+            placeholder="Thumbnail alt text"
+            className="field-input"
+          />
+          <input
+            value={form.published_at}
+            onChange={(e) => setForm((f) => ({ ...f, published_at: e.target.value }))}
+            type="date"
+            className="field-input"
+          />
+          <textarea
+            value={form.excerpt}
+            onChange={(e) => setForm((f) => ({ ...f, excerpt: e.target.value }))}
+            placeholder="Excerpt"
+            rows={3}
+            className="field-input lg:col-span-2"
+          />
+          <textarea
+            value={form.content}
+            onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
+            placeholder="Full blog content"
+            rows={6}
+            className="field-input lg:col-span-2"
+          />
+          <select
+            value={form.status}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, status: e.target.value as "draft" | "published" }))
+            }
+            className="field-input"
+          >
+            <option value="draft">Draft</option>
+            <option value="published">Published</option>
+          </select>
+          <label className="flex items-center gap-2 field-input cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.is_featured}
+              onChange={(e) => setForm((f) => ({ ...f, is_featured: e.target.checked }))}
+            />{" "}
+            Featured
+          </label>
+          <div className="flex gap-2 lg:col-span-2">
+            <Button type="submit" disabled={saving}>
+              {editingPost ? "Update Blog Post" : "Create Blog Post"}
+            </Button>
+            {editingPost && (
+              <Button type="button" variant="outline" onClick={resetForm}>
+                Cancel
+              </Button>
+            )}
+          </div>
         </form>
         <div className="overflow-x-auto rounded-xl border border-border/60">
           <table className="w-full min-w-[900px] text-sm">
-            <thead className="bg-white/[0.04] text-xs uppercase tracking-wider text-muted-foreground"><tr><th className="px-4 py-3 text-left">Post</th><th className="px-4 py-3 text-left">Thumbnail</th><th className="px-4 py-3 text-left">Status</th><th className="px-4 py-3 text-left">Published</th><th className="px-4 py-3 text-right">Actions</th></tr></thead>
-            <tbody>{posts.map((post) => (
-              <tr key={post.id} className="border-t border-border/60">
-                <td className="px-4 py-3"><div className="font-medium">{post.title}</div><div className="text-xs text-muted-foreground">/blog/{post.slug}</div></td>
-                <td className="px-4 py-3">{post.thumbnail_url ? <img src={post.thumbnail_url} alt={post.thumbnail_alt ?? post.title} className="h-12 w-20 rounded-lg object-cover" /> : <span className="text-muted-foreground">No thumbnail</span>}</td>
-                <td className="px-4 py-3 capitalize">{post.status}</td><td className="px-4 py-3 text-xs">{post.published_at ? formatDateTime(post.published_at) : "Not published"}</td>
-                <td className="px-4 py-3"><div className="flex justify-end gap-1.5"><IconButton label="Edit post" icon={Pencil} onClick={() => { setEditingPost(post); setForm({ title: post.title, slug: post.slug, excerpt: post.excerpt, content: post.content, category: post.category, thumbnail_url: post.thumbnail_url ?? "", thumbnail_alt: post.thumbnail_alt ?? "", status: post.status, published_at: post.published_at?.slice(0, 10) ?? "", is_featured: post.is_featured, display_order: String(post.display_order) }); }} /><IconButton label="Delete post" icon={Trash2} danger onClick={() => setConfirmAction({ title: "Delete blog post?", description: "This permanently removes the post from the public website.", action: async () => { const result = await (supabase as any).from("blog_posts").delete().eq("id", post.id); if (result.error) throw result.error; await logActivity(`Deleted blog post ${post.title}`); toast.success("Blog post deleted"); await onRefresh(); } })} /></div></td>
+            <thead className="bg-white/[0.04] text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3 text-left">Post</th>
+                <th className="px-4 py-3 text-left">Thumbnail</th>
+                <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3 text-left">Published</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
-            ))}</tbody>
+            </thead>
+            <tbody>
+              {posts.map((post) => (
+                <tr key={post.id} className="border-t border-border/60">
+                  <td className="px-4 py-3">
+                    <div className="font-medium">{post.title}</div>
+                    <div className="text-xs text-muted-foreground">/blog/{post.slug}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    {post.thumbnail_url ? (
+                      <img
+                        src={post.thumbnail_url}
+                        alt={post.thumbnail_alt ?? post.title}
+                        className="h-12 w-20 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <span className="text-muted-foreground">No thumbnail</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 capitalize">{post.status}</td>
+                  <td className="px-4 py-3 text-xs">
+                    {post.published_at ? formatDateTime(post.published_at) : "Not published"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end gap-1.5">
+                      <IconButton
+                        label="Edit post"
+                        icon={Pencil}
+                        onClick={() => {
+                          setEditingPost(post);
+                          setForm({
+                            title: post.title,
+                            slug: post.slug,
+                            excerpt: post.excerpt,
+                            content: post.content,
+                            category: post.category,
+                            thumbnail_url: post.thumbnail_url ?? "",
+                            thumbnail_alt: post.thumbnail_alt ?? "",
+                            status: post.status,
+                            published_at: post.published_at?.slice(0, 10) ?? "",
+                            is_featured: post.is_featured,
+                            display_order: String(post.display_order),
+                          });
+                        }}
+                      />
+                      <IconButton
+                        label="Delete post"
+                        icon={Trash2}
+                        danger
+                        onClick={() =>
+                          setConfirmAction({
+                            title: "Delete blog post?",
+                            description:
+                              "This permanently removes the post from the public website.",
+                            action: async () => {
+                              const result = await (supabase as any)
+                                .from("blog_posts")
+                                .delete()
+                                .eq("id", post.id);
+                              if (result.error) throw result.error;
+                              await logActivity(`Deleted blog post ${post.title}`);
+                              toast.success("Blog post deleted");
+                              await onRefresh();
+                            },
+                          })
+                        }
+                      />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
           </table>
           {posts.length === 0 && <EmptyState text="No blog posts have been created yet." />}
         </div>
@@ -1754,7 +2515,10 @@ function ScannerView({
   setResult: (result: ScannerResult) => void;
   onCheckIn: (pass: PublicEntryPass) => void;
 }) {
-  const scannerRef = useRef<{ clear: () => Promise<void>; render: (onSuccess: (decodedText: string) => void, onError: () => void) => void } | null>(null);
+  const scannerRef = useRef<{
+    clear: () => Promise<void>;
+    render: (onSuccess: (decodedText: string) => void, onError: () => void) => void;
+  } | null>(null);
   const [running, setRunning] = useState(false);
 
   useEffect(() => {
@@ -1791,9 +2555,15 @@ function ScannerView({
   return (
     <div className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
       <Panel title="QR Code Scanner">
-        <div id="admin-qr-scanner" className="overflow-hidden rounded-2xl border border-border/60 bg-background/50 p-3" />
+        <div
+          id="admin-qr-scanner"
+          className="overflow-hidden rounded-2xl border border-border/60 bg-background/50 p-3"
+        />
         {!running && (
-          <Button className="mt-4 gradient-primary text-primary-foreground border-0" onClick={startScanner}>
+          <Button
+            className="mt-4 gradient-primary text-primary-foreground border-0"
+            onClick={startScanner}
+          >
             <ScanLine className="h-4 w-4" />
             Start Scanner
           </Button>
@@ -1806,14 +2576,19 @@ function ScannerView({
   );
 }
 
-async function validateScannedCode(decodedText: string, setResult: (result: ScannerResult) => void) {
+async function validateScannedCode(
+  decodedText: string,
+  setResult: (result: ScannerResult) => void,
+) {
   const parsed = parseQrValue(decodedText);
 
   // Try new passes table first
   if (parsed.id) {
     const { data: newPass } = await supabase
       .from("passes")
-      .select("id, pass_number, pass_type, status, checked_in, checked_in_at, registration_id, secure_qr_token")
+      .select(
+        "id, pass_number, pass_type, status, checked_in, checked_in_at, registration_id, secure_qr_token",
+      )
       .eq("id", parsed.id)
       .maybeSingle();
 
@@ -1825,34 +2600,89 @@ async function validateScannedCode(decodedText: string, setResult: (result: Scan
       }
       const { data: reg } = await supabase
         .from("registrations")
-        .select("full_name, event_id")
+        .select(
+          "full_name, email, phone, event_id, registration_number, payment_status, activity_category_id",
+        )
         .eq("id", p.registration_id)
         .single();
 
-      const eventName = reg ? await supabase.from("events").select("name").eq("id", (reg as any).event_id).single().then(r => (r.data as any)?.name || "") : "";
+      const event = reg
+        ? await supabase
+            .from("events")
+            .select("name, city")
+            .eq("id", (reg as any).event_id)
+            .single()
+            .then((r) => r.data as any)
+        : null;
+      const paymentResult = await (supabase as any)
+        .from("payments")
+        .select("provider, payment_mode, status, transaction_id, order_id")
+        .eq("registration_id", p.registration_id)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      const payment = paymentResult.data?.[0] ?? null;
+      let activityCategory = "";
+      if ((reg as any)?.activity_category_id) {
+        const { data: cat } = await supabase
+          .from("activity_categories")
+          .select("name")
+          .eq("id", (reg as any).activity_category_id)
+          .single();
+        activityCategory = (cat as any)?.name || "";
+      }
 
       const pass: PublicEntryPass = {
         id: p.id,
         participant_name: (reg as any)?.full_name || "Unknown",
-        event_name: eventName || "",
+        event_name: event?.name || "",
+        event_city: event?.city || null,
         entry_number: p.pass_number,
         created_at: p.generated_at || p.created_at,
         checked_in: p.checked_in,
         checked_in_at: p.checked_in_at,
         pass_status: p.status,
         status: p.status,
+        pass_type: p.pass_type,
+        registration_number: (reg as any)?.registration_number || null,
+        payment_status: payment?.status || (reg as any)?.payment_status || null,
+        payment_mode: payment?.payment_mode || (payment?.provider === "dummy" ? "test" : null),
+        payment_provider: payment?.provider || null,
+        transaction_id: payment?.transaction_id || null,
+        order_id: payment?.order_id || null,
+        activity_category: activityCategory || null,
+        email: (reg as any)?.email || null,
+        phone: (reg as any)?.phone || null,
         qr_value: decodedText,
       };
 
       if (p.status === "revoked") {
-        setResult({ state: "revoked", message: "Pass Revoked. This pass has been revoked and cannot be used for entry.", pass });
+        setResult({
+          state: "revoked",
+          message: "Pass Revoked. This pass has been revoked and cannot be used for entry.",
+          pass,
+        });
         return;
       }
       if (p.checked_in) {
-        setResult({ state: "checked_in", message: `Already Checked In at ${formatDateTime(p.checked_in_at)}`, pass });
+        setResult({
+          state: "checked_in",
+          message: `Already Checked In at ${formatDateTime(p.checked_in_at)}`,
+          pass,
+        });
         return;
       }
-      setResult({ state: "valid", message: "Valid Pass. Participant can be checked in.", pass });
+      if (pass.payment_status !== "paid") {
+        setResult({ state: "invalid", message: "Payment is not paid for this pass.", pass });
+        return;
+      }
+      setResult({
+        state: "valid",
+        message:
+          pass.payment_mode === "test" || pass.payment_provider === "dummy"
+            ? "Valid Test Payment Pass. Participant can be checked in."
+            : "Valid Pass. Participant can be checked in.",
+        pass,
+      });
       return;
     }
   }
@@ -1860,20 +2690,31 @@ async function validateScannedCode(decodedText: string, setResult: (result: Scan
   // Fallback to old public_entry_passes table
   let query = supabase
     .from("public_entry_passes")
-    .select("id, participant_name, event_name, entry_number, qr_value, email, phone, created_at, checked_in, checked_in_at, pass_status, status, updated_at")
+    .select(
+      "id, participant_name, event_name, entry_number, qr_value, email, phone, created_at, checked_in, checked_in_at, pass_status, status, updated_at",
+    )
     .limit(1);
 
-  query = parsed.id ? query.eq("id", parsed.id) : query.eq("entry_number", parsed.entryNumber || decodedText);
+  query = parsed.id
+    ? query.eq("id", parsed.id)
+    : query.eq("entry_number", parsed.entryNumber || decodedText);
   const { data, error } = await query.maybeSingle();
 
   if (error || !data) {
-    setResult({ state: "invalid", message: "Invalid Talent Fest Pass. This QR code could not be verified." });
+    setResult({
+      state: "invalid",
+      message: "Invalid Talent Fest Pass. This QR code could not be verified.",
+    });
     return;
   }
 
   const pass = normalizePass(data as unknown as PublicEntryPass);
   if (isRevoked(pass)) {
-    setResult({ state: "revoked", message: "Pass Revoked. This pass has been revoked and cannot be used for entry.", pass });
+    setResult({
+      state: "revoked",
+      message: "Pass Revoked. This pass has been revoked and cannot be used for entry.",
+      pass,
+    });
     return;
   }
   if (isCheckedIn(pass)) {
@@ -1909,12 +2750,24 @@ function ScannerResultCard({
       {result.pass && (
         <div className="mt-4 space-y-2 text-sm text-foreground">
           <InfoRow label="Participant" value={result.pass.participant_name} />
+          <InfoRow
+            label="Pass Type"
+            value={(result.pass.pass_type ?? "legacy").replace("_", " ")}
+          />
           <InfoRow label="Entry Number" value={result.pass.entry_number} />
           <InfoRow label="Event" value={result.pass.event_name} />
+          <InfoRow
+            label="Payment"
+            value={`${result.pass.payment_status ?? "Not tracked"}${result.pass.payment_mode === "test" || result.pass.payment_provider === "dummy" ? " - TEST PAYMENT" : ""}`}
+          />
+          <InfoRow label="Activity" value={result.pass.activity_category ?? "N/A"} />
           <InfoRow label="Generated" value={formatDateTime(result.pass.created_at)} />
           <InfoRow label="Check-in Time" value={formatDateTime(result.pass.checked_in_at)} />
           {result.state === "valid" && (
-            <Button className="mt-4 gradient-primary text-primary-foreground border-0" onClick={() => onCheckIn(result.pass as PublicEntryPass)}>
+            <Button
+              className="mt-4 gradient-primary text-primary-foreground border-0"
+              onClick={() => onCheckIn(result.pass as PublicEntryPass)}
+            >
               Mark Participant Checked In
             </Button>
           )}
@@ -1924,7 +2777,13 @@ function ScannerResultCard({
   );
 }
 
-function ParticipantsView({ passes, onView }: { passes: PublicEntryPass[]; onView: (pass: PublicEntryPass) => void }) {
+function ParticipantsView({
+  passes,
+  onView,
+}: {
+  passes: PublicEntryPass[];
+  onView: (pass: PublicEntryPass) => void;
+}) {
   return (
     <Panel title="Participants">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -1937,7 +2796,9 @@ function ParticipantsView({ passes, onView }: { passes: PublicEntryPass[]; onVie
             <UserRound className="h-5 w-5 text-primary" />
             <div className="mt-3 font-medium">{pass.participant_name}</div>
             <div className="text-xs text-muted-foreground">{pass.entry_number}</div>
-            <div className="mt-3"><StatusBadge pass={pass} /></div>
+            <div className="mt-3">
+              <StatusBadge pass={pass} />
+            </div>
           </button>
         ))}
       </div>
@@ -1960,18 +2821,66 @@ function ReportsView({
   onPrint: () => void;
 }) {
   const byDay = useMemo(() => dailyStats(passes, "created_at"), [passes]);
-  const checkInsByDay = useMemo(() => dailyStats(passes.filter(isCheckedIn), "checked_in_at"), [passes]);
+  const checkInsByDay = useMemo(
+    () => dailyStats(passes.filter(isCheckedIn), "checked_in_at"),
+    [passes],
+  );
+  const reportCards = [
+    [
+      "Total registrations",
+      new Set(passes.map((p) => p.registration_number).filter(Boolean)).size || passes.length,
+    ],
+    ["Participant passes", passes.filter((p) => p.pass_type === "participant").length],
+    ["Visitor passes", passes.filter((p) => p.pass_type === "visitor").length],
+    [
+      "Guest passes",
+      passes.filter((p) => p.pass_type === "guest_1" || p.pass_type === "guest_2").length,
+    ],
+    [
+      "Test-mode paid",
+      passes.filter(
+        (p) =>
+          p.payment_status === "paid" &&
+          (p.payment_mode === "test" || p.payment_provider === "dummy"),
+      ).length,
+    ],
+    [
+      "Pending payments",
+      passes.filter((p) => p.payment_status === "pending" || !p.payment_status).length,
+    ],
+    ["Active passes", passes.filter((p) => !isRevoked(p) && !isCheckedIn(p)).length],
+    ["Checked-in passes", passes.filter(isCheckedIn).length],
+  ];
 
   return (
     <div className="grid gap-6 xl:grid-cols-2">
+      <Panel title="Admin Summary">
+        <div className="grid gap-3 sm:grid-cols-2">
+          {reportCards.map(([label, value]) => (
+            <div
+              key={String(label)}
+              className="rounded-xl border border-border/50 bg-background/40 p-4"
+            >
+              <div className="text-2xl font-semibold text-primary">{value}</div>
+              <div className="text-xs text-muted-foreground">{label}</div>
+            </div>
+          ))}
+        </div>
+      </Panel>
       <Panel title="Exports and Reports">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Button onClick={onExportAll}><Download className="h-4 w-4" /> Export all CSV</Button>
-          <Button variant="outline" onClick={onExportFiltered}><Download className="h-4 w-4" /> Export filtered CSV</Button>
+          <Button onClick={onExportAll}>
+            <Download className="h-4 w-4" /> Export all CSV
+          </Button>
+          <Button variant="outline" onClick={onExportFiltered}>
+            <Download className="h-4 w-4" /> Export filtered CSV
+          </Button>
           <Button variant="outline" onClick={() => downloadParticipantReport(filteredPasses)}>
             <FileText className="h-4 w-4" /> Download participant report
           </Button>
-          <Button variant="outline" onClick={onPrint}><Printer className="h-4 w-4" /> Print participant list</Button>
+          <Button variant="outline" onClick={onPrint}>
+            <Printer className="h-4 w-4" /> Print participant list
+          </Button>
         </div>
       </Panel>
       <Panel title="Daily Statistics">
@@ -1990,7 +2899,10 @@ function SettingsView({ adminEmail }: { adminEmail: string }) {
       <div className="space-y-4 text-sm">
         <InfoRow label="Current admin" value={adminEmail || "Unknown"} />
         <InfoRow label="Access model" value="Supabase Auth plus user_roles.role = admin" />
-        <InfoRow label="Database protection" value="Use the provided SQL to enable RLS policies for admin-only access." />
+        <InfoRow
+          label="Database protection"
+          value="Use the provided SQL to enable RLS policies for admin-only access."
+        />
       </div>
     </Panel>
   );
@@ -2021,14 +2933,40 @@ function PassDetailsDialog({
             <div className="grid gap-6 md:grid-cols-[1fr_auto]">
               <div className="space-y-3 text-sm">
                 <InfoRow label="Participant name" value={pass.participant_name} />
+                {pass.linked_participant_name && (
+                  <InfoRow label="Linked participant" value={pass.linked_participant_name} />
+                )}
                 <InfoRow label="Event name" value={pass.event_name} />
+                <InfoRow label="Event city" value={pass.event_city ?? "N/A"} />
+                <InfoRow label="Event date" value={pass.event_date ?? "N/A"} />
+                <InfoRow label="Event time" value={pass.event_time ?? "N/A"} />
+                <InfoRow label="Venue" value={pass.venue ?? "N/A"} />
                 <InfoRow label="Pass type" value={(pass.pass_type ?? "legacy").replace("_", " ")} />
                 <InfoRow label="Registration number" value={pass.registration_number ?? "Legacy"} />
                 <InfoRow label="Payment status" value={pass.payment_status ?? "Not tracked"} />
+                <InfoRow
+                  label="Payment mode"
+                  value={
+                    pass.payment_mode === "test" || pass.payment_provider === "dummy"
+                      ? "TEST PAYMENT"
+                      : (pass.payment_mode ?? pass.payment_provider ?? "Not tracked")
+                  }
+                />
+                <InfoRow label="Transaction ID" value={pass.transaction_id ?? "Not tracked"} />
+                <InfoRow label="Order ID" value={pass.order_id ?? "Not tracked"} />
+                <InfoRow
+                  label="Aadhaar"
+                  value={
+                    pass.aadhaar_last_four ? `XXXX XXXX ${pass.aadhaar_last_four}` : "Not available"
+                  }
+                />
                 <InfoRow label="Activity category" value={pass.activity_category ?? "N/A"} />
                 <InfoRow label="Entry number" value={pass.entry_number} />
                 <InfoRow label="Generated date" value={formatDateTime(pass.created_at)} />
-                <InfoRow label="Check-in status" value={isCheckedIn(pass) ? "Checked in" : "Not checked in"} />
+                <InfoRow
+                  label="Check-in status"
+                  value={isCheckedIn(pass) ? "Checked in" : "Not checked in"}
+                />
                 <InfoRow label="Check-in time" value={formatDateTime(pass.checked_in_at)} />
                 <InfoRow label="Pass status" value={pass.pass_status ?? pass.status ?? "active"} />
               </div>
@@ -2045,14 +2983,20 @@ function PassDetailsDialog({
               </div>
             </div>
             <div className="rounded-2xl border border-primary/20 bg-[#101827] p-5 text-center">
-              <div className="text-xs uppercase tracking-[0.3em] text-primary">Entry Pass Preview</div>
+              <div className="text-xs uppercase tracking-[0.3em] text-primary">
+                Entry Pass Preview
+              </div>
               <div className="mt-3 text-2xl font-semibold">{pass.participant_name}</div>
               <div className="mt-1 font-mono text-sm text-primary">{pass.entry_number}</div>
               <div className="mt-2 text-sm text-muted-foreground">{pass.event_name}</div>
             </div>
             <div className="flex flex-wrap justify-end gap-2">
-              <Button variant="outline" onClick={() => onPrint(pass)}><Printer className="h-4 w-4" /> Print</Button>
-              <Button onClick={() => onDownload(pass)}><Download className="h-4 w-4" /> Download PDF</Button>
+              <Button variant="outline" onClick={() => onPrint(pass)}>
+                <Printer className="h-4 w-4" /> Print
+              </Button>
+              <Button onClick={() => onDownload(pass)}>
+                <Download className="h-4 w-4" /> Download PDF
+              </Button>
             </div>
           </>
         )}
@@ -2061,7 +3005,13 @@ function PassDetailsDialog({
   );
 }
 
-function LargeQrDialog({ pass, onOpenChange }: { pass: PublicEntryPass | null; onOpenChange: (open: boolean) => void }) {
+function LargeQrDialog({
+  pass,
+  onOpenChange,
+}: {
+  pass: PublicEntryPass | null;
+  onOpenChange: (open: boolean) => void;
+}) {
   return (
     <Dialog open={!!pass} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -2069,7 +3019,9 @@ function LargeQrDialog({ pass, onOpenChange }: { pass: PublicEntryPass | null; o
           <div className="text-center">
             <DialogHeader>
               <DialogTitle>Enlarged QR Code</DialogTitle>
-              <DialogDescription>{pass.participant_name} - {pass.entry_number}</DialogDescription>
+              <DialogDescription>
+                {pass.participant_name} - {pass.entry_number}
+              </DialogDescription>
             </DialogHeader>
             <div className="mx-auto mt-5 inline-block rounded-2xl bg-white p-5">
               <QRCodeCanvas value={qrValue(pass)} size={320} marginSize={4} level="M" />
@@ -2099,7 +3051,9 @@ function ConfirmDialog({
               <DialogDescription>{confirm.description}</DialogDescription>
             </DialogHeader>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setConfirm(null)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setConfirm(null)}>
+                Cancel
+              </Button>
               <Button
                 disabled={loading}
                 onClick={async () => {
@@ -2133,37 +3087,78 @@ function EventsView({
   events: any[];
   onRefresh: () => Promise<void>;
   logActivity: (action: string) => Promise<void>;
-  setConfirmAction: (value: { title: string; description: string; action: () => Promise<void> } | null) => void;
+  setConfirmAction: (
+    value: { title: string; description: string; action: () => Promise<void> } | null,
+  ) => void;
 }) {
   const [saving, setSaving] = useState(false);
   const [editingEvent, setEditingEvent] = useState<any | null>(null);
   const [form, setForm] = useState({
-    name: "", slug: "", city: "", city_code: "", event_date: "", start_time: "", venue: "",
-    participant_price: "0", visitor_price: "0", guest_price: "0",
-    participant_capacity: "0", visitor_capacity: "0", guest_capacity: "0",
+    name: "",
+    slug: "",
+    city: "",
+    city_code: "",
+    event_date: "",
+    start_time: "",
+    venue: "",
+    participant_price: "0",
+    visitor_price: "0",
+    guest_price: "0",
+    participant_capacity: "0",
+    visitor_capacity: "0",
+    guest_capacity: "0",
     maximum_guests_per_participant: "2",
-    registration_status: "inactive", visitor_registration_enabled: false, is_active: true,
+    registration_status: "inactive",
+    visitor_registration_enabled: false,
+    is_active: true,
     event_image_url: "",
   });
 
   const resetForm = () => {
     setEditingEvent(null);
-    setForm({ name: "", slug: "", city: "", city_code: "", event_date: "", start_time: "", venue: "",
-      participant_price: "0", visitor_price: "0", guest_price: "0",
-      participant_capacity: "0", visitor_capacity: "0", guest_capacity: "0",
-      maximum_guests_per_participant: "2", registration_status: "inactive", visitor_registration_enabled: false, is_active: true, event_image_url: "" });
+    setForm({
+      name: "",
+      slug: "",
+      city: "",
+      city_code: "",
+      event_date: "",
+      start_time: "",
+      venue: "",
+      participant_price: "0",
+      visitor_price: "0",
+      guest_price: "0",
+      participant_capacity: "0",
+      visitor_capacity: "0",
+      guest_capacity: "0",
+      maximum_guests_per_participant: "2",
+      registration_status: "inactive",
+      visitor_registration_enabled: false,
+      is_active: true,
+      event_image_url: "",
+    });
   };
 
   const editEvent = (ev: any) => {
     setEditingEvent(ev);
     setForm({
-      name: ev.name || "", slug: ev.slug || "", city: ev.city || "", city_code: ev.city_code || "",
-      event_date: ev.event_date || "", start_time: ev.start_time || "", venue: ev.venue || "",
-      participant_price: String(ev.participant_price || 0), visitor_price: String(ev.visitor_price || 0), guest_price: String(ev.guest_price || 0),
-      participant_capacity: String(ev.participant_capacity || 0), visitor_capacity: String(ev.visitor_capacity || 0), guest_capacity: String(ev.guest_capacity || 0),
+      name: ev.name || "",
+      slug: ev.slug || "",
+      city: ev.city || "",
+      city_code: ev.city_code || "",
+      event_date: ev.event_date || "",
+      start_time: ev.start_time || "",
+      venue: ev.venue || "",
+      participant_price: String(ev.participant_price || 0),
+      visitor_price: String(ev.visitor_price || 0),
+      guest_price: String(ev.guest_price || 0),
+      participant_capacity: String(ev.participant_capacity || 0),
+      visitor_capacity: String(ev.visitor_capacity || 0),
+      guest_capacity: String(ev.guest_capacity || 0),
       maximum_guests_per_participant: String(ev.maximum_guests_per_participant || 2),
-      registration_status: ev.registration_status || "inactive", visitor_registration_enabled: ev.visitor_registration_enabled || false,
-      is_active: ev.is_active ?? true, event_image_url: ev.event_image_url || "",
+      registration_status: ev.registration_status || "inactive",
+      visitor_registration_enabled: ev.visitor_registration_enabled || false,
+      is_active: ev.is_active ?? true,
+      event_image_url: ev.event_image_url || "",
     });
   };
 
@@ -2177,19 +3172,36 @@ function EventsView({
     try {
       const slug = form.slug.trim() || slugify(form.name);
       const payload = {
-        name: form.name.trim(), slug, city: form.city.trim(), city_code: form.city_code.trim().toUpperCase(),
-        event_date: form.event_date || null, start_time: form.start_time || null, venue: form.venue.trim() || null,
-        participant_price: Number(form.participant_price) || 0, visitor_price: Number(form.visitor_price) || 0, guest_price: Number(form.guest_price) || 0,
-        participant_capacity: Number(form.participant_capacity) || 0, visitor_capacity: Number(form.visitor_capacity) || 0, guest_capacity: Number(form.guest_capacity) || 0,
+        name: form.name.trim(),
+        slug,
+        city: form.city.trim(),
+        city_code: form.city_code.trim().toUpperCase(),
+        event_date: form.event_date || null,
+        start_time: form.start_time || null,
+        venue: form.venue.trim() || null,
+        participant_price: Number(form.participant_price) || 0,
+        visitor_price: Number(form.visitor_price) || 0,
+        guest_price: Number(form.guest_price) || 0,
+        participant_capacity: Number(form.participant_capacity) || 0,
+        visitor_capacity: Number(form.visitor_capacity) || 0,
+        guest_capacity: Number(form.guest_capacity) || 0,
         maximum_guests_per_participant: Number(form.maximum_guests_per_participant) || 2,
-        registration_status: form.registration_status, visitor_registration_enabled: form.visitor_registration_enabled, is_active: form.is_active,
-        event_image_url: form.event_image_url.trim() || null, updated_at: new Date().toISOString(),
+        registration_status: form.registration_status,
+        visitor_registration_enabled: form.visitor_registration_enabled,
+        is_active: form.is_active,
+        event_image_url: form.event_image_url.trim() || null,
+        updated_at: new Date().toISOString(),
       };
       const result = editingEvent
-        ? await supabase.from("events").update(payload as never).eq("id", editingEvent.id)
+        ? await supabase
+            .from("events")
+            .update(payload as never)
+            .eq("id", editingEvent.id)
         : await supabase.from("events").insert(payload as never);
       if (result.error) throw result.error;
-      await logActivity(editingEvent ? `Updated event ${payload.name}` : `Created event ${payload.name}`);
+      await logActivity(
+        editingEvent ? `Updated event ${payload.name}` : `Created event ${payload.name}`,
+      );
       toast.success(editingEvent ? "Event updated" : "Event created");
       resetForm();
       await onRefresh();
@@ -2203,60 +3215,138 @@ function EventsView({
   return (
     <Panel title="Event Management">
       <form onSubmit={saveEvent} className="mb-6 grid gap-3 lg:grid-cols-3">
-        <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value, slug: editingEvent ? f.slug : slugify(e.target.value) }))}
-          placeholder="Event name *" className="field-input" />
-        <input value={form.slug} onChange={(e) => setForm((f) => ({ ...f, slug: slugify(e.target.value) }))}
-          placeholder="event-slug" className="field-input" />
-        <input value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-          placeholder="City *" className="field-input" />
-        <input value={form.city_code} onChange={(e) => setForm((f) => ({ ...f, city_code: e.target.value.toUpperCase() }))}
-          placeholder="City code (e.g., AMD) *" className="field-input" maxLength={5} />
-        <input value={form.event_date} onChange={(e) => setForm((f) => ({ ...f, event_date: e.target.value }))}
-          type="date" className="field-input" />
-        <input value={form.start_time} onChange={(e) => setForm((f) => ({ ...f, start_time: e.target.value }))}
-          type="time" className="field-input" />
-        <input value={form.venue} onChange={(e) => setForm((f) => ({ ...f, venue: e.target.value }))}
-          placeholder="Venue" className="field-input" />
-        <input value={form.event_image_url} onChange={(e) => setForm((f) => ({ ...f, event_image_url: e.target.value }))}
-          placeholder="Event image URL" className="field-input" />
+        <input
+          value={form.name}
+          onChange={(e) =>
+            setForm((f) => ({
+              ...f,
+              name: e.target.value,
+              slug: editingEvent ? f.slug : slugify(e.target.value),
+            }))
+          }
+          placeholder="Event name *"
+          className="field-input"
+        />
+        <input
+          value={form.slug}
+          onChange={(e) => setForm((f) => ({ ...f, slug: slugify(e.target.value) }))}
+          placeholder="event-slug"
+          className="field-input"
+        />
+        <input
+          value={form.city}
+          onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+          placeholder="City *"
+          className="field-input"
+        />
+        <input
+          value={form.city_code}
+          onChange={(e) => setForm((f) => ({ ...f, city_code: e.target.value.toUpperCase() }))}
+          placeholder="City code (e.g., AMD) *"
+          className="field-input"
+          maxLength={5}
+        />
+        <input
+          value={form.event_date}
+          onChange={(e) => setForm((f) => ({ ...f, event_date: e.target.value }))}
+          type="date"
+          className="field-input"
+        />
+        <input
+          value={form.start_time}
+          onChange={(e) => setForm((f) => ({ ...f, start_time: e.target.value }))}
+          type="time"
+          className="field-input"
+        />
+        <input
+          value={form.venue}
+          onChange={(e) => setForm((f) => ({ ...f, venue: e.target.value }))}
+          placeholder="Venue"
+          className="field-input"
+        />
+        <input
+          value={form.event_image_url}
+          onChange={(e) => setForm((f) => ({ ...f, event_image_url: e.target.value }))}
+          placeholder="Event image URL"
+          className="field-input"
+        />
         <div className="grid grid-cols-3 gap-2">
-          <input value={form.participant_price} onChange={(e) => setForm((f) => ({ ...f, participant_price: e.target.value }))}
-            placeholder="Part. price" className="field-input" />
-          <input value={form.visitor_price} onChange={(e) => setForm((f) => ({ ...f, visitor_price: e.target.value }))}
-            placeholder="Vis. price" className="field-input" />
-          <input value={form.guest_price} onChange={(e) => setForm((f) => ({ ...f, guest_price: e.target.value }))}
-            placeholder="Guest price" className="field-input" />
+          <input
+            value={form.participant_price}
+            onChange={(e) => setForm((f) => ({ ...f, participant_price: e.target.value }))}
+            placeholder="Part. price"
+            className="field-input"
+          />
+          <input
+            value={form.visitor_price}
+            onChange={(e) => setForm((f) => ({ ...f, visitor_price: e.target.value }))}
+            placeholder="Vis. price"
+            className="field-input"
+          />
+          <input
+            value={form.guest_price}
+            onChange={(e) => setForm((f) => ({ ...f, guest_price: e.target.value }))}
+            placeholder="Guest price"
+            className="field-input"
+          />
         </div>
         <div className="grid grid-cols-3 gap-2">
-          <input value={form.participant_capacity} onChange={(e) => setForm((f) => ({ ...f, participant_capacity: e.target.value }))}
-            placeholder="Part. capacity" className="field-input" />
-          <input value={form.visitor_capacity} onChange={(e) => setForm((f) => ({ ...f, visitor_capacity: e.target.value }))}
-            placeholder="Vis. capacity" className="field-input" />
-          <input value={form.guest_capacity} onChange={(e) => setForm((f) => ({ ...f, guest_capacity: e.target.value }))}
-            placeholder="Guest capacity" className="field-input" />
+          <input
+            value={form.participant_capacity}
+            onChange={(e) => setForm((f) => ({ ...f, participant_capacity: e.target.value }))}
+            placeholder="Part. capacity"
+            className="field-input"
+          />
+          <input
+            value={form.visitor_capacity}
+            onChange={(e) => setForm((f) => ({ ...f, visitor_capacity: e.target.value }))}
+            placeholder="Vis. capacity"
+            className="field-input"
+          />
+          <input
+            value={form.guest_capacity}
+            onChange={(e) => setForm((f) => ({ ...f, guest_capacity: e.target.value }))}
+            placeholder="Guest capacity"
+            className="field-input"
+          />
         </div>
-        <select value={form.registration_status} onChange={(e) => setForm((f) => ({ ...f, registration_status: e.target.value }))}
-          className="field-input">
+        <select
+          value={form.registration_status}
+          onChange={(e) => setForm((f) => ({ ...f, registration_status: e.target.value }))}
+          className="field-input"
+        >
           <option value="inactive">Inactive</option>
           <option value="active">Active</option>
           <option value="closed">Closed</option>
           <option value="full">Full</option>
         </select>
         <label className="flex items-center gap-2 field-input cursor-pointer">
-          <input type="checkbox" checked={form.visitor_registration_enabled}
-            onChange={(e) => setForm((f) => ({ ...f, visitor_registration_enabled: e.target.checked }))} />
+          <input
+            type="checkbox"
+            checked={form.visitor_registration_enabled}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, visitor_registration_enabled: e.target.checked }))
+            }
+          />
           Enable visitor registration
         </label>
         <label className="flex items-center gap-2 field-input cursor-pointer">
-          <input type="checkbox" checked={form.is_active}
-            onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))} />
+          <input
+            type="checkbox"
+            checked={form.is_active}
+            onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))}
+          />
           Active
         </label>
         <div className="flex gap-2 lg:col-span-3">
           <Button type="submit" disabled={saving}>
             {editingEvent ? "Update Event" : "Create Event"}
           </Button>
-          {editingEvent && <Button type="button" variant="outline" onClick={resetForm}>Cancel</Button>}
+          {editingEvent && (
+            <Button type="button" variant="outline" onClick={resetForm}>
+              Cancel
+            </Button>
+          )}
         </div>
       </form>
 
@@ -2281,34 +3371,58 @@ function EventsView({
                 <td className="px-4 py-3">{ev.city}</td>
                 <td className="px-4 py-3 font-mono text-xs">{ev.city_code}</td>
                 <td className="px-4 py-3 text-xs">{ev.event_date || "—"}</td>
-                <td className="px-4 py-3 text-xs">₹{ev.participant_price}/₹{ev.visitor_price}/₹{ev.guest_price}</td>
-                <td className="px-4 py-3 text-xs">{ev.participant_capacity}/{ev.visitor_capacity}/{ev.guest_capacity}</td>
+                <td className="px-4 py-3 text-xs">
+                  ₹{ev.participant_price}/₹{ev.visitor_price}/₹{ev.guest_price}
+                </td>
+                <td className="px-4 py-3 text-xs">
+                  {ev.participant_capacity}/{ev.visitor_capacity}/{ev.guest_capacity}
+                </td>
                 <td className="px-4 py-3">
-                  <span className={cn(
-                    "rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-wider",
-                    ev.registration_status === "active" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" :
-                    ev.registration_status === "closed" ? "border-amber-500/40 bg-amber-500/10 text-amber-300" :
-                    ev.registration_status === "full" ? "border-red-500/40 bg-red-500/10 text-red-300" :
-                    "border-border text-muted-foreground"
-                  )}>{ev.registration_status}</span>
+                  <span
+                    className={cn(
+                      "rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-wider",
+                      ev.registration_status === "active"
+                        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                        : ev.registration_status === "closed"
+                          ? "border-amber-500/40 bg-amber-500/10 text-amber-300"
+                          : ev.registration_status === "full"
+                            ? "border-red-500/40 bg-red-500/10 text-red-300"
+                            : "border-border text-muted-foreground",
+                    )}
+                  >
+                    {ev.registration_status}
+                  </span>
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-1.5">
                     <IconButton label="Edit event" icon={Pencil} onClick={() => editEvent(ev)} />
-                    <IconButton label={ev.is_active ? "Disable event" : "Enable event"} icon={RefreshCcw}
+                    <IconButton
+                      label={ev.is_active ? "Disable event" : "Enable event"}
+                      icon={RefreshCcw}
                       onClick={async () => {
-                        await supabase.from("events").update({ is_active: !ev.is_active, updated_at: new Date().toISOString() } as never).eq("id", ev.id);
-                        await logActivity(`${ev.is_active ? "Disabled" : "Enabled"} event ${ev.name}`);
+                        await supabase
+                          .from("events")
+                          .update({
+                            is_active: !ev.is_active,
+                            updated_at: new Date().toISOString(),
+                          } as never)
+                          .eq("id", ev.id);
+                        await logActivity(
+                          `${ev.is_active ? "Disabled" : "Enabled"} event ${ev.name}`,
+                        );
                         toast.success(`Event ${ev.is_active ? "disabled" : "enabled"}`);
                         await onRefresh();
-                      }} />
+                      }}
+                    />
                   </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        {events.length === 0 && <EmptyState text="No events have been created yet. Create one above." />}
+        {events.length === 0 && (
+          <EmptyState text="No events have been created yet. Create one above." />
+        )}
       </div>
     </Panel>
   );
@@ -2321,9 +3435,12 @@ function AdminAccessDenied({ onLogout }: { onLogout: () => void }) {
         <ShieldAlert className="mx-auto h-12 w-12 text-primary" />
         <h1 className="mt-4 text-2xl font-semibold">Admin access denied</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Your account is authenticated, but it does not have the admin role required for this panel.
+          Your account is authenticated, but it does not have the admin role required for this
+          panel.
         </p>
-        <Button className="mt-6" onClick={onLogout}><LogOut className="h-4 w-4" /> Logout</Button>
+        <Button className="mt-6" onClick={onLogout}>
+          <LogOut className="h-4 w-4" /> Logout
+        </Button>
       </div>
     </div>
   );
@@ -2356,7 +3473,17 @@ function EmptyState({ text }: { text: string }) {
   return <div className="py-10 text-center text-sm text-muted-foreground">{text}</div>;
 }
 
-function IconButton({ label, icon: Icon, onClick, danger }: { label: string; icon: typeof Eye; onClick: () => void; danger?: boolean }) {
+function IconButton({
+  label,
+  icon: Icon,
+  onClick,
+  danger,
+}: {
+  label: string;
+  icon: typeof Eye;
+  onClick: () => void;
+  danger?: boolean;
+}) {
   return (
     <button
       type="button"
@@ -2376,7 +3503,11 @@ function IconButton({ label, icon: Icon, onClick, danger }: { label: string; ico
 function StatusBadge({ pass }: { pass: PublicEntryPass }) {
   const revoked = isRevoked(pass);
   const checked = isCheckedIn(pass);
-  const label = revoked ? "Revoked" : checked ? "Checked in" : (pass.pass_status ?? pass.status ?? "Active");
+  const label = revoked
+    ? "Revoked"
+    : checked
+      ? "Checked in"
+      : (pass.pass_status ?? pass.status ?? "Active");
   return (
     <span
       className={cn(
@@ -2419,7 +3550,10 @@ function isRevoked(pass: PublicEntryPass) {
 }
 
 function qrValue(pass: PublicEntryPass) {
-  return pass.qr_value || JSON.stringify({ id: pass.id, entryNumber: pass.entry_number, name: pass.participant_name });
+  return (
+    pass.qr_value ||
+    JSON.stringify({ id: pass.id, entryNumber: pass.entry_number, name: pass.participant_name })
+  );
 }
 
 function parseQrValue(value: string) {
@@ -2524,7 +3658,10 @@ function StatsList({ title, rows }: { title: string; rows: Array<[string, number
       <h3 className="text-sm font-medium">{title}</h3>
       <div className="mt-3 space-y-2">
         {rows.map(([day, count]) => (
-          <div key={day} className="flex justify-between rounded-lg border border-border/50 bg-background/40 px-3 py-2 text-sm">
+          <div
+            key={day}
+            className="flex justify-between rounded-lg border border-border/50 bg-background/40 px-3 py-2 text-sm"
+          >
             <span>{day}</span>
             <span className="font-semibold text-primary">{count}</span>
           </div>
@@ -2553,7 +3690,10 @@ function downloadParticipantReport(rows: PublicEntryPass[]) {
     `Generated: ${new Date().toLocaleString()}`,
     `Records: ${rows.length}`,
     "",
-    ...rows.map((row) => `${row.entry_number} - ${row.participant_name} - ${row.event_name} - ${isCheckedIn(row) ? "Checked in" : "Not checked in"}`),
+    ...rows.map(
+      (row) =>
+        `${row.entry_number} - ${row.participant_name} - ${row.event_name} - ${isCheckedIn(row) ? "Checked in" : "Not checked in"}`,
+    ),
   ];
   downloadText(lines.join("\n"), "talent-fest-participant-report.txt", "text/plain;charset=utf-8");
 }
