@@ -50,7 +50,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { generatePassPdf, renderPassToCanvas } from "@/lib/pdf-generator";
+import { generatePassPdf, renderSingleSidedPassToCanvas } from "@/lib/pdf-generator";
+import { checkInAdminPass, fetchAdminData, verifyAdminQr } from "@/lib/admin.functions";
 import { cn } from "@/lib/utils";
 import { getSupabaseConfigError, supabase } from "@/integrations/supabase/client";
 
@@ -106,9 +107,11 @@ type PublicEntryPass = {
   event_date?: string | null;
   event_time?: string | null;
   venue?: string | null;
+  event_image_url?: string | null;
   linked_participant_name?: string | null;
   aadhaar_last_four?: string | null;
   activity_category?: string | null;
+  registration_type?: string | null;
 };
 
 type AdminActivity = {
@@ -322,6 +325,24 @@ function AdminPanel() {
       }
 
       setIsAdmin(true);
+      try {
+        const adminData = await fetchAdminData({ data: { adminUserId: userData.user.id } });
+        setPasses((adminData.passes ?? []).map((pass) => normalizePass(pass as PublicEntryPass)));
+        setActivities((adminData.activities ?? []) as AdminActivity[]);
+        setEventsList(adminData.events ?? []);
+        setGalleryDataError("");
+        setGalleryCities((adminData.galleryCities ?? []) as GalleryCity[]);
+        setGalleryMedia((adminData.galleryMedia ?? []) as GalleryMedia[]);
+        setConcertDataError("");
+        setConcertSettings((adminData.concertSettings ?? null) as ConcertSettingsRecord | null);
+        setConcertArtists((adminData.concertArtists ?? []) as ConcertArtistRecord[]);
+        setBlogDataError("");
+        setBlogPosts((adminData.blogPosts ?? []) as BlogPostRecord[]);
+        return;
+      } catch (serverError) {
+        console.warn("Server admin fetch failed, falling back to browser queries", serverError);
+      }
+
       const eventsResult = await supabase
         .from("events")
         .select("*")
@@ -558,7 +579,7 @@ function AdminPanel() {
       total: passes.length,
       today: generatedToday,
       checkedIn,
-      pending: passes.length - checkedIn - revoked,
+      pending: passes.filter((p) => p.payment_status === "pending" || !p.payment_status).length,
       revoked,
       participant: passes.filter((p) => p.pass_type === "participant").length,
       visitor: passes.filter((p) => p.pass_type === "visitor").length,
@@ -654,44 +675,14 @@ function AdminPanel() {
       toast.error("This pass is revoked and cannot be checked in.");
       return;
     }
-    // Try new passes table first
-    const { data: checkNew } = await supabase
-      .from("passes")
-      .select("id")
-      .eq("id", pass.id)
-      .maybeSingle();
-    if (checkNew) {
-      if (pass.payment_status !== "paid") {
-        toast.error("Payment is not paid. This pass cannot be checked in.");
-        return;
-      }
-      await supabase
-        .from("passes")
-        .update({
-          checked_in: true,
-          checked_in_at: new Date().toISOString(),
-          status: "checked_in",
-          updated_at: new Date().toISOString(),
-        } as never)
-        .eq("id", pass.id);
-      await supabase.from("check_in_logs").insert({
-        pass_id: pass.id,
-        admin_user_id: adminUserId || null,
-        previous_status: pass.pass_status || "active",
-        new_status: "checked_in",
-        action: "Checked in",
-        checked_in_at: new Date().toISOString(),
-      } as never);
-      toast.success("Marked participant as checked in");
-      await logActivity("Marked participant as checked in", pass);
+    try {
+      await checkInAdminPass({ data: { adminUserId, passId: pass.id } });
+      await logActivity("Marked pass as checked in", pass);
+      toast.success("Marked pass as checked in");
       await loadAdminData(true);
-      return;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to check in this pass.");
     }
-    await updatePass(
-      pass,
-      { checked_in: true, checked_in_at: new Date().toISOString(), status: "checked_in" },
-      "Marked participant as checked in",
-    );
   };
 
   const undoCheckIn = async (pass: PublicEntryPass) => {
@@ -803,13 +794,21 @@ function AdminPanel() {
     }
 
     const canvas = document.createElement("canvas");
-    canvas.width = 1200;
-    canvas.height = 1500;
-    await renderPassToCanvas(canvas, {
+    canvas.width = 1400;
+    canvas.height = 800;
+    await renderSingleSidedPassToCanvas(canvas, {
+      passNumber: pass.entry_number,
+      passType: pass.pass_type || "participant",
       participantName: pass.participant_name,
-      entryNumber: pass.entry_number,
       eventName: pass.event_name,
+      eventCity: pass.event_city || "",
+      eventDate: pass.event_date || "",
+      startTime: pass.event_time || "",
+      venue: pass.venue || "",
+      activityCategory: pass.activity_category || "",
+      eventImageUrl: pass.event_image_url || "",
       qrDataUrl: qrCanvas.toDataURL("image/png"),
+      status: pass.payment_status === "paid" ? "active" : pass.pass_status || "pending",
     });
     await generatePassPdf(canvas, `Telent-Fest-Entry-Pass-${pass.entry_number}.pdf`);
     await logActivity("Downloaded entry pass PDF", pass);
@@ -943,11 +942,17 @@ function AdminPanel() {
           <ScannerView
             result={scannerResult}
             setResult={setScannerResult}
+            adminUserId={adminUserId}
             onCheckIn={markCheckedIn}
           />
         )}
         {activeView === "participants" && (
-          <ParticipantsView passes={filteredPasses} onView={setSelectedPass} />
+          <ParticipantsView
+            passes={filteredPasses.filter(
+              (pass) => pass.pass_type === "participant" || pass.registration_type === "participant",
+            )}
+            onView={setSelectedPass}
+          />
         )}
         {activeView === "events" && (
           <EventsView
@@ -1236,17 +1241,27 @@ function PassesView(props: {
 }) {
   return (
     <Panel title="Entry Pass Management">
-      <div className="mb-4 grid gap-3 lg:grid-cols-[1fr_auto]">
-        <div className="relative">
+      <div className="mb-5 space-y-3">
+        <div className="relative max-w-4xl">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             value={props.query}
             onChange={(event) => props.setQuery(event.target.value)}
-            placeholder="Search participant, entry number, email, or phone"
-            className="w-full rounded-xl border border-border bg-background/70 py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            placeholder="Search name, pass number, event, email, phone, or transaction"
+            className="w-full rounded-xl border border-border bg-background/70 py-2.5 pl-9 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
+          {props.query && (
+            <button
+              type="button"
+              onClick={() => props.setQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:text-foreground"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
-        <div className="flex items-center gap-2 overflow-x-auto">
+        <div className="flex flex-wrap items-center gap-2">
           <Filter className="h-4 w-4 text-primary" />
           {(Object.keys(filterLabels) as PassFilter[]).map((value) => (
             <button
@@ -1266,7 +1281,7 @@ function PassesView(props: {
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-border/60">
-        <table className="w-full min-w-[1380px] text-sm">
+        <table className="w-full min-w-[1180px] text-sm">
           <thead className="bg-white/[0.04] text-xs uppercase tracking-wider text-muted-foreground">
             <tr>
               <th className="px-4 py-3 text-left">Participant</th>
@@ -2509,10 +2524,12 @@ function normalizeMapEmbed(value: string) {
 function ScannerView({
   result,
   setResult,
+  adminUserId,
   onCheckIn,
 }: {
   result: ScannerResult;
   setResult: (result: ScannerResult) => void;
+  adminUserId: string;
   onCheckIn: (pass: PublicEntryPass) => void;
 }) {
   const scannerRef = useRef<{
@@ -2520,6 +2537,8 @@ function ScannerView({
     render: (onSuccess: (decodedText: string) => void, onError: () => void) => void;
   } | null>(null);
   const [running, setRunning] = useState(false);
+  const [manualCode, setManualCode] = useState("");
+  const [scanningFile, setScanningFile] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -2539,7 +2558,7 @@ function ScannerView({
         async (decodedText: string) => {
           await scannerRef.current?.clear();
           setRunning(false);
-          await validateScannedCode(decodedText, setResult);
+          await validateScannedCode(decodedText, setResult, adminUserId);
         },
         () => undefined,
       );
@@ -2552,22 +2571,84 @@ function ScannerView({
     }
   };
 
+  const stopScanner = async () => {
+    await scannerRef.current?.clear();
+    scannerRef.current = null;
+    setRunning(false);
+  };
+
+  const scanUploadedFile = async (file?: File | null) => {
+    if (!file) return;
+    setScanningFile(true);
+    try {
+      const { Html5Qrcode } = await import("html5-qrcode");
+      const scanner = new Html5Qrcode("admin-qr-file-reader");
+      const decoded = await scanner.scanFile(file, true);
+      await scanner.clear().catch(() => undefined);
+      await validateScannedCode(decoded, setResult, adminUserId);
+    } catch (error) {
+      setResult({
+        state: "error",
+        message: error instanceof Error ? error.message : "Unable to read a QR code from this image.",
+      });
+    } finally {
+      setScanningFile(false);
+    }
+  };
+
+  const validateManualCode = async () => {
+    if (!manualCode.trim()) {
+      setResult({ state: "invalid", message: "Paste a QR code value or verification URL first." });
+      return;
+    }
+    await validateScannedCode(manualCode, setResult, adminUserId);
+  };
+
   return (
     <div className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
       <Panel title="QR Code Scanner">
         <div
           id="admin-qr-scanner"
-          className="overflow-hidden rounded-2xl border border-border/60 bg-background/50 p-3"
-        />
-        {!running && (
-          <Button
-            className="mt-4 gradient-primary text-primary-foreground border-0"
-            onClick={startScanner}
-          >
-            <ScanLine className="h-4 w-4" />
-            Start Scanner
+          className="grid min-h-[320px] place-items-center overflow-hidden rounded-2xl border border-border/60 bg-background/50 p-3 text-center text-sm text-muted-foreground"
+        >
+          {!running && <span>Start the camera scanner, upload a QR image, or paste a QR value.</span>}
+        </div>
+        <div id="admin-qr-file-reader" className="hidden" />
+        <div className="mt-4 flex flex-wrap gap-3">
+          {!running ? (
+            <Button className="gradient-primary text-primary-foreground border-0" onClick={startScanner}>
+              <ScanLine className="h-4 w-4" />
+              Start Scanner
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={stopScanner}>
+              <X className="h-4 w-4" />
+              Stop Scanner
+            </Button>
+          )}
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-background/70 px-4 py-2 text-sm transition hover:border-primary/60">
+            <QrCode className="h-4 w-4 text-primary" />
+            {scanningFile ? "Reading QR..." : "Upload QR Image"}
+            <input
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              disabled={scanningFile}
+              onChange={(event) => void scanUploadedFile(event.target.files?.[0])}
+            />
+          </label>
+        </div>
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <input
+            value={manualCode}
+            onChange={(event) => setManualCode(event.target.value)}
+            placeholder="Paste QR JSON, verification URL, token, or pass number"
+            className="field-input flex-1"
+          />
+          <Button variant="outline" onClick={validateManualCode}>
+            Verify
           </Button>
-        )}
+        </div>
       </Panel>
       <Panel title="Scanner Result">
         <ScannerResultCard result={result} onCheckIn={onCheckIn} />
@@ -2579,7 +2660,22 @@ function ScannerView({
 async function validateScannedCode(
   decodedText: string,
   setResult: (result: ScannerResult) => void,
+  adminUserId: string,
 ) {
+  if (adminUserId) {
+    try {
+      const result = await verifyAdminQr({ data: { adminUserId, code: decodedText } });
+      setResult(result as ScannerResult);
+      return;
+    } catch (error) {
+      setResult({
+        state: "error",
+        message: error instanceof Error ? error.message : "Unable to verify this QR code.",
+      });
+      return;
+    }
+  }
+
   const parsed = parseQrValue(decodedText);
 
   // Try new passes table first
@@ -3092,6 +3188,8 @@ function EventsView({
   ) => void;
 }) {
   const [saving, setSaving] = useState(false);
+  const [eventImageFile, setEventImageFile] = useState<File | null>(null);
+  const [eventImagePreview, setEventImagePreview] = useState("");
   const [editingEvent, setEditingEvent] = useState<any | null>(null);
   const [form, setForm] = useState({
     name: "",
@@ -3116,6 +3214,8 @@ function EventsView({
 
   const resetForm = () => {
     setEditingEvent(null);
+    setEventImageFile(null);
+    setEventImagePreview("");
     setForm({
       name: "",
       slug: "",
@@ -3140,6 +3240,8 @@ function EventsView({
 
   const editEvent = (ev: any) => {
     setEditingEvent(ev);
+    setEventImageFile(null);
+    setEventImagePreview(ev.event_image_url || "");
     setForm({
       name: ev.name || "",
       slug: ev.slug || "",
@@ -3162,6 +3264,33 @@ function EventsView({
     });
   };
 
+  const chooseEventImage = (file?: File | null) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose a valid image file.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Event image must be smaller than 8 MB.");
+      return;
+    }
+    setEventImageFile(file);
+    const preview = URL.createObjectURL(file);
+    setEventImagePreview(preview);
+  };
+
+  const uploadEventImage = async (file: File, slug: string) => {
+    const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const safeSlug = slugify(slug || form.name || "event");
+    const path = `${safeSlug}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
+    const { error } = await supabase.storage
+      .from("event-images")
+      .upload(path, file, { cacheControl: "31536000", upsert: false });
+    if (error) throw error;
+    const { data } = supabase.storage.from("event-images").getPublicUrl(path);
+    return data.publicUrl;
+  };
+
   const saveEvent = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!form.name.trim() || !form.city.trim() || !form.city_code.trim()) {
@@ -3171,6 +3300,9 @@ function EventsView({
     setSaving(true);
     try {
       const slug = form.slug.trim() || slugify(form.name);
+      const uploadedImageUrl = eventImageFile
+        ? await uploadEventImage(eventImageFile, slug)
+        : form.event_image_url.trim();
       const payload = {
         name: form.name.trim(),
         slug,
@@ -3189,7 +3321,7 @@ function EventsView({
         registration_status: form.registration_status,
         visitor_registration_enabled: form.visitor_registration_enabled,
         is_active: form.is_active,
-        event_image_url: form.event_image_url.trim() || null,
+        event_image_url: uploadedImageUrl || null,
         updated_at: new Date().toISOString(),
       };
       const result = editingEvent
@@ -3270,6 +3402,45 @@ function EventsView({
           placeholder="Event image URL"
           className="field-input"
         />
+        <div className="rounded-2xl border border-border bg-background/60 p-3 lg:col-span-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary/20">
+              <ImageIcon className="h-4 w-4" />
+              Upload Event Image
+              <input
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={(e) => chooseEventImage(e.target.files?.[0])}
+              />
+            </label>
+            <span className="text-xs text-muted-foreground">
+              Used in pass preview and downloadable PDFs. Posters are displayed with no stretching.
+            </span>
+            {(eventImagePreview || form.event_image_url) && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setEventImageFile(null);
+                  setEventImagePreview("");
+                  setForm((f) => ({ ...f, event_image_url: "" }));
+                }}
+              >
+                Remove Image
+              </Button>
+            )}
+          </div>
+          {(eventImagePreview || form.event_image_url) && (
+            <div className="mt-3 h-32 w-24 overflow-hidden rounded-xl border border-primary/20 bg-black">
+              <img
+                src={eventImagePreview || form.event_image_url}
+                alt="Selected event poster preview"
+                className="h-full w-full object-contain"
+              />
+            </div>
+          )}
+        </div>
         <div className="grid grid-cols-3 gap-2">
           <input
             value={form.participant_price}
@@ -3351,10 +3522,11 @@ function EventsView({
       </form>
 
       <div className="overflow-x-auto rounded-xl border border-border/60">
-        <table className="w-full min-w-[900px] text-sm">
+        <table className="w-full min-w-[980px] text-sm">
           <thead className="bg-white/[0.04] text-xs uppercase tracking-wider text-muted-foreground">
             <tr>
               <th className="px-4 py-3 text-left">Event</th>
+              <th className="px-4 py-3 text-left">Image</th>
               <th className="px-4 py-3 text-left">City</th>
               <th className="px-4 py-3 text-left">Code</th>
               <th className="px-4 py-3 text-left">Date</th>
@@ -3368,6 +3540,17 @@ function EventsView({
             {events.map((ev) => (
               <tr key={ev.id} className="border-t border-border/60">
                 <td className="px-4 py-3 font-medium">{ev.name}</td>
+                <td className="px-4 py-3">
+                  {ev.event_image_url ? (
+                    <img
+                      src={ev.event_image_url}
+                      alt={`${ev.name} poster`}
+                      className="h-16 w-12 rounded-lg border border-primary/20 bg-black object-contain"
+                    />
+                  ) : (
+                    <span className="text-xs text-muted-foreground">No image</span>
+                  )}
+                </td>
                 <td className="px-4 py-3">{ev.city}</td>
                 <td className="px-4 py-3 font-mono text-xs">{ev.city_code}</td>
                 <td className="px-4 py-3 text-xs">{ev.event_date || "—"}</td>

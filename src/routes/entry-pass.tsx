@@ -139,6 +139,8 @@ function ParticipantForm({ onNavigate, onPreviewUpdate }: { onNavigate: (opts: a
       eventName: ev?.name || "Telent Fest",
       eventCity: ev?.city || "",
       eventDate: ev?.event_date || "",
+      eventId: ev?.id || "",
+      eventImageUrl: ev?.event_image_url || "",
       passNumber: "Pending...",
       tab: "participant",
     });
@@ -412,6 +414,8 @@ function VisitorForm({ onNavigate, onPreviewUpdate }: { onNavigate: (opts: any) 
       eventName: selectedEvent?.name || "Select an event",
       eventCity: selectedEvent?.city || "",
       eventDate: selectedEvent?.event_date || "",
+      eventId: selectedEvent?.id || "",
+      eventImageUrl: selectedEvent?.event_image_url || "",
       passNumber: "Pending...",
       tab: "visitor",
     });
@@ -587,7 +591,9 @@ function VisitorForm({ onNavigate, onPreviewUpdate }: { onNavigate: (opts: any) 
 
 function LivePassPreview({ tab, data, events }: { tab: TabType; data: Record<string, string>; events: EventOption[] }) {
   const qrValue = "TALENTFEST.in/pass-preview";
-  const selectedEventImg = events.find((e) => e.name === data.eventName)?.event_image_url;
+  const selectedEventImg =
+    data.eventImageUrl ||
+    events.find((e) => e.id === data.eventId || e.name === data.eventName)?.event_image_url;
   return (
     <div className="lg:sticky lg:top-28">
       <h2 className="text-xl font-display font-semibold mb-6 text-center lg:text-left">Pass Preview</h2>

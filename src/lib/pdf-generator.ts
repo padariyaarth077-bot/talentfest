@@ -166,15 +166,15 @@ export function renderSingleSidedPassToCanvas(
         const sectionRatio = imgSectionW / imgH;
         let drawW: number, drawH: number, dx: number, dy: number;
         if (imgRatio > sectionRatio) {
-          drawH = imgH;
-          drawW = imgH * imgRatio;
-          dx = imgX - (drawW - imgSectionW) / 2;
-          dy = imgY;
-        } else {
           drawW = imgSectionW;
           drawH = imgSectionW / imgRatio;
           dx = imgX;
-          dy = imgY - (drawH - imgH) / 2;
+          dy = imgY + (imgH - drawH) / 2;
+        } else {
+          drawH = imgH;
+          drawW = imgH * imgRatio;
+          dx = imgX + (imgSectionW - drawW) / 2;
+          dy = imgY;
         }
         ctx.save();
         ctx.beginPath();
@@ -208,7 +208,7 @@ export function renderSingleSidedPassToCanvas(
     ctx.font = 'bold 28px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('TF', imgX + imgSectionW / 2, imgY + imgH / 2 - 20);
+    ctx.fillText('TELENT FEST', imgX + imgSectionW / 2, imgY + imgH / 2 - 20);
     ctx.font = '14px Inter, sans-serif';
     ctx.fillStyle = muted;
     ctx.fillText(data.eventName || 'Talent Fest', imgX + imgSectionW / 2, imgY + imgH / 2 + 30);
