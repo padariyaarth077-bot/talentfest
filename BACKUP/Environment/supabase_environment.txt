@@ -1,0 +1,47 @@
+===========================================
+SUPABASE PROJECT BACKUP
+===========================================
+
+Project Name:
+talentfest
+
+Project Ref:
+vbskyclxldcvoaixpjon
+
+Project URL:
+https://vbskyclxldcvoaixpjon.supabase.co
+
+Database:
+PostgreSQL 17
+
+===========================================
+API KEYS
+===========================================
+
+Publishable Key:
+<set in deployment environment>
+
+Anon Public Key:
+<set in deployment environment>
+
+Service Role Key:
+<set in deployment environment>
+
+===========================================
+BACKUP DETAILS
+===========================================
+
+Database Backup:
+BACKUP\Database\talentfest_full.sql
+
+Storage Bucket:
+event-images
+
+Authentication:
+Supabase Auth Enabled
+
+Backup Date:
+12-07-2026
+
+Project Status:
+Staging Database

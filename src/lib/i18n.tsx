@@ -65,11 +65,10 @@ export const translations = {
         "Discover extraordinary talent through competitions, concerts, performances and creative opportunities.",
       stats: {
         categories: "Talent Categories",
-        services: "Service Tracks",
-        steps: "Participation Steps",
-        cities: "Event Cities",
-        cost: "Registration Cost",
-        free: "Free",
+        seminars: "Seminars Conducted",
+        districts: "Districts Reached",
+        students: "Students Impacted",
+        since: "Training & Talent Development",
       },
     },
     talents: {
@@ -143,28 +142,24 @@ export const translations = {
         },
       },
       about: {
-        eyebrow: "About Telent Fest",
+        eyebrow: "About TelentFest",
         titlePrefix: "Meet",
         body:
-          "JB Ahir is the founder of Telent Fest, a movement started to spotlight the extraordinary creative talent hidden in every corner of India. With over a decade of experience producing live events and community festivals, JB has built Telent Fest into a nationwide platform.",
-        facts: {
-          years: "10+ years in live events",
-          cities: "50+ cities toured",
-          artists: "1000+ artists mentored",
-          producer: "Award-winning producer",
-        },
-        vision: {
-          title: "Vision",
-          desc: "A future where every Indian talent gets a national stage, regardless of city or background.",
-        },
-        mission: {
-          title: "Mission",
-          desc: "Democratize opportunity through free registration, transparent judging and premium production.",
-        },
-        goal: {
-          title: "Goal",
-          desc: "Reach 100 cities and empower 1 million artists by 2028.",
-        },
+          "JB Ahir is the visionary founder of TelentFest Training Institute and one of Gujarat's youngest and most impactful motivational speakers. With more than a decade of experience in training, talent development, live events, and youth mentoring, he has created a platform that identifies, nurtures, and celebrates exceptional talent across India.",
+        aboutTelentFest:
+          "TelentFest is a prestigious talent platform dedicated to discovering, developing, and celebrating exceptional talent across India. From music, dance, drama, poetry, art, fashion, creative writing, photography, and unique performances, TelentFest provides a professional stage where talent meets opportunity. With years of impactful events, thousands of participants, and a growing audience across multiple cities, TelentFest has become a trusted platform for talent development, cultural promotion, youth empowerment, and community engagement.",
+        founder:
+          "An MBA graduate from Ganpat University, Mr. JB Ahir brings more than 10 years of training and leadership experience to TelentFest. He was awarded the title of Best Motivational Speaker in 2018 and has conducted more than 1,580 seminars across 18 districts. Through his seminars and initiatives, he has positively impacted over 3.5 lakh students, 1.5 lakh parents, and more than 20,000 teachers and professionals. More than a speaker, Mr. JB Ahir is a mentor for youth, a catalyst for positive change, and a passionate advocate for education, confidence, creativity, and noble social causes.",
+        facts: [
+          "10+ Years of Training Experience",
+          "1,580+ Seminars Conducted",
+          "18 Districts Reached",
+          "3.5 Lakh+ Students Impacted",
+          "1.5 Lakh+ Parents Reached",
+          "20,000+ Teachers & Professionals",
+          "Best Motivational Speaker — 2018",
+          "Founder of TelentFest Training Institute",
+        ],
       },
       participate: {
         eyebrow: "Simple 3-step process",
@@ -629,11 +624,10 @@ export const translations = {
         "प्रतियोगिताओं, संगीत कार्यक्रमों, प्रस्तुतियों और रचनात्मक अवसरों के माध्यम से असाधारण प्रतिभाओं की खोज करें।",
       stats: {
         categories: "प्रतिभा श्रेणियाँ",
-        services: "सेवा ट्रैक",
-        steps: "भागीदारी चरण",
-        cities: "कार्यक्रम शहर",
-        cost: "पंजीकरण शुल्क",
-        free: "मुफ़्त",
+        seminars: "सेमिनार आयोजित",
+        districts: "जिले पहुँच गए",
+        students: "छात्र प्रभावित",
+        since: "प्रशिक्षण और प्रतिभा विकास",
       },
     },
     talents: {
@@ -707,28 +701,24 @@ export const translations = {
         },
       },
       about: {
-        eyebrow: "Telent Fest के बारे में",
+        eyebrow: "TelentFest के बारे में",
         titlePrefix: "मिलिए",
         body:
-          "JB Ahir Telent Fest के संस्थापक हैं, यह एक ऐसा अभियान है जो भारत के हर कोने में छिपी असाधारण रचनात्मक प्रतिभा को मंच देता है। लाइव इवेंट्स और सामुदायिक उत्सवों के एक दशक से अधिक अनुभव के साथ, JB ने Telent Fest को राष्ट्रीय मंच बनाया है।",
-        facts: {
-          years: "लाइव इवेंट्स में 10+ वर्ष",
-          cities: "50+ शहरों का अनुभव",
-          artists: "1000+ कलाकारों को मार्गदर्शन",
-          producer: "पुरस्कार विजेता निर्माता",
-        },
-        vision: {
-          title: "विजन",
-          desc: "एक ऐसा भविष्य जहाँ हर भारतीय प्रतिभा को शहर या पृष्ठभूमि की परवाह किए बिना राष्ट्रीय मंच मिले।",
-        },
-        mission: {
-          title: "मिशन",
-          desc: "मुफ़्त पंजीकरण, पारदर्शी निर्णायक प्रक्रिया और प्रीमियम प्रोडक्शन से अवसरों को सबके लिए खोलना।",
-        },
-        goal: {
-          title: "लक्ष्य",
-          desc: "2028 तक 100 शहरों तक पहुँचना और 10 लाख कलाकारों को सशक्त बनाना।",
-        },
+          "JB Ahir TelentFest Training Institute के दूरदर्शी संस्थापक और गुजरात के सबसे युवा और प्रभावशाली प्रेरक वक्ताओं में से एक हैं। प्रशिक्षण, प्रतिभा विकास, लाइव इवेंट्स और युवा मेंटरिंग में एक दशक से अधिक के अनुभव के साथ, उन्होंने एक ऐसा मंच बनाया है जो पूरे भारत में असाधारण प्रतिभाओं को पहचानता है, संवारता है और सम्मानित करता है।",
+        aboutTelentFest:
+          "TelentFest एक प्रतिष्ठित प्रतिभा मंच है जो पूरे भारत में असाधारण प्रतिभाओं को खोजने, विकसित करने और सम्मानित करने के लिए समर्पित है। संगीत, नृत्य, नाटक, कविता, कला, फैशन, क्रिएटिव राइटिंग, फोटोग्राफी और अनूठी प्रस्तुतियों से, TelentFest एक पेशेवर मंच प्रदान करता है जहाँ प्रतिभा को अवसर मिलता है।",
+        founder:
+          "गणपत यूनिवर्सिटी से MBA ग्रेजुएट, Mr. JB Ahir TelentFest में 10 वर्षों से अधिक का प्रशिक्षण और नेतृत्व अनुभव लाते हैं। उन्हें 2018 में सर्वश्रेष्ठ प्रेरक वक्ता का पुरस्कार मिला और उन्होंने 18 जिलों में 1,580 से अधिक सेमिनार आयोजित किए हैं। अपने सेमिनारों और पहलों के माध्यम से, उन्होंने 3.5 लाख से अधिक छात्रों, 1.5 लाख अभिभावकों और 20,000 से अधिक शिक्षकों और पेशेवरों को प्रभावित किया है।",
+        facts: [
+          "प्रशिक्षण में 10+ वर्ष का अनुभव",
+          "1,580+ सेमिनार आयोजित",
+          "18 जिलों तक पहुँच",
+          "3.5 लाख+ छात्र प्रभावित",
+          "1.5 लाख+ अभिभावक प्रभावित",
+          "20,000+ शिक्षक और पेशेवर",
+          "सर्वश्रेष्ठ प्रेरक वक्ता — 2018",
+          "TelentFest Training Institute के संस्थापक",
+        ],
       },
       participate: {
         eyebrow: "सरल 3-चरण प्रक्रिया",

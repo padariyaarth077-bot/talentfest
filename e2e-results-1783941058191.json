@@ -1,0 +1,36 @@
+{
+  "timestamp": "2026-07-13T11:12:26.560Z",
+  "passed": [
+    "Valid admin login",
+    "Admin dashboard visible",
+    "Session survives refresh",
+    "Event selected",
+    "Event details loaded",
+    "Category selected",
+    "Award category selected"
+  ],
+  "failed": [
+    {
+      "name": "Invalid credentials rejected",
+      "msg": "No error shown"
+    },
+    {
+      "name": "Admin user_roles row",
+      "msg": "user_roles: Invalid API key"
+    },
+    {
+      "name": "Redirect to checkout",
+      "msg": "TelentFestHomeServicesGalleryTeamEntry PassProjectsBlogAboutContactHI DashboardEntry PassGenerate Your Participant PassRegister as a participant, select your event and activity, and optionally add eligible guests.PARTICIPANT PASSVISITOR ENTRY PASSParticipant DetailsFirst Name * First name cannot con"
+    },
+    {
+      "name": "Visitor form",
+      "msg": "Not visible"
+    },
+    {
+      "name": "Suite error",
+      "msg": "locator.fill: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input').filter({ hasText: /employee/i }).first()\u001b[22m\n"
+    }
+  ],
+  "errors": [],
+  "ids": {}
+}

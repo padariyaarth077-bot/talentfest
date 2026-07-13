@@ -71,7 +71,7 @@ async function buildModernPass(db: AdminDb, pass: any) {
     db
       .from("registrations")
       .select(
-        "id, full_name, email, phone, event_id, registration_number, payment_status, registration_status, activity_category_id, registration_type, aadhaar_last_four, created_at",
+        "id, full_name, email, phone, event_id, registration_number, payment_status, registration_status, activity_category_id, registration_type, aadhaar_last_four, created_at, photo_storage_path, photo_url",
       )
       .eq("id", pass.registration_id)
       .maybeSingle(),
@@ -81,7 +81,7 @@ async function buildModernPass(db: AdminDb, pass: any) {
     ? await safeMaybeSingle<any>(
         db
           .from("events")
-          .select("id, name, city, city_code, event_date, start_time, venue, event_image_url")
+          .select("id, name, city, city_code, event_date, start_time, end_time, venue, event_image_url")
           .eq("id", registration.event_id)
           .maybeSingle(),
       )
@@ -97,7 +97,7 @@ async function buildModernPass(db: AdminDb, pass: any) {
       )
     : null;
 
-  const payment = registration?.id
+  let payment = registration?.id
     ? await safeMaybeSingle<any>(
         (db as any)
           .from("payments")
@@ -108,12 +108,56 @@ async function buildModernPass(db: AdminDb, pass: any) {
           .maybeSingle(),
       )
     : null;
+  // Fallback: payment_mode column may not exist
+  if (!payment && registration?.id) {
+    payment = await safeMaybeSingle<any>(
+      (db as any)
+        .from("payments")
+        .select("provider, status, transaction_id, order_id, verified_at")
+        .eq("registration_id", registration.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    );
+  }
 
   const guest = pass.guest_id
     ? await safeMaybeSingle<any>(
         db.from("guests").select("full_name, phone").eq("id", pass.guest_id).maybeSingle(),
       )
     : null;
+
+  let photoUrl = null;
+  if (registration?.photo_storage_path) {
+    try {
+      const { data: pubUrl } = db.storage
+        .from("participant-photos")
+        .getPublicUrl(registration.photo_storage_path);
+      photoUrl = pubUrl?.publicUrl ?? null;
+    } catch { /* storage not configured */ }
+  }
+
+  let seatInfo = null;
+  if (registration?.id) {
+    try {
+      const { data: seatBooking } = await (db as any)
+        .from("seat_bookings")
+        .select("id, holder_type, holder_name, event_seats!inner(id, seat_label, row_label, seat_number, event_seat_sections!inner(section_name, section_code))")
+        .eq("registration_id", registration.id)
+        .eq("holder_type", pass.pass_type || registration.registration_type)
+        .maybeSingle();
+
+      if (seatBooking) {
+        seatInfo = {
+          sectionName: seatBooking.event_seats?.event_seat_sections?.section_name ?? "",
+          sectionCode: seatBooking.event_seats?.event_seat_sections?.section_code ?? "",
+          rowLabel: seatBooking.event_seats?.row_label ?? "",
+          seatNumber: seatBooking.event_seats?.seat_number ?? 0,
+          seatLabel: seatBooking.event_seats?.seat_label ?? "",
+        };
+      }
+    } catch { /* seats not configured */ }
+  }
 
   const passHolder = guest?.full_name || registration?.full_name || "Unknown";
   const qrValue = JSON.stringify({
@@ -148,11 +192,14 @@ async function buildModernPass(db: AdminDb, pass: any) {
     event_city: event?.city || null,
     event_date: event?.event_date || null,
     event_time: event?.start_time || null,
+    event_end_time: event?.end_time || null,
     venue: event?.venue || null,
     event_image_url: event?.event_image_url || null,
     linked_participant_name: guest ? registration?.full_name || null : null,
     aadhaar_last_four: registration?.aadhaar_last_four || null,
     activity_category: activity?.name || null,
+    photo_url: photoUrl,
+    seat_info: seatInfo,
   };
 }
 
@@ -252,7 +299,7 @@ export const fetchAdminData = createServerFn({ method: "GET" })
           (supabaseAdmin as any)
             .from("gallery_media")
             .select(
-              "id, city_id, title, media_type, category, media_url, thumbnail_url, description, display_order, is_active, created_at, updated_at",
+              "id, city_id, title, media_type, category, media_url, thumbnail_url, description, display_order, is_active, is_featured, fit_mode, fit_position, storage_path, alt_text, width, height, created_at, updated_at",
             )
             .order("display_order", { ascending: true })
             .order("created_at", { ascending: false }),

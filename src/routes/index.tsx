@@ -108,9 +108,8 @@ function Home() {
         id="about"
         eyebrow={t("home.about.eyebrow")}
         title={<>{t("home.about.titlePrefix")} <span className="text-gradient">JB Ahir</span></>}
-        subtitle={t("home.about.body")}
       >
-        <div className="grid items-center gap-10 lg:grid-cols-5">
+        <div className="grid items-start gap-8 lg:grid-cols-5">
           <div className="lg:col-span-2">
             <div className="mx-auto flex aspect-[9/16] w-full max-w-xs items-end justify-center overflow-hidden rounded-3xl border border-primary/35 bg-white shadow-elegant sm:max-w-sm lg:max-w-md">
               <img
@@ -121,28 +120,28 @@ function Home() {
               />
             </div>
           </div>
-          <div className="space-y-4 lg:col-span-3">
+          <div className="space-y-6 lg:col-span-3">
             <p className="leading-relaxed text-muted-foreground">{t("home.about.body")}</p>
-            <div className="grid gap-3 text-sm sm:grid-cols-2">
-              {["years", "cities", "artists", "producer"].map((key) => (
-                <div key={key} className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-primary" />{t(`home.about.facts.${key}`)}
+
+            <div className="rounded-2xl border border-primary/20 bg-card p-5 shadow-soft">
+              <h3 className="mb-2 text-lg font-semibold">About TelentFest</h3>
+              <p className="text-sm leading-relaxed text-muted-foreground">{t("home.about.aboutTelentFest")}</p>
+            </div>
+
+            <div className="rounded-2xl border border-primary/20 bg-card p-5 shadow-soft">
+              <h3 className="mb-2 text-lg font-semibold">Founder & Motivational Speaker</h3>
+              <p className="text-sm leading-relaxed text-muted-foreground">{t("home.about.founder")}</p>
+            </div>
+
+            <div className="grid gap-2 text-sm sm:grid-cols-2">
+              {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <Check className="h-4 w-4 shrink-0 text-primary" />
+                  <span>{t(`home.about.facts.${i}`)}</span>
                 </div>
               ))}
             </div>
           </div>
-        </div>
-
-        <div className="mt-14 grid gap-5 md:grid-cols-3">
-          {["vision", "mission", "goal"].map((key) => (
-            <Link key={key} to="/contact" className="block rounded-3xl border border-border bg-card p-8 shadow-soft hover-lift">
-              <div className="mb-4 grid h-10 w-10 place-items-center rounded-xl gradient-accent text-foreground">
-                <Star className="h-5 w-5" />
-              </div>
-              <h3 className="text-xl font-semibold">{t(`home.about.${key}.title`)}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{t(`home.about.${key}.desc`)}</p>
-            </Link>
-          ))}
         </div>
       </Section>
 

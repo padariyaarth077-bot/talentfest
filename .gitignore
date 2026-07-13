@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+tmp/
 .output
 .vinxi
 .tanstack/**
@@ -19,6 +20,9 @@ dist-ssr
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars
+
+# Supabase local metadata
+supabase/.temp/
 
 # Editor directories and files
 .vscode/*

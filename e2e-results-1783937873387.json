@@ -1,0 +1,42 @@
+{
+  "timestamp": "2026-07-13T10:20:09.174Z",
+  "passed": [
+    "Award category selected"
+  ],
+  "failed": [
+    {
+      "name": "Invalid credentials rejected",
+      "msg": "No error shown"
+    },
+    {
+      "name": "Valid admin login",
+      "msg": "No redirect"
+    },
+    {
+      "name": "Event selection",
+      "msg": "No options"
+    },
+    {
+      "name": "Event details loaded",
+      "msg": "nsent to the secure use of my Aadhaar number for registration verification purposes.Event Selection *Select event...Activity Category *Select an event firstContinue to Checkout Pass PreviewTelent Fest"
+    },
+    {
+      "name": "Category selection",
+      "msg": "Only 1 options"
+    },
+    {
+      "name": "Redirect to checkout",
+      "msg": "TelentFestHomeServicesGalleryTeamEntry PassProjectsBlogAboutContactHILoginEntry PassGenerate Your Participant PassRegister as a participant, select your event and activity, and optionally add eligible guests.PARTICIPANT PASSVISITOR ENTRY PASSParticipant DetailsFirst Name *Middle NameLast Name *Phone"
+    },
+    {
+      "name": "Visitor form",
+      "msg": "Not visible"
+    },
+    {
+      "name": "Suite error",
+      "msg": "locator.fill: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input').filter({ hasText: /employee/i }).first()\u001b[22m\n"
+    }
+  ],
+  "errors": [],
+  "ids": {}
+}

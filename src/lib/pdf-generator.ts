@@ -80,6 +80,14 @@ export async function generatePassPdf(
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
+export type SeatInfoPdf = {
+  sectionName: string;
+  sectionCode: string;
+  rowLabel: string;
+  seatNumber: number;
+  seatLabel: string;
+};
+
 export type SingleSidedPassData = {
   passNumber: string;
   passType: string;
@@ -88,11 +96,14 @@ export type SingleSidedPassData = {
   eventCity: string;
   eventDate: string;
   startTime: string;
+  endTime?: string;
   venue: string;
   activityCategory: string;
   eventImageUrl?: string;
   qrDataUrl: string;
   status: string;
+  photoUrl?: string;
+  seatInfo?: SeatInfoPdf;
 };
 
 export function renderSingleSidedPassToCanvas(
@@ -260,11 +271,47 @@ export function renderSingleSidedPassToCanvas(
     }
 
     drawText('DATE / TIME', infoX + infoW / 2, detailsY + lineH * 4 + 10, muted, 9);
-    drawText(`${data.eventDate || 'TBD'} ${data.startTime || ''}`, infoX + infoW / 2, detailsY + lineH * 5 + 10, white, 13);
+    drawText(`${data.eventDate || 'TBD'} ${data.startTime || ''}${data.endTime ? ' – ' + data.endTime : ''}`, infoX + infoW / 2, detailsY + lineH * 5 + 10, white, 13);
 
     if (data.venue) {
       drawText('VENUE', infoX, detailsY + lineH * 6 + 10, muted, 9);
       drawText(data.venue, infoX, detailsY + lineH * 7 + 10, white, 13);
+    }
+
+    // Seat info
+    if (data.seatInfo) {
+      const seatY = data.venue ? detailsY + lineH * 8 + 10 : detailsY + lineH * 6 + 10;
+      drawText('SECTION / ROW / SEAT', infoX, seatY, muted, 9);
+      drawText(`${data.seatInfo.sectionName} / ${data.seatInfo.rowLabel} / ${data.seatInfo.seatLabel}`, infoX, seatY + lineH, white, 13);
+    }
+
+    // Photo
+    if (data.photoUrl) {
+      const photoSize = 70;
+      const photoX = infoX + infoW - photoSize;
+      const photoY = 110;
+      const photoImg = new Image();
+      photoImg.crossOrigin = 'anonymous';
+      try {
+        await new Promise<void>((resolve) => {
+          photoImg.onload = () => {
+            ctx.save();
+            ctx.beginPath();
+            ctx.roundRect(photoX, photoY, photoSize, photoSize, 8);
+            ctx.clip();
+            ctx.drawImage(photoImg, photoX, photoY, photoSize, photoSize);
+            ctx.restore();
+            ctx.strokeStyle = 'rgba(200, 169, 106, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.roundRect(photoX, photoY, photoSize, photoSize, 8);
+            ctx.stroke();
+            resolve();
+          };
+          photoImg.onerror = () => resolve();
+          photoImg.src = data.photoUrl!;
+        });
+      } catch { /* photo draw optional */ }
     }
 
     // Status badge

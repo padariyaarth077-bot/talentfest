@@ -3,7 +3,6 @@ import {
   Instagram,
   Facebook,
   Youtube,
-  Linkedin,
   Mail,
   Phone,
   MapPin,
@@ -46,16 +45,33 @@ export function Footer() {
           </p>
 
           <div className="mt-4 flex gap-2">
-            {[Instagram, Facebook, Youtube, Linkedin].map((Icon, index) => (
-              <a
-                key={index}
-                href="#"
-                aria-label={`Social media link ${index + 1}`}
-                className="grid h-9 w-9 place-items-center rounded-lg border border-border transition hover:bg-accent"
-              >
-                <Icon className="h-4 w-4" />
-              </a>
-            ))}
+            <a
+              href="https://www.instagram.com/telentfest_official"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Instagram"
+              className="grid h-9 w-9 place-items-center rounded-lg border border-border transition hover:bg-accent"
+            >
+              <Instagram className="h-4 w-4" />
+            </a>
+            <a
+              href="https://www.facebook.com/share/1DHuefrm9Q/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Facebook"
+              className="grid h-9 w-9 place-items-center rounded-lg border border-border transition hover:bg-accent"
+            >
+              <Facebook className="h-4 w-4" />
+            </a>
+            <a
+              href="https://youtube.com/@telentfest_official"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="YouTube"
+              className="grid h-9 w-9 place-items-center rounded-lg border border-border transition hover:bg-accent"
+            >
+              <Youtube className="h-4 w-4" />
+            </a>
           </div>
         </div>
 

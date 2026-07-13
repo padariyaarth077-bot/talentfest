@@ -18,12 +18,16 @@ import {
   FileText,
   Filter,
   Film,
+  GripVertical,
   Image as ImageIcon,
   KeyRound,
   LayoutDashboard,
+  LayoutGrid,
   LogOut,
   MessageCircle,
   Menu,
+  Minus,
+  Move,
   Music,
   Newspaper,
   Pencil,
@@ -31,6 +35,7 @@ import {
   Printer,
   QrCode,
   RefreshCcw,
+  Replace,
   RotateCcw,
   ScanLine,
   Search,
@@ -79,6 +84,7 @@ import {
 } from "@/lib/contact.functions";
 import { cn } from "@/lib/utils";
 import { getSupabaseConfigError, supabase } from "@/integrations/supabase/client";
+import { GalleryAdminView } from "@/components/admin/GalleryAdminView";
 
 type AdminView =
   | "dashboard"
@@ -92,6 +98,7 @@ type AdminView =
   | "events"
   | "concert"
   | "blog"
+  | "seating"
   | "settings";
 type PassFilter =
   | "all"
@@ -177,6 +184,13 @@ type GalleryMedia = {
   description?: string | null;
   display_order: number;
   is_active: boolean;
+  is_featured?: boolean;
+  fit_mode?: "contain" | "cover";
+  fit_position?: "center" | "top" | "bottom" | "left" | "right";
+  width?: number;
+  height?: number;
+  storage_path?: string;
+  alt_text?: string;
   created_at?: string;
   updated_at?: string | null;
 };
@@ -198,6 +212,10 @@ type GalleryMediaForm = {
   description: string;
   display_order: string;
   is_active: boolean;
+  is_featured: boolean;
+  fit_mode: "contain" | "cover";
+  fit_position: "center" | "top" | "bottom" | "left" | "right";
+  alt_text: string;
 };
 
 type ConcertSettingsRecord = {
@@ -263,6 +281,7 @@ const sidebarItems: Array<{ view: AdminView; label: string; icon: typeof LayoutD
   { view: "gallery", label: "Gallery Cities", icon: ImageIcon },
   { view: "concert", label: "Concert Info", icon: Music },
   { view: "blog", label: "Blog Posts", icon: Newspaper },
+  { view: "seating", label: "Seating", icon: LayoutGrid },
   { view: "settings", label: "Admin Settings", icon: Settings },
 ];
 
@@ -517,7 +536,7 @@ function AdminPanel() {
         supabase
           .from("gallery_media")
           .select(
-            "id, city_id, title, media_type, category, media_url, thumbnail_url, description, display_order, is_active, created_at, updated_at",
+            "id, city_id, title, media_type, category, media_url, thumbnail_url, description, display_order, is_active, is_featured, fit_mode, fit_position, storage_path, alt_text, width, height, created_at, updated_at",
           )
           .order("display_order", { ascending: true })
           .order("created_at", { ascending: false }),
@@ -1037,7 +1056,7 @@ function AdminPanel() {
           />
         )}
         {activeView === "gallery" && (
-          <GalleryCitiesView
+          <GalleryAdminView
             cities={galleryCities}
             media={galleryMedia}
             dataError={galleryDataError}
@@ -1064,6 +1083,9 @@ function AdminPanel() {
             logActivity={logActivity}
             setConfirmAction={setConfirmAction}
           />
+        )}
+        {activeView === "seating" && (
+          <SeatingManagement />
         )}
         {activeView === "settings" && <SettingsView adminEmail={adminEmail} />}
       </div>
@@ -1609,6 +1631,10 @@ function GalleryCitiesView({
         description: mediaForm.description.trim() || null,
         display_order: Number(mediaForm.display_order) || 0,
         is_active: mediaForm.is_active,
+        is_featured: mediaForm.is_featured,
+        fit_mode: mediaForm.fit_mode,
+        fit_position: mediaForm.fit_position,
+        alt_text: mediaForm.alt_text.trim() || null,
         updated_at: new Date().toISOString(),
       };
       const result = editingMedia
@@ -3500,6 +3526,396 @@ function SettingsView({ adminEmail }: { adminEmail: string }) {
   );
 }
 
+function SeatingManagement() {
+  const [loading, setLoading] = useState(true);
+  const [events, setEvents] = useState<any[]>([]);
+  const [sections, setSections] = useState<any[]>([]);
+  const [seats, setSeats] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState("");
+  const [selectedSectionId, setSelectedSectionId] = useState("");
+  const [activeTab, setActiveTab] = useState<"view" | "generate" | "audit">("view");
+  const [generateForm, setGenerateForm] = useState({ sectionName: "", sectionCode: "", seatType: "participant", startRow: "A", numRows: 10, seatsPerRow: 50 });
+  const [generating, setGenerating] = useState(false);
+  const [genResult, setGenResult] = useState("");
+  const [auditLog, setAuditLog] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [blockSeatId, setBlockSeatId] = useState<string | null>(null);
+
+  const loadEvents = useCallback(async () => {
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data } = await (supabaseAdmin as any)
+        .from("events")
+        .select("id, name, city, event_date, participant_capacity, guest_capacity, visitor_capacity")
+        .order("event_date", { ascending: false });
+      setEvents(data ?? []);
+    } catch { /* ignore */ }
+  }, []);
+
+  const loadSections = useCallback(async () => {
+    if (!selectedEventId) { setSections([]); return; }
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data } = await (supabaseAdmin as any)
+        .from("event_seat_sections")
+        .select("*")
+        .eq("event_id", selectedEventId)
+        .order("display_order");
+      setSections(data ?? []);
+    } catch { /* ignore */ }
+  }, [selectedEventId]);
+
+  const loadSeats = useCallback(async () => {
+    if (!selectedSectionId) { setSeats([]); return; }
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data } = await (supabaseAdmin as any)
+        .from("event_seats")
+        .select("id, seat_label, row_label, seat_number, status, display_order, is_accessible")
+        .eq("section_id", selectedSectionId)
+        .order("display_order");
+      setSeats(data ?? []);
+    } catch { /* ignore */ }
+  }, [selectedSectionId]);
+
+  const loadBookings = useCallback(async () => {
+    if (!selectedEventId) { setBookings([]); return; }
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data } = await (supabaseAdmin as any)
+        .from("seat_bookings")
+        .select("id, holder_type, holder_name, booked_at, seat_id, event_seats!inner(id, seat_label, row_label, seat_number, event_seat_sections!inner(section_name))")
+        .eq("event_id", selectedEventId)
+        .order("booked_at", { ascending: false });
+      setBookings(data ?? []);
+    } catch { /* ignore */ }
+  }, [selectedEventId]);
+
+  const loadAudit = useCallback(async () => {
+    if (!selectedEventId) { setAuditLog([]); return; }
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data } = await (supabaseAdmin as any)
+        .from("seat_allocation_audit")
+        .select("id, action, changed_by, reason, created_at, new_seat_id, old_seat_id, event_seats!new_seat_id(seat_label)")
+        .eq("event_id", selectedEventId)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      setAuditLog(data ?? []);
+    } catch { /* ignore */ }
+  }, [selectedEventId]);
+
+  useEffect(() => { loadEvents().finally(() => setLoading(false)); }, [loadEvents]);
+  useEffect(() => { loadSections(); }, [loadSections]);
+  useEffect(() => { if (activeTab === "view") loadSeats(); }, [loadSeats, activeTab]);
+  useEffect(() => { if (activeTab === "view") loadBookings(); }, [loadBookings, activeTab]);
+  useEffect(() => { if (activeTab === "audit") loadAudit(); }, [loadAudit, activeTab]);
+
+  const toggleSeatStatus = async (seat: any, newStatus: string) => {
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      await (supabaseAdmin as any)
+        .from("event_seats")
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq("id", seat.id);
+
+      // Audit
+      await (supabaseAdmin as any)
+        .from("seat_allocation_audit")
+        .insert({
+          event_id: selectedEventId,
+          new_seat_id: seat.id,
+          action: newStatus === "blocked" ? "blocked" : "unblocked",
+          changed_by: "admin",
+          reason: "Manual admin action",
+        });
+
+      loadSeats();
+      toast.success(`Seat ${seat.seat_label} ${newStatus}`);
+    } catch { toast.error("Failed to update seat"); }
+  };
+
+  const handleGenerate = async () => {
+    if (!selectedEventId) { setGenResult("Select an event first"); return; }
+    setGenerating(true);
+    setGenResult("");
+    try {
+      // First create section
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: newSection, error: secErr } = await (supabaseAdmin as any)
+        .from("event_seat_sections")
+        .insert({
+          event_id: selectedEventId,
+          section_name: generateForm.sectionName,
+          section_code: generateForm.sectionCode,
+          seat_type: generateForm.seatType,
+          display_order: sections.length + 1,
+        })
+        .select("id")
+        .single();
+
+      if (secErr) { setGenResult(`Section error: ${secErr.message}`); setGenerating(false); return; }
+      if (!newSection) { setGenResult("Failed to create section"); setGenerating(false); return; }
+
+      // Generate seats via DB function
+      const { data: genData, error: genErr } = await (supabaseAdmin as any)
+        .rpc("generate_event_seats", {
+          p_event_id: selectedEventId,
+          p_section_id: newSection.id,
+          p_seat_type: generateForm.seatType,
+          p_start_row: generateForm.startRow,
+          p_num_rows: generateForm.numRows,
+          p_seats_per_row: generateForm.seatsPerRow,
+        });
+
+      if (genErr) { setGenResult(`Generate error: ${genErr.message}`); } else {
+        setGenResult(`Created ${genData?.seats_created ?? 0} seats in ${generateForm.sectionName}`);
+        loadSections();
+        setSelectedSectionId(newSection.id);
+        setActiveTab("view");
+      }
+    } catch (e: any) { setGenResult(`Error: ${e.message}`); }
+    finally { setGenerating(false); }
+  };
+
+  const filteredBookings = bookings.filter((b: any) =>
+    !searchTerm || b.holder_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    b.event_seats?.seat_label?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const selectedEvent = events.find((e) => e.id === selectedEventId);
+
+  if (loading) return <Panel title="Seating Management"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></Panel>;
+
+  return (
+    <Panel title="Seating Management">
+      <div className="space-y-6">
+        {/* Event Selector */}
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Event</label>
+            <select value={selectedEventId} onChange={(e) => { setSelectedEventId(e.target.value); setSelectedSectionId(""); }}
+              className="field-input">
+              <option value="">Select event...</option>
+              {events.map((ev) => (
+                <option key={ev.id} value={ev.id}>{ev.name} — {ev.city}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Quick stats</label>
+            <div className="text-xs text-muted-foreground p-2.5 rounded-xl border border-border bg-background/40">
+              {selectedEvent ? (
+                <>P: {selectedEvent.participant_capacity ?? "?"} | G: {selectedEvent.guest_capacity ?? "?"} | V: {selectedEvent.visitor_capacity ?? "?"}</>
+              ) : "Select an event"}
+            </div>
+          </div>
+        </div>
+
+        {!selectedEventId && (
+          <div className="text-center py-8 text-muted-foreground text-sm">Select an event to manage seating</div>
+        )}
+
+        {selectedEventId && (
+          <>
+            {/* Tabs */}
+            <div className="flex gap-1 p-1 rounded-xl border border-border bg-background/40 w-fit">
+              <button onClick={() => setActiveTab("view")}
+                className={`px-4 py-1.5 rounded-lg text-xs font-medium transition ${activeTab === "view" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>View Seats</button>
+              <button onClick={() => setActiveTab("generate")}
+                className={`px-4 py-1.5 rounded-lg text-xs font-medium transition ${activeTab === "generate" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>Generate Seats</button>
+              <button onClick={() => setActiveTab("audit")}
+                className={`px-4 py-1.5 rounded-lg text-xs font-medium transition ${activeTab === "audit" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>Audit Log</button>
+            </div>
+
+            {activeTab === "view" && (
+              <>
+                {/* Section Selector */}
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">Section</label>
+                  <select value={selectedSectionId} onChange={(e) => setSelectedSectionId(e.target.value)}
+                    className="field-input">
+                    <option value="">Select section...</option>
+                    {sections.map((s) => (
+                      <option key={s.id} value={s.id}>{s.section_name} ({s.section_code}) — {s.seat_type}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Seat Grid */}
+                {selectedSectionId && (
+                  <div className="border border-border rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold">
+                        {sections.find((s) => s.id === selectedSectionId)?.section_name}
+                        <span className="text-muted-foreground ml-2 font-normal">
+                          ({seats.filter((s) => s.status === "available").length} available / {seats.length} total)
+                        </span>
+                      </h3>
+                    </div>
+                    {seats.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No seats in this section. Use Generate tab to create seats.</p>
+                    ) : (
+                      <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-1.5">
+                        {seats.map((seat: any) => {
+                          const statusColors: Record<string, string> = {
+                            available: "border-emerald-500/30 bg-emerald-500/10 text-emerald-500",
+                            booked: "border-red-500/30 bg-red-500/10 text-red-500",
+                            held: "border-amber-500/30 bg-amber-500/10 text-amber-500",
+                            blocked: "border-gray-500/30 bg-gray-500/10 text-gray-400",
+                          };
+                          return (
+                            <div key={seat.id}
+                              className={`rounded-lg border px-1.5 py-1 text-center text-[10px] cursor-pointer hover:opacity-80 transition ${statusColors[seat.status] || "border-border bg-background"}`}
+                              title={`${seat.seat_label} (${seat.status})`}
+                              onClick={() => {
+                                if (seat.status === "blocked") toggleSeatStatus(seat, "available");
+                                else if (seat.status === "available") toggleSeatStatus(seat, "blocked");
+                              }}
+                            >
+                              <div className="font-semibold">{seat.seat_label}</div>
+                              <div className="opacity-60">{seat.status}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Bookings */}
+                {selectedEventId && (
+                  <div className="border border-border rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold">Booked Seats ({bookings.length})</h3>
+                      <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Search holder or seat..."
+                        className="field-input w-48 text-xs" />
+                    </div>
+                    {filteredBookings.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No bookings yet.</p>
+                    ) : (
+                      <div className="overflow-x-auto max-h-80 overflow-y-auto">
+                        <table className="w-full text-xs">
+                          <thead><tr className="text-left text-muted-foreground">
+                            <th className="pb-2 pr-3">Holder</th><th className="pb-2 pr-3">Type</th><th className="pb-2 pr-3">Seat</th><th className="pb-2">Booked</th>
+                          </tr></thead>
+                          <tbody>
+                            {filteredBookings.slice(0, 50).map((b: any) => (
+                              <tr key={b.id} className="border-t border-border/50">
+                                <td className="py-1.5 pr-3 font-medium">{b.holder_name}</td>
+                                <td className="py-1.5 pr-3 text-muted-foreground">{b.holder_type}</td>
+                                <td className="py-1.5 pr-3">{b.event_seats?.seat_label} ({b.event_seats?.event_seat_sections?.section_name})</td>
+                                <td className="py-1.5 text-muted-foreground">{new Date(b.booked_at).toLocaleDateString()}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+
+            {activeTab === "generate" && (
+              <div className="border border-border rounded-xl p-6 max-w-xl">
+                <h3 className="text-sm font-semibold mb-4">Generate New Section & Seats</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Section Name</label>
+                    <input value={generateForm.sectionName} onChange={(e) => setGenerateForm({ ...generateForm, sectionName: e.target.value })}
+                      className="field-input" placeholder="e.g. VIP Section" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Section Code</label>
+                    <input value={generateForm.sectionCode} onChange={(e) => setGenerateForm({ ...generateForm, sectionCode: e.target.value.toUpperCase() })}
+                      className="field-input" placeholder="e.g. VIP" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Seat Type</label>
+                    <select value={generateForm.seatType} onChange={(e) => setGenerateForm({ ...generateForm, seatType: e.target.value })}
+                      className="field-input">
+                      <option value="participant">Participant</option>
+                      <option value="guest">Guest</option>
+                      <option value="visitor">Visitor</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Starting Row</label>
+                    <input value={generateForm.startRow} onChange={(e) => setGenerateForm({ ...generateForm, startRow: e.target.value.toUpperCase() })}
+                      className="field-input" placeholder="A" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Number of Rows</label>
+                    <input type="number" value={generateForm.numRows} onChange={(e) => setGenerateForm({ ...generateForm, numRows: Number(e.target.value) })}
+                      className="field-input" min={1} max={26} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Seats Per Row</label>
+                    <input type="number" value={generateForm.seatsPerRow} onChange={(e) => setGenerateForm({ ...generateForm, seatsPerRow: Number(e.target.value) })}
+                      className="field-input" min={1} max={100} />
+                  </div>
+                </div>
+                <div className="mt-3 text-xs text-muted-foreground">
+                  Preview: {generateForm.sectionCode}-{generateForm.startRow}-001 to {generateForm.sectionCode}-{String.fromCharCode(generateForm.startRow.charCodeAt(0) + generateForm.numRows - 1)}-{String(generateForm.seatsPerRow).padStart(3, "0")}
+                  <br />Total: {generateForm.numRows * generateForm.seatsPerRow} seats
+                </div>
+                <Button onClick={handleGenerate} disabled={generating || !generateForm.sectionName || !generateForm.sectionCode}
+                  className="mt-4 w-full gradient-primary text-primary-foreground border-0">
+                  {generating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  {generating ? "Generating..." : `Generate ${generateForm.numRows * generateForm.seatsPerRow} Seats`}
+                </Button>
+                {genResult && (
+                  <div className={`mt-3 p-3 rounded-xl text-xs ${genResult.includes("Error") ? "bg-destructive/10 text-destructive" : "bg-emerald-500/10 text-emerald-500"}`}>
+                    {genResult}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "audit" && (
+              <div className="border border-border rounded-xl p-4">
+                <h3 className="text-sm font-semibold mb-3">Seat Allocation Audit</h3>
+                {auditLog.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No audit records.</p>
+                ) : (
+                  <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                    <table className="w-full text-xs">
+                      <thead><tr className="text-left text-muted-foreground">
+                        <th className="pb-2 pr-3">Action</th><th className="pb-2 pr-3">Seat</th><th className="pb-2 pr-3">By</th><th className="pb-2 pr-3">Reason</th><th className="pb-2">When</th>
+                      </tr></thead>
+                      <tbody>
+                        {auditLog.map((a: any) => (
+                          <tr key={a.id} className="border-t border-border/50">
+                            <td className="py-1.5 pr-3">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                                a.action === "allocated" ? "bg-emerald-500/15 text-emerald-500" :
+                                a.action === "reassigned" ? "bg-blue-500/15 text-blue-500" :
+                                a.action === "blocked" ? "bg-red-500/15 text-red-500" :
+                                "bg-gray-500/15 text-gray-400"
+                              }`}>{a.action}</span>
+                            </td>
+                            <td className="py-1.5 pr-3 font-mono">{a.event_seats?.seat_label || a.new_seat_id?.slice(0, 8)}</td>
+                            <td className="py-1.5 pr-3 text-muted-foreground">{a.changed_by || "system"}</td>
+                            <td className="py-1.5 pr-3 text-muted-foreground">{a.reason || "-"}</td>
+                            <td className="py-1.5 text-muted-foreground">{new Date(a.created_at).toLocaleString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
 function PassDetailsDialog({
   pass,
   onOpenChange,
@@ -3524,6 +3940,15 @@ function PassDetailsDialog({
             </DialogHeader>
             <div className="grid gap-6 md:grid-cols-[1fr_auto]">
               <div className="space-y-3 text-sm">
+                {(pass as any).photo_url && (
+                  <div className="mb-3">
+                    <img
+                      src={(pass as any).photo_url}
+                      alt="Participant"
+                      className="h-24 w-24 rounded-xl border border-border object-cover"
+                    />
+                  </div>
+                )}
                 <InfoRow label="Participant name" value={pass.participant_name} />
                 {pass.linked_participant_name && (
                   <InfoRow label="Linked participant" value={pass.linked_participant_name} />
@@ -3531,8 +3956,17 @@ function PassDetailsDialog({
                 <InfoRow label="Event name" value={pass.event_name} />
                 <InfoRow label="Event city" value={pass.event_city ?? "N/A"} />
                 <InfoRow label="Event date" value={pass.event_date ?? "N/A"} />
-                <InfoRow label="Event time" value={pass.event_time ?? "N/A"} />
+                <InfoRow label="Start time" value={pass.event_time ?? "N/A"} />
+                <InfoRow label="End time" value={(pass as any).event_end_time ?? "N/A"} />
                 <InfoRow label="Venue" value={pass.venue ?? "N/A"} />
+                {(pass as any).seat_info && (
+                  <>
+                    <div className="border-t border-border pt-2 mt-2" />
+                    <InfoRow label="Section" value={(pass as any).seat_info.sectionName} />
+                    <InfoRow label="Row" value={(pass as any).seat_info.rowLabel} />
+                    <InfoRow label="Seat" value={(pass as any).seat_info.seatLabel} />
+                  </>
+                )}
                 <InfoRow label="Pass type" value={(pass.pass_type ?? "legacy").replace("_", " ")} />
                 <InfoRow label="Registration number" value={pass.registration_number ?? "Legacy"} />
                 <InfoRow label="Payment status" value={pass.payment_status ?? "Not tracked"} />
@@ -3562,16 +3996,28 @@ function PassDetailsDialog({
                 <InfoRow label="Check-in time" value={formatDateTime(pass.checked_in_at)} />
                 <InfoRow label="Pass status" value={pass.pass_status ?? pass.status ?? "active"} />
               </div>
-              <div className="mx-auto rounded-2xl bg-white p-4">
-                <QRCodeCanvas
-                  ref={qrRef}
-                  value={qrValue(pass)}
-                  size={qrRenderSize}
-                  marginSize={4}
-                  level="M"
-                  className="h-[220px] w-[220px]"
-                  style={{ width: 220, height: 220, imageRendering: "pixelated" }}
-                />
+              <div className="flex flex-col items-center gap-4">
+                <div className="mx-auto rounded-2xl bg-white p-4">
+                  <QRCodeCanvas
+                    ref={qrRef}
+                    value={qrValue(pass)}
+                    size={qrRenderSize}
+                    marginSize={4}
+                    level="M"
+                    className="h-[220px] w-[220px]"
+                    style={{ width: 220, height: 220, imageRendering: "pixelated" }}
+                  />
+                </div>
+                {(pass as any).photo_url && (
+                  <div className="text-center">
+                    <p className="text-[10px] text-muted-foreground">Participant Photo</p>
+                    <img
+                      src={(pass as any).photo_url}
+                      alt="Participant"
+                      className="mx-auto mt-1 h-16 w-16 rounded-lg border border-border object-cover"
+                    />
+                  </div>
+                )}
               </div>
             </div>
             <div className="rounded-2xl border border-primary/20 bg-[#101827] p-5 text-center">
@@ -3581,6 +4027,11 @@ function PassDetailsDialog({
               <div className="mt-3 text-2xl font-semibold">{pass.participant_name}</div>
               <div className="mt-1 font-mono text-sm text-primary">{pass.entry_number}</div>
               <div className="mt-2 text-sm text-muted-foreground">{pass.event_name}</div>
+              {(pass as any).seat_info && (
+                <div className="mt-2 text-xs text-muted-foreground">
+                  Seat: {(pass as any).seat_info.seatLabel}
+                </div>
+              )}
             </div>
             <div className="flex flex-wrap justify-end gap-2">
               <Button variant="outline" onClick={() => onPrint(pass)}>
@@ -4296,6 +4747,10 @@ function emptyMediaForm(cityId: string): GalleryMediaForm {
     description: "",
     display_order: "0",
     is_active: true,
+    is_featured: false,
+    fit_mode: "contain",
+    fit_position: "center",
+    alt_text: "",
   };
 }
 
@@ -4310,6 +4765,10 @@ function mediaToForm(item: GalleryMedia): GalleryMediaForm {
     description: item.description ?? "",
     display_order: String(item.display_order),
     is_active: item.is_active,
+    is_featured: item.is_featured || false,
+    fit_mode: item.fit_mode || "contain",
+    fit_position: item.fit_position || "center",
+    alt_text: item.alt_text || "",
   };
 }
 

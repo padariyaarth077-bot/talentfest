@@ -121,11 +121,11 @@ const talentItems: TalentItem[] = [
 ];
 
 const homepageStats = [
-  { labelKey: "hero.stats.categories", value: "7" },
-  { labelKey: "hero.stats.services", value: "10" },
-  { labelKey: "hero.stats.steps", value: "3" },
-  { labelKey: "hero.stats.cities", value: "8" },
-  { labelKey: "hero.stats.cost", valueKey: "hero.stats.free" },
+  { labelKey: "hero.stats.categories", value: "10+" },
+  { labelKey: "hero.stats.seminars", value: "1500+" },
+  { labelKey: "hero.stats.districts", value: "18+" },
+  { labelKey: "hero.stats.students", value: "3.5 Lakh+" },
+  { labelKey: "hero.stats.since", value: "Since 2015" },
 ];
 
 function useReducedMotion() {

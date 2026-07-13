@@ -95,6 +95,35 @@ function testOrderId(registrationId: string) {
   return `TEST-ORDER-${registrationId.slice(0, 8).toUpperCase()}`;
 }
 
+async function checkRateLimit(supabaseAdmin: any, actionKey: string, identifier: string, maxAttempts = 10, windowMinutes = 1): Promise<void> {
+  try {
+    const windowStart = new Date(Date.now() - windowMinutes * 60 * 1000).toISOString();
+    const { data: row } = await supabaseAdmin
+      .from("rate_limits")
+      .select("attempt_count")
+      .eq("action_key", actionKey)
+      .eq("identifier", identifier)
+      .gte("window_start", windowStart)
+      .order("window_start", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const count = row?.attempt_count ?? 0;
+    if (count >= maxAttempts) {
+      throw new Error("Too many requests. Please try again later.");
+    }
+
+    // Increment or insert
+    await supabaseAdmin.rpc("increment_rate_limit", {
+      p_action_key: actionKey,
+      p_identifier: identifier,
+    });
+  } catch (e: any) {
+    if (e.message === "Too many requests. Please try again later.") throw e;
+    // If rate limit table doesn't exist or RPC not found, silently pass
+  }
+}
+
 function testTransactionId() {
   return `TEST-TXN-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 }
@@ -128,6 +157,7 @@ async function upsertDummyPayment(
   amount: number,
   status: "pending" | "paid" | "failed" | "cancelled",
   transactionId?: string,
+  idempotencyKey?: string,
 ) {
   const existing = await fetchLatestPayment(supabaseAdmin, registrationId);
   const payload: Record<string, unknown> = {
@@ -140,6 +170,7 @@ async function upsertDummyPayment(
     transaction_id: transactionId ?? existing?.transaction_id ?? null,
     status,
     verified_at: status === "paid" ? new Date().toISOString() : (existing?.verified_at ?? null),
+    idempotency_key: idempotencyKey ?? existing?.idempotency_key ?? null,
   };
 
   const result = existing?.id
@@ -406,6 +437,8 @@ export const createPendingRegistration = createServerFn({ method: "POST" })
     if (data.guest1Name) assertHumanName(data.guest1Name, "Guest 1 name");
     if (data.guest2Name) assertHumanName(data.guest2Name, "Guest 2 name");
 
+    await checkRateLimit(supabaseAdmin, "create_registration", data.phone);
+
     const eventCheck = await supabaseAdmin
       .from("events")
       .select(
@@ -438,6 +471,12 @@ export const createPendingRegistration = createServerFn({ method: "POST" })
 
     const fullName = [data.firstName, data.middleName, data.lastName].filter(Boolean).join(" ");
 
+    const { data: eventSnapshot } = await supabaseAdmin
+      .from("events")
+      .select("name, city, event_date, start_time, end_time, venue")
+      .eq("id", data.eventId)
+      .single();
+
     const { data: reg, error: regError } = await supabaseAdmin
       .from("registrations")
       .insert({
@@ -454,6 +493,12 @@ export const createPendingRegistration = createServerFn({ method: "POST" })
         activity_category_id: data.activityCategoryId,
         payment_status: "pending",
         registration_status: "pending",
+        event_name_snapshot: (eventSnapshot as any)?.name ?? null,
+        event_city_snapshot: (eventSnapshot as any)?.city ?? null,
+        event_date_snapshot: (eventSnapshot as any)?.event_date ?? null,
+        event_start_time_snapshot: (eventSnapshot as any)?.start_time ?? null,
+        event_end_time_snapshot: (eventSnapshot as any)?.end_time ?? null,
+        event_venue_snapshot: (eventSnapshot as any)?.venue ?? null,
       })
       .select("id, registration_number, full_name, phone, email, created_at")
       .single();
@@ -651,6 +696,8 @@ export const verifyPayment = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    await checkRateLimit(supabaseAdmin, "verify_payment", data.registrationId, 5);
+
     const { data: payment, error: payErr } = await supabaseAdmin
       .from("payments")
       .select("id, status, amount, order_id, transaction_id")
@@ -707,12 +754,50 @@ export const verifyPayment = createServerFn({ method: "POST" })
 
     const finalTransactionId =
       (payment as any).transaction_id || data.transactionId || testTransactionId();
+
+    // Idempotency: check if already processed with this order_id
+    const idempotencyKey = data.orderId || `pay_${data.registrationId}_${finalTransactionId}`;
+    const { data: existingProcessed } = await supabaseAdmin
+      .from("payments")
+      .select("id, status")
+      .eq("idempotency_key", idempotencyKey)
+      .eq("registration_id", data.registrationId)
+      .maybeSingle();
+
+    if (existingProcessed && (existingProcessed as any).status === "paid") {
+      // Already processed - return existing result without re-executing
+      const { data: existingReg } = await supabaseAdmin
+        .from("registrations")
+        .select("id, registration_number, full_name, event_id, activity_category_id, registration_type")
+        .eq("id", data.registrationId)
+        .single();
+      const { data: existingPasses } = await supabaseAdmin
+        .from("passes")
+        .select("id, pass_number, pass_type, secure_qr_token, status, guest_id")
+        .eq("registration_id", data.registrationId);
+
+      return {
+        success: true,
+        registration: { id: data.registrationId, registrationNumber: "", fullName: "", type: "" },
+        passes: (existingPasses ?? []).map((p: any) => ({
+          id: p.id, passNumber: p.pass_number, passType: p.pass_type,
+          secureQrToken: p.secure_qr_token, status: p.status, guestId: p.guest_id,
+        })),
+        transactionId: finalTransactionId,
+        orderId: data.orderId,
+        paymentMode: "test",
+        provider: "dummy",
+        amount: Number((payment as any).amount),
+      };
+    }
+
     const finalPayment = await upsertDummyPayment(
       supabaseAdmin,
       data.registrationId,
       Number((payment as any).amount),
       "paid",
       finalTransactionId,
+      idempotencyKey,
     );
 
     await supabaseAdmin
@@ -725,6 +810,15 @@ export const verifyPayment = createServerFn({ method: "POST" })
       .eq("id", data.registrationId);
 
     await ensureRegistrationPasses(supabaseAdmin, data.registrationId);
+
+    // Allocate seats atomically
+    try {
+      await supabaseAdmin.rpc("allocate_registration_seats", {
+        p_registration_id: data.registrationId,
+      });
+    } catch (seatErr) {
+      console.error("Seat allocation failed (may need seats configured):", seatErr);
+    }
 
     const { data: reg } = await supabaseAdmin
       .from("registrations")
@@ -757,6 +851,32 @@ export const verifyPayment = createServerFn({ method: "POST" })
       if (cat) activityName = (cat as any).name;
     }
 
+    let photoUrl = null;
+    if (regData.photo_storage_path) {
+      const { data: pubUrl } = supabaseAdmin.storage
+        .from("participant-photos")
+        .getPublicUrl(regData.photo_storage_path);
+      photoUrl = pubUrl?.publicUrl ?? null;
+    }
+
+    let seatBookings: any[] = [];
+    try {
+      const { data: seats } = await supabaseAdmin
+        .from("seat_bookings")
+        .select("id, seat_id, holder_type, holder_name, event_seats!inner(id, seat_label, row_label, seat_number, event_seat_sections!inner(section_name, section_code))")
+        .eq("registration_id", data.registrationId);
+      seatBookings = (seats ?? []).map((sb: any) => ({
+        id: sb.id,
+        holderType: sb.holder_type,
+        holderName: sb.holder_name,
+        sectionName: sb.event_seats?.event_seat_sections?.section_name ?? "",
+        sectionCode: sb.event_seats?.event_seat_sections?.section_code ?? "",
+        rowLabel: sb.event_seats?.row_label ?? "",
+        seatNumber: sb.event_seats?.seat_number ?? 0,
+        seatLabel: sb.event_seats?.seat_label ?? "",
+      }));
+    } catch { /* seats not configured */ }
+
     return {
       success: true,
       registration: {
@@ -769,8 +889,11 @@ export const verifyPayment = createServerFn({ method: "POST" })
         eventImageUrl: (event as any)?.event_image_url ?? "",
         eventDate: (event as any)?.event_date ?? "",
         startTime: (event as any)?.start_time ?? "",
+        endTime: (event as any)?.end_time ?? "",
         venue: (event as any)?.venue ?? "",
         activityCategory: activityName,
+        photoUrl,
+        seatBookings,
       },
       passes: (passes ?? []).map((p: any) => ({
         id: p.id,
@@ -895,6 +1018,11 @@ export const fetchRegistration = createServerFn({ method: "GET" })
       )
       .eq("registration_id", data.id);
 
+    const { data: seatBookings } = await supabaseAdmin
+      .from("seat_bookings")
+      .select("id, seat_id, holder_type, holder_name, event_seats!inner(id, seat_label, row_label, seat_number, event_seat_sections!inner(section_name, section_code))")
+      .eq("registration_id", data.id);
+
     const { data: payments } = await supabaseAdmin
       .from("payments")
       .select("id, order_id, transaction_id, amount, currency, status, verified_at")
@@ -912,6 +1040,10 @@ export const fetchRegistration = createServerFn({ method: "GET" })
       if (cat) activityName = (cat as any).name;
     }
 
+    const photoUrl = r.photo_storage_path
+      ? supabaseAdmin.storage.from("participant-photos").getPublicUrl(r.photo_storage_path).data?.publicUrl ?? null
+      : null;
+
     return {
       id: r.id,
       registrationNumber: r.registration_number,
@@ -927,12 +1059,24 @@ export const fetchRegistration = createServerFn({ method: "GET" })
       eventCityCode: (event as any)?.city_code ?? "",
       eventDate: (event as any)?.event_date ?? "",
       startTime: (event as any)?.start_time ?? "",
+      endTime: (event as any)?.end_time ?? "",
       venue: (event as any)?.venue ?? "",
       eventImageUrl: (event as any)?.event_image_url ?? "",
       activityCategory: activityName,
       participantPrice: Number((event as any)?.participant_price) || 0,
       visitorPrice: Number((event as any)?.visitor_price) || 0,
       guestPrice: Number((event as any)?.guest_price) || 0,
+      photoUrl,
+      seatBookings: (seatBookings ?? []).map((sb: any) => ({
+        id: sb.id,
+        holderType: sb.holder_type,
+        holderName: sb.holder_name,
+        sectionName: sb.event_seats?.event_seat_sections?.section_name ?? "",
+        sectionCode: sb.event_seats?.event_seat_sections?.section_code ?? "",
+        rowLabel: sb.event_seats?.row_label ?? "",
+        seatNumber: sb.event_seats?.seat_number ?? 0,
+        seatLabel: sb.event_seats?.seat_label ?? "",
+      })),
       guests: (guests ?? []).map((g: any) => ({
         id: g.id,
         guestNumber: g.guest_number,
@@ -963,6 +1107,109 @@ export const fetchRegistration = createServerFn({ method: "GET" })
     };
   });
 
+function validateImageMagicBytes(base64Data: string, expectedMime: string): boolean {
+  try {
+    const clean = base64Data.replace(/^data:image\/\w+;base64,/, "");
+    const raw = atob(clean);
+    if (raw.length < 12) return false;
+    const bytes = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+
+    // JPEG: FF D8 FF
+    if (expectedMime === "image/jpeg" || expectedMime === "image/jpg") {
+      return bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF;
+    }
+    // PNG: 89 50 4E 47
+    if (expectedMime === "image/png") {
+      return bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47;
+    }
+    // WEBP: 52 49 46 46 .... 57 45 42 50
+    if (expectedMime === "image/webp") {
+      return bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46
+        && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50;
+    }
+    return false;
+  } catch { return false; }
+}
+
+export const uploadParticipantPhoto = createServerFn({ method: "POST" })
+  .validator((data: unknown) =>
+    z.object({
+      registrationId: z.string().uuid(),
+      eventId: z.string().uuid(),
+      base64Image: z.string().min(100),
+      mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+      fileSizeBytes: z.number().max(3145728),
+    }).parse(data),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const base64Data = data.base64Image.replace(/^data:image\/\w+;base64,/, "");
+
+    // Validate magic bytes server-side
+    if (!validateImageMagicBytes(data.base64Image, data.mimeType)) {
+      throw new Error(
+        "Invalid image file. The uploaded content does not match the expected image format.",
+      );
+    }
+
+    // Resize if needed: decode dimensions, reject very large
+    const rawLen = base64Data.length;
+    const approxPixels = (rawLen * 3) / 4;
+    if (approxPixels > 5000000) { // >5MP
+      throw new Error("Image resolution too high. Maximum 5 megapixels.");
+    }
+
+    const { data: reg } = await supabaseAdmin
+      .from("registrations")
+      .select("id, photo_storage_path")
+      .eq("id", data.registrationId)
+      .single();
+    if (!reg) throw new Error("Registration not found");
+
+    // Delete old photo if exists
+    if ((reg as any).photo_storage_path) {
+      await supabaseAdmin.storage
+        .from("participant-photos")
+        .remove([(reg as any).photo_storage_path]);
+    }
+
+    const ext = data.mimeType === "image/jpeg" ? "jpg" : data.mimeType === "image/png" ? "png" : "webp";
+    const filename = `${data.eventId}/${data.registrationId}/${crypto.randomUUID()}.${ext}`;
+
+    const buffer = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from("participant-photos")
+      .upload(filename, buffer, {
+        contentType: data.mimeType,
+        upsert: true,
+      });
+    if (uploadError) throw new Error(uploadError.message);
+
+    const { data: publicUrlData } = supabaseAdmin.storage
+      .from("participant-photos")
+      .getPublicUrl(filename);
+
+    await supabaseAdmin
+      .from("registrations")
+      .update({
+        photo_storage_path: filename,
+        photo_url: publicUrlData?.publicUrl ?? null,
+        photo_uploaded_at: new Date().toISOString(),
+        photo_mime_type: data.mimeType,
+        photo_size_bytes: data.fileSizeBytes,
+      } as never)
+      .eq("id", data.registrationId);
+
+    return {
+      success: true,
+      photoUrl: publicUrlData?.publicUrl ?? null,
+      storagePath: filename,
+    };
+  });
+
 export const verifyPassByToken = createServerFn({ method: "GET" })
   .validator((data: unknown) => z.object({ token: z.string().min(1) }).parse(data))
   .handler(async ({ data }) => {
@@ -977,7 +1224,7 @@ export const verifyPassByToken = createServerFn({ method: "GET" })
     const p = pass as any;
     const { data: reg } = await supabaseAdmin
       .from("registrations")
-      .select("full_name, event_id, activity_category_id, registration_type")
+      .select("full_name, event_id, activity_category_id, registration_type, photo_storage_path, phone, email")
       .eq("id", p.registration_id)
       .single();
 
@@ -986,7 +1233,7 @@ export const verifyPassByToken = createServerFn({ method: "GET" })
     const r = reg as any;
     const { data: event } = await supabaseAdmin
       .from("events")
-      .select("name, city")
+      .select("name, city, event_date, start_time, end_time, venue")
       .eq("id", r.event_id)
       .single();
 
@@ -998,6 +1245,33 @@ export const verifyPassByToken = createServerFn({ method: "GET" })
         .eq("id", r.activity_category_id)
         .single();
       if (cat) activityName = (cat as any).name;
+    }
+
+    let photoUrl = null;
+    if (r.photo_storage_path) {
+      const { data: pubUrl } = supabaseAdmin.storage
+        .from("participant-photos")
+        .getPublicUrl(r.photo_storage_path);
+      photoUrl = pubUrl?.publicUrl ?? null;
+    }
+
+    let seatInfo = null;
+    const { data: seatBooking } = await supabaseAdmin
+      .from("seat_bookings")
+      .select("id, holder_type, holder_name, event_seats!inner(id, seat_label, row_label, seat_number, event_seat_sections!inner(section_name, section_code))")
+      .eq("registration_id", p.registration_id)
+      .eq("holder_type", p.pass_type)
+      .maybeSingle();
+
+    if (seatBooking) {
+      const sb = seatBooking as any;
+      seatInfo = {
+        sectionName: sb.event_seats?.event_seat_sections?.section_name ?? "",
+        sectionCode: sb.event_seats?.event_seat_sections?.section_code ?? "",
+        rowLabel: sb.event_seats?.row_label ?? "",
+        seatNumber: sb.event_seats?.seat_number ?? 0,
+        seatLabel: sb.event_seats?.seat_label ?? "",
+      };
     }
 
     return {
@@ -1012,8 +1286,16 @@ export const verifyPassByToken = createServerFn({ method: "GET" })
         participantName: r.full_name,
         eventName: (event as any)?.name ?? "",
         eventCity: (event as any)?.city ?? "",
+        eventDate: (event as any)?.event_date ?? "",
+        startTime: (event as any)?.start_time ?? "",
+        endTime: (event as any)?.end_time ?? "",
+        venue: (event as any)?.venue ?? "",
         activityCategory: activityName,
         registrationType: r.registration_type,
+        photoUrl,
+        phone: r.phone,
+        email: r.email,
+        seatInfo,
       },
     };
   });

@@ -24,7 +24,7 @@ export const verifyPassPublic = createServerFn({ method: "GET" })
 
       const { data: reg } = await supabaseAdmin
         .from("registrations")
-        .select("full_name, event_id, activity_category_id")
+        .select("full_name, event_id, activity_category_id, registration_type, photo_storage_path, phone, email")
         .eq("id", p.registration_id)
         .single();
 
@@ -33,7 +33,7 @@ export const verifyPassPublic = createServerFn({ method: "GET" })
 
       const { data: event } = await supabaseAdmin
         .from("events")
-        .select("name, city, event_date, venue")
+        .select("name, city, event_date, start_time, end_time, venue")
         .eq("id", r.event_id)
         .single();
 
@@ -47,6 +47,33 @@ export const verifyPassPublic = createServerFn({ method: "GET" })
         if (cat) activityName = (cat as any).name;
       }
 
+      let photoUrl = null;
+      if (r.photo_storage_path) {
+        const { data: pubUrl } = supabaseAdmin.storage
+          .from("participant-photos")
+          .getPublicUrl(r.photo_storage_path);
+        photoUrl = pubUrl?.publicUrl ?? null;
+      }
+
+      let seatInfo = null;
+      const { data: seatBooking } = await supabaseAdmin
+        .from("seat_bookings")
+        .select("id, holder_type, holder_name, event_seats!inner(id, seat_label, row_label, seat_number, event_seat_sections!inner(section_name, section_code))")
+        .eq("registration_id", p.registration_id)
+        .eq("holder_type", p.pass_type)
+        .maybeSingle();
+
+      if (seatBooking) {
+        const sb = seatBooking as any;
+        seatInfo = {
+          sectionName: sb.event_seats?.event_seat_sections?.section_name ?? "",
+          sectionCode: sb.event_seats?.event_seat_sections?.section_code ?? "",
+          rowLabel: sb.event_seats?.row_label ?? "",
+          seatNumber: sb.event_seats?.seat_number ?? 0,
+          seatLabel: sb.event_seats?.seat_label ?? "",
+        };
+      }
+
       return {
         valid: true as const,
         pass: {
@@ -57,9 +84,18 @@ export const verifyPassPublic = createServerFn({ method: "GET" })
           category: activityName,
           venue: (event as any)?.venue ?? null,
           event_date: (event as any)?.event_date ?? null,
+          start_time: (event as any)?.start_time ?? null,
+          end_time: (event as any)?.end_time ?? null,
+          event_city: (event as any)?.city ?? null,
           status: p.status,
           checked_in: p.checked_in,
           checked_in_at: p.checked_in_at,
+          photo_url: photoUrl,
+          phone: r.phone,
+          email: r.email,
+          pass_type: p.pass_type,
+          registration_type: r.registration_type,
+          seat_info: seatInfo,
         },
       };
     }

@@ -1,16 +1,17 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { QRCodeCanvas } from "qrcode.react";
+import { useServerFn } from "@tanstack/react-start";
 import {
   Sparkles, ArrowRight, AlertCircle, Loader2,
   User, Phone, CreditCard, Calendar, MapPin,
-  Eye, EyeOff, Users, Ticket, Clock
+  Eye, EyeOff, Users, Ticket, Clock, Camera
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLang } from "@/lib/i18n";
 import {
   fetchEvents, fetchActivityCategories, createPendingRegistration,
-  createVisitorPendingRegistration
+  createVisitorPendingRegistration, uploadParticipantPhoto
 } from "@/lib/registrations.functions";
 
 export const Route = createFileRoute("/entry-pass")({
@@ -108,6 +109,7 @@ function ParticipantForm({ onNavigate, onPreviewUpdate }: { onNavigate: (opts: a
   const [evList, setEvList] = useState<EventOption[]>([]);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [photoData, setPhotoData] = useState<{ base64: string; mime: string; size: number } | null>(null);
 
   const [firstName, setFirstName] = useState("");
   const [middleName, setMiddleName] = useState("");
@@ -196,6 +198,17 @@ function ParticipantForm({ onNavigate, onPreviewUpdate }: { onNavigate: (opts: a
         guest2Phone: guest2Enabled ? guest2Phone : "",
       }});
       if (result.success) {
+        if (photoData) {
+          try {
+            await uploadParticipantPhoto({ data: {
+              registrationId: result.registration.id,
+              eventId: selectedEvent,
+              base64Image: photoData.base64,
+              mimeType: photoData.mime as "image/jpeg" | "image/png" | "image/webp",
+              fileSizeBytes: photoData.size,
+            }});
+          } catch { /* photo upload optional */ }
+        }
         onNavigate({ to: "/checkout", search: { regId: result.registration.id } });
       }
     } catch (err: any) {
@@ -257,6 +270,12 @@ function ParticipantForm({ onNavigate, onPreviewUpdate }: { onNavigate: (opts: a
             </button>
           </div>
         </Field>
+
+        <PhotoCapture
+          photoData={photoData}
+          onPhotoCapture={setPhotoData}
+          error={errors.photo}
+        />
 
         <label className="flex items-start gap-3 p-3 rounded-xl border border-primary/20 bg-primary/5 cursor-pointer">
           <input type="checkbox" checked={aadhaarConsent} onChange={(e) => setAadhaarConsent(e.target.checked)}
@@ -387,6 +406,7 @@ function VisitorForm({ onNavigate, onPreviewUpdate }: { onNavigate: (opts: any) 
   const [showAadhaar, setShowAadhaar] = useState(true);
   const [selectedEventId, setSelectedEventId] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [photoData, setPhotoData] = useState<{ base64: string; mime: string; size: number } | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -450,6 +470,17 @@ function VisitorForm({ onNavigate, onPreviewUpdate }: { onNavigate: (opts: any) 
         eventId: selectedEvent.id,
       }});
       if (result.success) {
+        if (photoData) {
+          try {
+            await uploadParticipantPhoto({ data: {
+              registrationId: result.registration.id,
+              eventId: selectedEventId,
+              base64Image: photoData.base64,
+              mimeType: photoData.mime as "image/jpeg" | "image/png" | "image/webp",
+              fileSizeBytes: photoData.size,
+            }});
+          } catch { /* photo upload optional */ }
+        }
         onNavigate({ to: "/checkout", search: { regId: result.registration.id } });
       }
     } catch (err: any) {
@@ -565,6 +596,12 @@ function VisitorForm({ onNavigate, onPreviewUpdate }: { onNavigate: (opts: any) 
           </div>
         )}
 
+        <PhotoCapture
+          photoData={photoData}
+          onPhotoCapture={setPhotoData}
+          error={errors.photo}
+        />
+
         <label className="flex items-start gap-3 p-3 rounded-xl border border-primary/20 bg-primary/5 cursor-pointer">
           <input type="checkbox" checked={aadhaarConsent} onChange={(e) => setAadhaarConsent(e.target.checked)}
             className="mt-1 h-4 w-4 accent-primary" />
@@ -653,6 +690,104 @@ function LivePassPreview({ tab, data, events }: { tab: TabType; data: Record<str
         </div>
         <p className="text-xs text-muted-foreground text-center mt-4">Complete registration to generate your pass</p>
       </div>
+    </div>
+  );
+}
+
+function PhotoCapture({ photoData, onPhotoCapture, error }: {
+  photoData: { base64: string; mime: string; size: number } | null;
+  onPhotoCapture: (data: { base64: string; mime: string; size: number } | null) => void;
+  error?: string;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [showCamera, setShowCamera] = useState(false);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+
+  const cleanupCamera = useCallback(() => {
+    if (stream) {
+      stream.getTracks().forEach((t) => t.stop());
+      setStream(null);
+    }
+    setShowCamera(false);
+  }, [stream]);
+
+  useEffect(() => () => cleanupCamera(), [cleanupCamera]);
+
+  const startCamera = async () => {
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } } });
+      setStream(s);
+      setShowCamera(true);
+      setTimeout(() => { if (videoRef.current) videoRef.current.srcObject = s; }, 100);
+    } catch { /* camera unavailable */ }
+  };
+
+  const capturePhoto = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    const base64 = dataUrl.split(",")[1];
+    const blobSize = Math.round((dataUrl.length * 3) / 4);
+    onPhotoCapture({ base64: `data:image/jpeg;base64,${base64}`, mime: "image/jpeg", size: blobSize });
+    cleanupCamera();
+  };
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) return;
+    if (file.size > 3145728) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      onPhotoCapture({ base64: result, mime: file.type, size: file.size });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  return (
+    <div className="border-t border-border pt-4 mt-4">
+      <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
+        <Camera className="h-4 w-4 text-primary" /> Participant Photo (optional)
+      </h3>
+      <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFile} className="hidden" />
+      {photoData ? (
+        <div className="flex items-center gap-4">
+          <img src={photoData.base64} alt="Preview" className="h-20 w-20 rounded-xl border border-border object-cover" />
+          <div className="flex flex-col gap-2">
+            <Button size="sm" variant="outline" onClick={() => { onPhotoCapture(null); cleanupCamera(); }}>Remove</Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()}>
+            <Camera className="h-3.5 w-3.5 mr-1.5" /> Upload Photo
+          </Button>
+          <Button size="sm" variant="outline" onClick={startCamera} disabled={showCamera}>
+            <Camera className="h-3.5 w-3.5 mr-1.5" /> Use Camera
+          </Button>
+        </div>
+      )}
+      {showCamera && (
+        <div className="mt-3 p-3 rounded-xl border border-border bg-background">
+          <video ref={videoRef} autoPlay playsInline className="w-full max-w-xs rounded-lg" />
+          <div className="flex gap-2 mt-2">
+            <Button size="sm" onClick={capturePhoto}>Capture</Button>
+            <Button size="sm" variant="outline" onClick={cleanupCamera}>Cancel</Button>
+          </div>
+          <canvas ref={canvasRef} className="hidden" />
+        </div>
+      )}
+      {error && <p className="mt-1 text-xs text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" /> {error}</p>}
     </div>
   );
 }

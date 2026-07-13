@@ -38,19 +38,30 @@ function ThankYouPage() {
       const canvas = document.createElement("canvas");
       canvas.width = 1400;
       canvas.height = 800;
+      const seat = reg.seatBookings?.find((s: any) => s.holderType === pass.passType);
+      const holderName = pass.passType === "participant" ? reg.fullName : reg.guests?.find((g: any) => g.id === pass.guestId)?.fullName || reg.fullName;
       await renderSingleSidedPassToCanvas(canvas, {
         passNumber: pass.passNumber,
         passType: pass.passType,
-        participantName: reg.fullName,
+        participantName: holderName,
         eventName: reg.eventName,
         eventCity: reg.eventCity,
         eventDate: reg.eventDate,
         startTime: reg.startTime,
+        endTime: reg.endTime,
         venue: reg.venue,
         activityCategory: reg.activityCategory,
         eventImageUrl: reg.eventImageUrl,
         qrDataUrl,
         status: "active",
+        photoUrl: reg.photoUrl || undefined,
+        seatInfo: seat ? {
+          sectionName: seat.sectionName,
+          sectionCode: seat.sectionCode,
+          rowLabel: seat.rowLabel,
+          seatNumber: seat.seatNumber,
+          seatLabel: seat.seatLabel,
+        } : undefined,
       });
       const prefix = pass.passType === "visitor" ? "Visitor" : pass.passType === "guest_1" || pass.passType === "guest_2" ? "Guest" : "Participant";
       const filename = `TelentFest-${prefix}-${pass.passNumber}.pdf`;
@@ -104,6 +115,12 @@ function ThankYouPage() {
             <div><span className="text-muted-foreground">Event:</span><br /><span>{reg.eventName}</span></div>
             <div><span className="text-muted-foreground">Amount Paid:</span><br /><span className="text-primary font-semibold">₹{reg.payments?.[0]?.amount || 0}</span></div>
           </div>
+          {reg.photoUrl && (
+            <div className="flex items-center gap-3 border-t border-border pt-4">
+              <img src={reg.photoUrl} alt="Participant" className="h-14 w-14 rounded-xl border border-border object-cover" />
+              <span className="text-xs text-muted-foreground">Photo on record</span>
+            </div>
+          )}
         </div>
 
         <div className="space-y-8">
@@ -113,6 +130,9 @@ function ThankYouPage() {
             const label = pass.passType === "visitor" ? "VISITOR ENTRY PASS" :
               pass.passType === "guest_1" ? "GUEST 1 PASS" :
               pass.passType === "guest_2" ? "GUEST 2 PASS" : "PARTICIPANT PASS";
+            const seat = reg.seatBookings?.find((s: any) => s.holderType === pass.passType);
+
+            const holderName = pass.passType === "participant" ? reg.fullName : reg.guests?.find((g: any) => g.id === pass.guestId)?.fullName || reg.fullName;
 
             return (
               <div key={pass.id} className="glass rounded-2xl p-6 sm:p-8">
@@ -129,6 +149,11 @@ function ThankYouPage() {
                         <p className="text-[10px] text-muted-foreground">{reg.eventCity}</p>
                       </div>
                     )}
+                    {reg.photoUrl && (
+                      <div className="absolute bottom-2 left-2">
+                        <img src={reg.photoUrl} alt="" className="h-10 w-10 rounded-lg border-2 border-primary/30 object-cover" />
+                      </div>
+                    )}
                   </div>
                   <div className="lg:w-[62%] p-6 flex flex-col">
                     <div className="flex items-center justify-between mb-4">
@@ -139,9 +164,9 @@ function ThankYouPage() {
                       <span className="text-[10px] px-2.5 py-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-500 uppercase tracking-wider">Active</span>
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-xs flex-1">
-                      <div>
+                      <div className="col-span-2">
                         <p className="text-[9px] text-muted-foreground tracking-wider">NAME</p>
-                        <p className="text-sm font-semibold">{pass.passType === "participant" ? reg.fullName : reg.guests?.find((g: any) => g.id === pass.guestId)?.fullName || reg.fullName}</p>
+                        <p className="text-sm font-semibold">{holderName}</p>
                       </div>
                       <div>
                         <p className="text-[9px] text-muted-foreground tracking-wider">PASS NO.</p>
@@ -152,9 +177,25 @@ function ThankYouPage() {
                         <p className="text-sm">{reg.eventName}</p>
                       </div>
                       <div>
-                        <p className="text-[9px] text-muted-foreground tracking-wider">CITY / DATE</p>
-                        <p className="text-sm">{reg.eventCity} | {reg.eventDate || "TBD"}</p>
+                        <p className="text-[9px] text-muted-foreground tracking-wider">DATE</p>
+                        <p className="text-sm">{reg.eventDate || "TBD"}</p>
                       </div>
+                      <div>
+                        <p className="text-[9px] text-muted-foreground tracking-wider">CITY</p>
+                        <p className="text-sm">{reg.eventCity}</p>
+                      </div>
+                      {reg.startTime && (
+                        <div>
+                          <p className="text-[9px] text-muted-foreground tracking-wider">START</p>
+                          <p className="text-sm">{reg.startTime}</p>
+                        </div>
+                      )}
+                      {reg.endTime && (
+                        <div>
+                          <p className="text-[9px] text-muted-foreground tracking-wider">END</p>
+                          <p className="text-sm">{reg.endTime}</p>
+                        </div>
+                      )}
                       {reg.activityCategory && pass.passType === "participant" && (
                         <div>
                           <p className="text-[9px] text-muted-foreground tracking-wider">CATEGORY</p>
@@ -162,6 +203,13 @@ function ThankYouPage() {
                         </div>
                       )}
                     </div>
+                    {seat && (
+                      <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-3 gap-2 text-[10px]">
+                        <div><span className="text-muted-foreground">Section</span><br /><span className="font-semibold">{seat.sectionName}</span></div>
+                        <div><span className="text-muted-foreground">Row</span><br /><span className="font-semibold">{seat.rowLabel}</span></div>
+                        <div><span className="text-muted-foreground">Seat</span><br /><span className="font-semibold">{seat.seatLabel}</span></div>
+                      </div>
+                    )}
                     <div className="flex items-center gap-4 mt-4 pt-3 border-t border-border/50">
                       <div className="bg-white rounded-xl p-2 shrink-0">
                         <div className="h-[80px] w-[80px]">

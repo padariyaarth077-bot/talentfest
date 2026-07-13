@@ -89,8 +89,19 @@ function VerifyPage() {
         <div className="grid grid-cols-2 gap-2 px-6 pb-6 text-xs">
           {p.venue && <div><div className="text-muted-foreground">{t("verify.venue")}</div><div>{p.venue}</div></div>}
           {p.event_date && <div><div className="text-muted-foreground">{t("verify.date")}</div><div>{p.event_date}</div></div>}
+          {"start_time" in p && p.start_time && <div><div className="text-muted-foreground">Start</div><div>{p.start_time}</div></div>}
+          {"end_time" in p && p.end_time && <div><div className="text-muted-foreground">End</div><div>{p.end_time}</div></div>}
           {p.hall && <div><div className="text-muted-foreground">{t("verify.hall")}</div><div>{p.hall}</div></div>}
           {p.stage && <div><div className="text-muted-foreground">{t("verify.stage")}</div><div>{p.stage}</div></div>}
+          {"seat_info" in p && p.seat_info && (
+            <div className="col-span-2 border-t border-border pt-2 mt-1">
+              <div className="grid grid-cols-3 gap-1">
+                <div><div className="text-muted-foreground">Section</div><div>{p.seat_info.sectionName}</div></div>
+                <div><div className="text-muted-foreground">Row</div><div>{p.seat_info.rowLabel}</div></div>
+                <div><div className="text-muted-foreground">Seat</div><div>{p.seat_info.seatLabel}</div></div>
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex justify-between border-t border-border bg-accent/40 px-6 py-3 text-xs">
           <span className="text-muted-foreground">{t("verify.status")}</span>
