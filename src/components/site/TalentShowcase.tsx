@@ -385,25 +385,6 @@ export function PremiumHero({
 
       <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-4 pb-8 pt-8 sm:px-6 sm:pt-12 lg:grid-cols-[0.92fr_1.08fr] lg:px-8 lg:pb-10 lg:pt-16">
         <div className="text-center lg:text-left">
-          <div className="brand-identity mx-auto lg:mx-0">
-            <div className="brand-logo-wrapper">
-              <img
-                src="/brand/telentfest-official-icon.png"
-                alt="Telentfest logo"
-                className="brand-logo-image"
-                width={160}
-                height={160}
-              />
-            </div>
-
-            <div className="brand-content">
-              <div className="brand-title" aria-label="TELENTFEST">
-                TELENTFEST
-              </div>
-              <p className="brand-tagline">Training Since 2015</p>
-            </div>
-          </div>
-
           <div className="inline-flex items-center gap-2 rounded-full border border-foreground/25 bg-foreground/15 px-4 py-1.5 text-xs font-medium backdrop-blur">
             <Sparkles className="h-3.5 w-3.5" />
             {t("hero.announcement")}

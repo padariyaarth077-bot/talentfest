@@ -62,18 +62,20 @@ export function Header() {
       }`}
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
-        <Link to="/" className="flex min-w-0 shrink-0 items-center gap-2.5">
-          <span className="grid aspect-square h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full border border-primary/45 bg-transparent shadow-glow">
+        <Link to="/" className="header-brand">
+          <span className="header-brand-logo-wrap">
             <img
               src="/brand/telentfest-official-icon.png"
               alt="TelentFest logo"
-              className="h-full w-full object-contain"
-              width={40}
-              height={40}
+              className="header-brand-logo"
+              width={44}
+              height={44}
             />
           </span>
-          <span className="font-sans text-sm font-semibold uppercase leading-none tracking-[0.18em] text-white sm:text-base">
-            TELENTFEST
+          <span className="header-brand-content">
+            <span className="header-brand-title">TELENTFEST</span>
+            <span className="header-brand-divider" aria-hidden="true" />
+            <span className="header-brand-tagline">Training Since 2015</span>
           </span>
         </Link>
 
