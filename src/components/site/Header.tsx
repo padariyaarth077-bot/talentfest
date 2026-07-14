@@ -62,21 +62,14 @@ export function Header() {
       }`}
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
-        <Link to="/" className="header-brand">
-          <span className="header-brand-logo-wrap">
-            <img
-              src="/brand/telentfest-official-icon.png"
-              alt="TelentFest logo"
-              className="header-brand-logo"
-              width={44}
-              height={44}
-            />
-          </span>
-          <span className="header-brand-content">
-            <span className="header-brand-title">TELENTFEST</span>
-            <span className="header-brand-divider" aria-hidden="true" />
-            <span className="header-brand-tagline">Training Since 2015</span>
-          </span>
+        <Link to="/" className="header-brand" aria-label="TelentFest home">
+          <img
+            src="/brand/telentfest-logo-full.png"
+            alt="TelentFest"
+            className="header-brand-logo"
+            width={201}
+            height={52}
+          />
         </Link>
 
         <nav className="hidden xl:flex items-center gap-1 text-sm">

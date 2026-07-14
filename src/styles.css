@@ -196,114 +196,41 @@
 }
 
 .header-brand {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.625rem;
   min-width: 0;
   flex-shrink: 0;
-}
-
-.header-brand-logo-wrap {
-  width: 2.75rem;
-  height: 2.75rem;
-  aspect-ratio: 1 / 1;
-  border-radius: 50%;
-  overflow: hidden;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  background: transparent;
-  border: 1px solid color-mix(in oklab, var(--primary) 55%, transparent);
-  box-shadow: var(--shadow-glow);
 }
 
 .header-brand-logo {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  object-position: center;
   display: block;
-}
-
-.header-brand-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-width: 0;
-  line-height: 1;
-}
-
-.header-brand-title {
-  color: #ffffff;
-  font-family: "Orbitron", "Rajdhani", "Montserrat", "Trebuchet MS", Arial, sans-serif;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  line-height: 1;
-  text-transform: uppercase;
-  white-space: nowrap;
-  text-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-}
-
-.header-brand-divider {
-  width: 100%;
-  height: 1px;
-  margin: 0.3125rem 0 0.25rem;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.82), transparent);
-}
-
-.header-brand-tagline {
-  color: rgba(255, 255, 255, 0.88);
-  font-family: var(--font-sans);
-  font-size: 0.5625rem;
-  font-weight: 400;
-  letter-spacing: 0.04em;
-  line-height: 1;
-  white-space: nowrap;
+  width: auto;
+  height: clamp(2.35rem, 3.65vw, 3.125rem);
+  max-width: 13.25rem;
+  object-fit: contain;
+  object-position: left center;
 }
 
 @media (max-width: 1024px) {
-  .header-brand {
-    gap: 0.55rem;
-  }
-
-  .header-brand-logo-wrap {
-    width: 2.5rem;
-    height: 2.5rem;
-  }
-
-  .header-brand-title {
-    font-size: 0.8125rem;
-    letter-spacing: 0.16em;
-  }
-
-  .header-brand-tagline {
-    font-size: 0.5rem;
+  .header-brand-logo {
+    height: clamp(2.15rem, 4.5vw, 2.75rem);
+    max-width: 11.5rem;
   }
 }
 
 @media (max-width: 640px) {
-  .header-brand {
-    gap: 0.45rem;
+  .header-brand-logo {
+    height: clamp(1.95rem, 7vw, 2.35rem);
+    max-width: 9.25rem;
   }
+}
 
-  .header-brand-logo-wrap {
-    width: 2.25rem;
-    height: 2.25rem;
-  }
-
-  .header-brand-title {
-    font-size: 0.6875rem;
-    letter-spacing: 0.13em;
-  }
-
-  .header-brand-divider {
-    margin: 0.25rem 0 0.1875rem;
-  }
-
-  .header-brand-tagline {
-    font-size: 0.4375rem;
-  }
+.footer-brand-logo {
+  display: block;
+  width: min(100%, 14.5rem);
+  height: auto;
+  object-fit: contain;
+  object-position: left center;
 }
 
 /* Hero floating talent icons */

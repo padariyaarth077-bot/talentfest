@@ -60,7 +60,7 @@ export const translations = {
     },
     hero: {
       announcement: "Season 4 Registrations Open",
-      title: "Telent Festival Platform",
+      title: "Talent Festival Platform",
       description:
         "Discover extraordinary talent through competitions, concerts, performances and creative opportunities.",
       stats: {
@@ -362,7 +362,7 @@ export const translations = {
       },
       finalCta: {
         title: "Ready to show the world your talent?",
-        subtitle: "Join thousands of artists on India's fastest-growing Telent Festival platform.",
+        subtitle: "Join thousands of artists on India's fastest-growing Talent Festival platform.",
         orgLogin: "Organization Login",
       },
     },
@@ -632,7 +632,7 @@ export const translations = {
       status: "Status",
     },
     footer: {
-      desc: "India's ultimate Telent Festival platform for artists, organizations, and audiences.",
+      desc: "India's ultimate Talent Festival platform for artists, organizations, and audiences.",
       quickLinks: "Quick Links",
       legal: "Legal",
       privacy: "Privacy Policy",

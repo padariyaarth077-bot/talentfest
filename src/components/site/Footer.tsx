@@ -24,20 +24,14 @@ export function Footer() {
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-4 lg:px-8">
         {/* Brand Information */}
         <div>
-          <Link to="/" className="mb-4 flex items-center gap-2">
-            <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-xl border border-primary/45 bg-primary/10 shadow-soft">
-              <img
-                src="/brand/telentfest-icon-tight.png"
-                alt="TelentFest logo"
-                className="h-full w-full object-contain"
-                width={36}
-                height={36}
-              />
-            </span>
-
-            <span className="font-display text-lg font-bold">
-              Telent<span className="text-gradient">Fest</span>
-            </span>
+          <Link to="/" className="mb-4 inline-flex" aria-label="TelentFest home">
+            <img
+              src="/brand/telentfest-logo-full.png"
+              alt="TelentFest"
+              className="footer-brand-logo"
+              width={230}
+              height={60}
+            />
           </Link>
 
           <p className="max-w-xs text-sm text-muted-foreground">
