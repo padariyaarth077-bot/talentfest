@@ -99,46 +99,103 @@ export const translations = {
         eyebrow: "What we do",
         titlePrefix: "Our",
         titleHighlight: "Services",
-        subtitle: "Everything you need to organize, participate, and shine at a national scale.",
-        artistRegistration: {
-          title: "Artist Registration",
-          desc: "Sign up free and showcase your craft to a national audience.",
+        subtitle: "Empowering students, parents, educators and professionals through motivational seminars, transformative training programs, career guidance and talent-development opportunities.",
+        intro: "Led by Mr. JB Ahir, TelentFest Training Institute delivers impactful programs designed to inspire minds, build skills, and create lasting change across schools, colleges, and organizations.",
+        motivationalSeminar: {
+          title: "Motivational Seminar",
+          desc: "Empowering minds and transforming lives through impactful motivational seminars.",
+          fullDesc: "Step into a world of inspiration with Mr. JB Ahir's motivational seminars. Each session is a powerful blend of real-life stories, proven success principles, and practical strategies that push students beyond their comfort zones. Covering mindset shifts, goal setting, time management, and resilience, these seminars are designed to spark lasting personal transformation. Ideal for school and college students, these sessions build confidence, ignite ambition, and plant the seeds of success.",
+          topics: [
+            "Positive Mindset & Self-Belief",
+            "Goal Setting & Action Planning",
+            "Time Management & Discipline",
+            "Overcoming Fear & Failure",
+            "Success Habits of High Achievers",
+          ],
         },
-        eventOrganization: {
-          title: "Event Organization",
-          desc: "End-to-end planning for competitions and festivals.",
+        teachersTraining: {
+          title: "Teachers Training",
+          desc: "Equipping educators with modern classroom management and student engagement techniques.",
+          fullDesc: "Teachers are the architects of the future, and our training program is crafted to empower them with the skills needed in today's evolving educational landscape. From effective classroom management and student psychology to innovative teaching methodologies, this program rejuvenates teaching practices and fosters a positive learning environment. Educators leave with practical tools to inspire, manage, and connect with their students meaningfully.",
+          topics: [
+            "Modern Classroom Management",
+            "Student Psychology & Behaviour",
+            "Innovative Teaching Methods",
+            "Stress Management for Teachers",
+            "Building Positive Teacher-Student Relationships",
+          ],
         },
-        competitionManagement: {
-          title: "Competition Management",
-          desc: "Rules, judging, scoring and results handled.",
+        parentingSeminar: {
+          title: "Parenting Seminar",
+          desc: "Guiding parents to nurture confident, responsible, and emotionally strong children.",
+          fullDesc: "Parenting in today's fast-paced world comes with its own unique challenges. This seminar by Mr. JB Ahir provides parents with powerful insights into child psychology, effective communication, and balanced discipline. It helps parents understand the delicate balance between freedom and boundaries, screen time management, and how to become their child's biggest emotional supporter. A must-attend for parents seeking to raise happy, confident, and responsible children.",
+          topics: [
+            "Understanding Child Psychology",
+            "Effective Communication with Children",
+            "Balancing Freedom & Discipline",
+            "Managing Screen Time & Digital Habits",
+            "Building Emotional Connection & Trust",
+          ],
         },
-        concertManagement: {
-          title: "Concert Management",
-          desc: "Ticketing, venues, artist lineup and production.",
+        corporateTraining: {
+          title: "Corporate Training",
+          desc: "Enhancing workplace performance, leadership skills and team collaboration.",
+          fullDesc: "In the competitive corporate world, continuous learning is the key to staying ahead. Our corporate training programs are designed to boost employee performance, strengthen leadership pipelines, and foster a culture of collaboration and innovation. From communication mastery to decision-making under pressure, participants gain actionable skills that translate directly into workplace success.",
+          topics: [
+            "Leadership & Team Management",
+            "Effective Workplace Communication",
+            "Decision Making & Problem Solving",
+            "Time & Stress Management",
+            "Building a High-Performance Culture",
+          ],
         },
-        awardCeremony: {
-          title: "Award Ceremony",
-          desc: "Premium ceremonies celebrating winners and talent.",
+        staffTraining: {
+          title: "Staff Training",
+          desc: "Building skilled, motivated and professional teams for organizational excellence.",
+          fullDesc: "A motivated and skilled staff is the backbone of any successful institution. This training program focuses on professional development, service orientation, teamwork, and accountability. Through interactive sessions and practical exercises, staff members develop a stronger work ethic, improved interpersonal skills, and a deeper sense of ownership toward their roles.",
+          topics: [
+            "Professional Etiquette & Grooming",
+            "Teamwork & Collaboration",
+            "Accountability & Ownership",
+            "Customer Service Excellence",
+            "Conflict Resolution in the Workplace",
+          ],
         },
-        digitalVoting: {
-          title: "Digital Voting",
-          desc: "Transparent, real-time audience voting.",
+        careerCounselling: {
+          title: "Career Counselling",
+          desc: "Helping students discover their strengths and choose the right career path with confidence.",
+          fullDesc: "Choosing the right career path is one of the most critical decisions in a student's life. Mr. JB Ahir's career counselling sessions provide students with clarity about their strengths, interests, and future opportunities. Through psychometric insights, one-on-one discussions, and exposure to emerging career fields, students leave with a clear roadmap for their professional journey.",
+          topics: [
+            "Self-Discovery & Strengths Assessment",
+            "Exploring Career Options & Opportunities",
+            "Stream Selection After 10th & 12th",
+            "Skill Development for Future Careers",
+            "Building a Personal Career Roadmap",
+          ],
         },
-        talentPromotion: {
-          title: "Talent Promotion",
-          desc: "Boost your reach with our media network.",
+        talentIdentification: {
+          title: "Talent Identification Training",
+          desc: "Identifying and nurturing hidden potential in students and young achievers.",
+          fullDesc: "Every student has a hidden talent waiting to be discovered. This training program focuses on recognizing diverse forms of intelligence and creativity in children. Through observation techniques, interactive activities, and assessment frameworks, educators and parents learn how to spot talent early and nurture it effectively.",
+          topics: [
+            "Identifying Hidden Talents in Students",
+            "Nurturing Creative & Artistic Abilities",
+            "Encouraging Leadership & Public Speaking",
+            "Building Confidence Through Recognition",
+            "Creating a Talent Development Ecosystem",
+          ],
         },
-        mediaCoverage: {
-          title: "Media Coverage",
-          desc: "Photography, videography and social buzz.",
-        },
-        sponsorship: {
-          title: "Sponsorship",
-          desc: "Match brands with the right artist audiences.",
-        },
-        onlineEntry: {
-          title: "Online Entry",
-          desc: "Seamless digital entry passes with QR codes.",
+        talentShow: {
+          title: "Talent Show",
+          desc: "A professional platform where students showcase their skills and creativity.",
+          fullDesc: "The TelentFest Talent Show is a vibrant, high-energy platform where students step into the spotlight and showcase their unique abilities. From singing and dancing to drama, poetry, and beyond, participants experience the thrill of performing on a professional stage. It boosts their confidence, builds stage presence, and gives them a memory that lasts a lifetime.",
+          topics: [
+            "Stage Performance & Presentation Skills",
+            "Confidence Building Through Live Performance",
+            "Creative Expression & Artistic Freedom",
+            "Peer Learning & Healthy Competition",
+            "Recognition & Awards for Top Performers",
+          ],
         },
       },
       about: {
@@ -160,6 +217,27 @@ export const translations = {
           "Best Motivational Speaker — 2018",
           "Founder of TelentFest Training Institute",
         ],
+      },
+      purpose: {
+        eyebrow: "Our Purpose",
+        titlePrefix: "Our",
+        titleHighlight: "Purpose",
+        subtitle: "Discover the vision, mission and goal that guide Telentfest in empowering individuals to recognise, develop and showcase their unique talents.",
+        vision: {
+          title: "Our Vision",
+          label: "Discover. Develop. Showcase.",
+          desc: "Our vision is to create a global platform where every individual can discover, develop and showcase their unique talent. Through opportunities, mentorship and recognition, Telentfest aims to inspire confidence, nurture creativity and empower people to turn their passions into purpose, making talent a bridge to success and meaningful contribution to society.",
+        },
+        mission: {
+          title: "Our Mission",
+          label: "Empower Talent. Inspire Success.",
+          desc: "Our mission is to help people discover their unique talents, nurture their skills and showcase them on a global platform. We are committed to empowering youngsters with meaningful opportunities, expert guidance and confidence so they can transform their passion into success and inspire the world.",
+        },
+        goal: {
+          title: "Our Goal",
+          label: "Recognise Potential. Build Confidence.",
+          desc: "The goal of Telentfest is to help every person recognise their unique potential, build confidence and showcase their talent to the world.",
+        },
       },
       participate: {
         eyebrow: "Simple 3-step process",
@@ -658,46 +736,124 @@ export const translations = {
         eyebrow: "हम क्या करते हैं",
         titlePrefix: "हमारी",
         titleHighlight: "सेवाएँ",
-        subtitle: "राष्ट्रीय स्तर पर आयोजन, भागीदारी और चमकने के लिए आपकी हर ज़रूरत।",
-        artistRegistration: {
-          title: "कलाकार पंजीकरण",
-          desc: "मुफ़्त साइन अप करें और अपनी कला को राष्ट्रीय दर्शकों तक पहुँचाएँ।",
+        subtitle: "प्रेरक सेमिनार, परिवर्तनकारी प्रशिक्षण कार्यक्रम, करियर मार्गदर्शन और प्रतिभा विकास के अवसरों के माध्यम से छात्रों, अभिभावकों, शिक्षकों और पेशेवरों को सशक्त बनाना।",
+        intro: "Mr. JB Ahir के नेतृत्व में, TelentFest Training Institute प्रेरक कार्यक्रम प्रदान करता है जो मन को प्रेरित करने, कौशल विकसित करने और स्कूलों, कॉलेजों और संगठनों में स्थायी बदलाव लाने के लिए डिज़ाइन किए गए हैं।",
+        motivationalSeminar: {
+          title: "प्रेरक सेमिनार",
+          desc: "प्रभावशाली प्रेरक सेमिनारों के माध्यम से मन को सशक्त बनाना और जीवन बदलना।",
+          fullDesc: "Mr. JB Ahir के प्रेरक सेमिनारों के साथ प्रेरणा की दुनिया में कदम रखें। प्रत्येक सत्र वास्तविक जीवन की कहानियों, सिद्ध सफलता के सिद्धांतों और व्यावहारिक रणनीतियों का एक शक्तिशाली मिश्रण है जो छात्रों को उनके कम्फर्ट ज़ोन से बाहर धकेलता है। माइंडसेट शिफ्ट, लक्ष्य निर्धारण, समय प्रबंधन और लचीलापन को कवर करते हुए, ये सेमिनार स्थायी व्यक्तिगत परिवर्तन के लिए डिज़ाइन किए गए हैं।",
+          topics: [
+            "सकारात्मक मानसिकता और आत्मविश्वास",
+            "लक्ष्य निर्धारण और कार्य योजना",
+            "समय प्रबंधन और अनुशासन",
+            "डर और असफलता पर काबू पाना",
+            "सफल लोगों की आदतें",
+          ],
         },
-        eventOrganization: {
-          title: "कार्यक्रम आयोजन",
-          desc: "प्रतियोगिताओं और उत्सवों की पूरी योजना और प्रबंधन।",
+        teachersTraining: {
+          title: "शिक्षक प्रशिक्षण",
+          desc: "आधुनिक कक्षा प्रबंधन और छात्र जुड़ाव तकनीकों से शिक्षकों को सशक्त बनाना।",
+          fullDesc: "शिक्षक भविष्य के निर्माता हैं, और हमारा प्रशिक्षण कार्यक्रम उन्हें आज के शैक्षिक परिदृश्य में आवश्यक कौशल से सशक्त बनाने के लिए तैयार किया गया है। प्रभावी कक्षा प्रबंधन और छात्र मनोविज्ञान से लेकर नवीन शिक्षण पद्धतियों तक, यह कार्यक्रम शिक्षण प्रथाओं को पुनर्जीवित करता है और एक सकारात्मक शिक्षण वातावरण को बढ़ावा देता है।",
+          topics: [
+            "आधुनिक कक्षा प्रबंधन",
+            "छात्र मनोविज्ञान और व्यवहार",
+            "नवीन शिक्षण विधियाँ",
+            "शिक्षकों के लिए तनाव प्रबंधन",
+            "सकारात्मक शिक्षक-छात्र संबंध",
+          ],
         },
-        competitionManagement: {
-          title: "प्रतियोगिता प्रबंधन",
-          desc: "नियम, निर्णायक प्रक्रिया, स्कोरिंग और परिणामों का प्रबंधन।",
+        parentingSeminar: {
+          title: "पेरेंटिंग सेमिनार",
+          desc: "आत्मविश्वासी, जिम्मेदार और भावनात्मक रूप से मजबूत बच्चों के पालन-पोषण में माता-पिता का मार्गदर्शन।",
+          fullDesc: "आज की तेज़-तर्रार दुनिया में पेरेंटिंग अपनी अनूठी चुनौतियों के साथ आती है। Mr. JB Ahir का यह सेमिनार माता-पिता को बाल मनोविज्ञान, प्रभावी संचार और संतुलित अनुशासन में शक्तिशाली अंतर्दृष्टि प्रदान करता है। यह स्वतंत्रता और सीमाओं, स्क्रीन टाइम प्रबंधन, और बच्चे के भावनात्मक समर्थक बनने के बीच संतुलन समझने में मदद करता है।",
+          topics: [
+            "बाल मनोविज्ञान को समझना",
+            "बच्चों के साथ प्रभावी संचार",
+            "स्वतंत्रता और अनुशासन में संतुलन",
+            "स्क्रीन टाइम और डिजिटल आदतों का प्रबंधन",
+            "भावनात्मक जुड़ाव और विश्वास बनाना",
+          ],
         },
-        concertManagement: {
-          title: "कॉन्सर्ट प्रबंधन",
-          desc: "टिकटिंग, स्थल, कलाकार लाइनअप और प्रोडक्शन।",
+        corporateTraining: {
+          title: "कॉर्पोरेट प्रशिक्षण",
+          desc: "कार्यस्थल प्रदर्शन, नेतृत्व कौशल और टीम सहयोग बढ़ाना।",
+          fullDesc: "प्रतिस्पर्धी कॉर्पोरेट दुनिया में, निरंतर सीखना आगे रहने की कुंजी है। हमारे कॉर्पोरेट प्रशिक्षण कार्यक्रम कर्मचारी प्रदर्शन को बढ़ावा देने, नेतृत्व पाइपलाइनों को मजबूत करने और सहयोग और नवाचार की संस्कृति को बढ़ावा देने के लिए डिज़ाइन किए गए हैं। संचार निपुणता से लेकर दबाव में निर्णय लेने तक, प्रतिभागी कार्रवाई योग्य कौशल प्राप्त करते हैं।",
+          topics: [
+            "नेतृत्व और टीम प्रबंधन",
+            "प्रभावी कार्यस्थल संचार",
+            "निर्णय लेना और समस्या समाधान",
+            "समय और तनाव प्रबंधन",
+            "उच्च-प्रदर्शन संस्कृति बनाना",
+          ],
         },
-        awardCeremony: {
-          title: "पुरस्कार समारोह",
-          desc: "विजेताओं और प्रतिभाओं का प्रीमियम सम्मान समारोह।",
+        staffTraining: {
+          title: "स्टाफ प्रशिक्षण",
+          desc: "संगठनात्मक उत्कृष्टता के लिए कुशल, प्रेरित और पेशेवर टीम का निर्माण।",
+          fullDesc: "एक प्रेरित और कुशल स्टाफ किसी भी सफल संस्थान की रीढ़ है। यह प्रशिक्षण कार्यक्रम पेशेवर विकास, सेवा अभिविन्यास, टीम वर्क और जवाबदेही पर केंद्रित है। इंटरैक्टिव सत्रों और व्यावहारिक अभ्यासों के माध्यम से, स्टाफ सदस्य एक मजबूत कार्य नीति, बेहतर पारस्परिक कौशल और अपनी भूमिकाओं के प्रति गहरी स्वामित्व की भावना विकसित करते हैं।",
+          topics: [
+            "पेशेवर शिष्टाचार और ग्रूमिंग",
+            "टीम वर्क और सहयोग",
+            "जवाबदेही और स्वामित्व",
+            "ग्राहक सेवा में उत्कृष्टता",
+            "कार्यस्थल पर विवाद समाधान",
+          ],
         },
-        digitalVoting: {
-          title: "डिजिटल वोटिंग",
-          desc: "पारदर्शी और रियल-टाइम दर्शक वोटिंग।",
+        careerCounselling: {
+          title: "करियर काउंसलिंग",
+          desc: "छात्रों को उनकी ताकत पहचानने और आत्मविश्वास से सही करियर चुनने में मदद करना।",
+          fullDesc: "सही करियर पथ चुनना एक छात्र के जीवन के सबसे महत्वपूर्ण निर्णयों में से एक है। Mr. JB Ahir के करियर काउंसलिंग सत्र छात्रों को उनकी ताकत, रुचियों और भविष्य के अवसरों के बारे में स्पष्टता प्रदान करते हैं। साइकोमेट्रिक अंतर्दृष्टि और उभरते करियर क्षेत्रों के संपर्क के माध्यम से, छात्र एक स्पष्ट रोडमैप के साथ जाते हैं।",
+          topics: [
+            "आत्म-खोज और शक्तियों का आकलन",
+            "करियर विकल्पों और अवसरों की खोज",
+            "10वीं और 12वीं के बाद स्ट्रीम चयन",
+            "भविष्य के करियर के लिए कौशल विकास",
+            "व्यक्तिगत करियर रोडमैप बनाना",
+          ],
         },
-        talentPromotion: {
-          title: "प्रतिभा प्रमोशन",
-          desc: "हमारे मीडिया नेटवर्क से अपनी पहुँच बढ़ाएँ।",
+        talentIdentification: {
+          title: "प्रतिभा पहचान प्रशिक्षण",
+          desc: "छात्रों और युवा उपलब्धियों में छिपी प्रतिभा की पहचान और विकास।",
+          fullDesc: "हर छात्र में एक छिपी प्रतिभा होती है जो खोजे जाने की प्रतीक्षा करती है। यह प्रशिक्षण कार्यक्रम बच्चों में बुद्धिमत्ता और रचनात्मकता के विविध रूपों को पहचानने पर केंद्रित है। अवलोकन तकनीकों, इंटरैक्टिव गतिविधियों और मूल्यांकन ढाँचों के माध्यम से, शिक्षक और माता-पिता जल्दी प्रतिभा को पहचानना और प्रभावी ढंग से विकसित करना सीखते हैं।",
+          topics: [
+            "छात्रों में छिपी प्रतिभा की पहचान",
+            "रचनात्मक और कलात्मक क्षमताओं का विकास",
+            "नेतृत्व और सार्वजनिक भाषण को प्रोत्साहित करना",
+            "पहचान के माध्यम से आत्मविश्वास निर्माण",
+            "प्रतिभा विकास पारिस्थितिकी तंत्र बनाना",
+          ],
         },
-        mediaCoverage: {
-          title: "मीडिया कवरेज",
-          desc: "फोटोग्राफी, वीडियोग्राफी और सोशल मीडिया चर्चा।",
+        talentShow: {
+          title: "टैलेंट शो",
+          desc: "एक पेशेवर मंच जहाँ छात्र अपने कौशल और रचनात्मकता का प्रदर्शन करते हैं।",
+          fullDesc: "TelentFest Talent Show एक जीवंत, उच्च-ऊर्जा मंच है जहाँ छात्र स्पॉटलाइट में कदम रखते हैं और अपनी अनूठी क्षमताओं का प्रदर्शन करते हैं। गायन और नृत्य से लेकर नाटक, कविता और उससे आगे, प्रतिभागी एक पेशेवर मंच पर प्रदर्शन करने के रोमांच का अनुभव करते हैं। यह उनके आत्मविश्वास को बढ़ाता है, मंच उपस्थिति बनाता है, और उन्हें एक यादगार अनुभव देता है।",
+          topics: [
+            "मंच प्रदर्शन और प्रस्तुति कौशल",
+            "लाइव प्रदर्शन के माध्यम से आत्मविश्वास निर्माण",
+            "रचनात्मक अभिव्यक्ति और कलात्मक स्वतंत्रता",
+            "सहपाठी सीखना और स्वस्थ प्रतिस्पर्धा",
+            "शीर्ष प्रतिभागियों के लिए पुरस्कार",
+          ],
         },
-        sponsorship: {
-          title: "प्रायोजन",
-          desc: "ब्रांड्स को सही कलाकार दर्शकों से जोड़ें।",
+      },
+      purpose: {
+        eyebrow: "हमारा उद्देश्य",
+        titlePrefix: "हमारा",
+        titleHighlight: "उद्देश्य",
+        subtitle: "Telentfest के दृष्टिकोण, मिशन और लक्ष्य की खोज करें जो व्यक्तियों को उनकी अनूठी प्रतिभा को पहचानने, विकसित करने और प्रदर्शित करने में सशक्त बनाता है।",
+        vision: {
+          title: "हमारी दृष्टि",
+          label: "खोजें। विकसित करें। प्रदर्शित करें।",
+          desc: "हमारी दृष्टि एक ऐसा वैश्विक मंच बनाना है जहाँ हर व्यक्ति अपनी अनूठी प्रतिभा को खोज सके, विकसित कर सके और प्रदर्शित कर सके। अवसरों, मार्गदर्शन और पहचान के माध्यम से, Telentfest का उद्देश्य आत्मविश्वास को प्रेरित करना, रचनात्मकता को बढ़ावा देना और लोगों को उनके जुनून को उद्देश्य में बदलने के लिए सशक्त बनाना है।",
         },
-        onlineEntry: {
-          title: "ऑनलाइन एंट्री",
-          desc: "क्यूआर कोड के साथ आसान डिजिटल एंट्री पास।",
+        mission: {
+          title: "हमारा मिशन",
+          label: "प्रतिभा को सशक्त करें। सफलता को प्रेरित करें।",
+          desc: "हमारा मिशन लोगों को उनकी अनूठी प्रतिभा खोजने, उनके कौशल को विकसित करने और उन्हें वैश्विक मंच पर प्रदर्शित करने में मदद करना है। हम युवाओं को सार्थक अवसरों, विशेषज्ञ मार्गदर्शन और आत्मविश्वास के साथ सशक्त बनाने के लिए प्रतिबद्ध हैं ताकि वे अपने जुनून को सफलता में बदल सकें और दुनिया को प्रेरित कर सकें।",
+        },
+        goal: {
+          title: "हमारा लक्ष्य",
+          label: "क्षमता पहचानें। आत्मविश्वास बनाएँ।",
+          desc: "Telentfest का लक्ष्य हर व्यक्ति को उनकी अनूठी क्षमता पहचानने, आत्मविश्वास बनाने और दुनिया के सामने अपनी प्रतिभा प्रदर्शित करने में मदद करना है।",
         },
       },
       about: {

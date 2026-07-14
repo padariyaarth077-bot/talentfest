@@ -3,22 +3,23 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowRight,
   Award,
+  Briefcase,
   Calendar,
   Check,
-  ClipboardList,
   Clock,
-  Handshake,
+  Compass,
+  Eye,
+  Flag,
   Heart,
   MapPin,
   Megaphone,
   Music,
-  ScanLine,
   Star,
+  Target,
   Ticket,
   Trophy,
-  UserPlus,
-  Video,
-  Vote,
+  Users,
+  X,
 } from "lucide-react";
 import { Section } from "@/components/site/Section";
 import { SponsorshipTabs } from "@/components/site/SponsorshipSection";
@@ -36,22 +37,22 @@ import {
   fetchPublishedBlogPosts,
   resolveConcertMapUrls,
 } from "@/lib/public-content.functions";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 export const Route = createFileRoute("/")({
   component: Home,
 });
 
 const services = [
-  { icon: UserPlus, key: "artistRegistration" },
-  { icon: ClipboardList, key: "eventOrganization" },
-  { icon: Trophy, key: "competitionManagement" },
-  { icon: Music, key: "concertManagement" },
-  { icon: Award, key: "awardCeremony" },
-  { icon: Vote, key: "digitalVoting" },
-  { icon: Megaphone, key: "talentPromotion" },
-  { icon: Video, key: "mediaCoverage" },
-  { icon: Handshake, key: "sponsorship" },
-  { icon: ScanLine, key: "onlineEntry" },
+  { icon: Megaphone, key: "motivationalSeminar" },
+  { icon: Award, key: "teachersTraining" },
+  { icon: Heart, key: "parentingSeminar" },
+  { icon: Briefcase, key: "corporateTraining" },
+  { icon: Users, key: "staffTraining" },
+  { icon: Compass, key: "careerCounselling" },
+  { icon: Star, key: "talentIdentification" },
+  { icon: Trophy, key: "talentShow" },
 ];
 
 const team = [
@@ -78,6 +79,7 @@ function Home() {
     fetchPublishedBlogPosts({ data: { limit: 3 } }).then(setPosts).catch(() => undefined);
   }, []);
 
+  const [selectedService, setSelectedService] = React.useState<(typeof services)[number] | null>(null);
   const concertSettings = concert?.settings;
   const concertArtists = concert?.artists ?? [];
 
@@ -91,18 +93,109 @@ function Home() {
         title={<>{t("home.services.titlePrefix")} <span className="text-gradient">{t("home.services.titleHighlight")}</span></>}
         subtitle={t("home.services.subtitle")}
       >
+        <p className="mx-auto mb-8 max-w-2xl text-center text-sm leading-relaxed text-muted-foreground">
+          {t("home.services.intro")}
+        </p>
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {services.map((s) => (
-            <Link key={s.key} to="/registration" className="block rounded-2xl border border-border bg-card p-6 hover-lift">
-              <div className="mb-4 grid h-11 w-11 place-items-center rounded-xl gradient-primary text-foreground">
-                <s.icon className="h-5 w-5" />
-              </div>
-              <h3 className="font-semibold">{t(`home.services.${s.key}.title`)}</h3>
-              <p className="mt-1.5 text-sm text-muted-foreground">{t(`home.services.${s.key}.desc`)}</p>
-            </Link>
-          ))}
+          {services.map((s) => {
+            const Icon = s.icon;
+            return (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => setSelectedService(s)}
+                className="group block w-full rounded-2xl border border-border bg-card p-6 text-left transition duration-300 hover:-translate-y-1 hover:border-primary/60 hover:shadow-[0_0_20px_rgba(212,175,55,0.15)] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+              >
+                <div className="mb-4 grid h-11 w-11 place-items-center rounded-xl gradient-primary text-foreground transition duration-300 group-hover:shadow-[0_0_14px_rgba(212,175,55,0.25)]">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <h3 className="font-semibold">{t(`home.services.${s.key}.title`)}</h3>
+                <p className="mt-1.5 text-sm text-muted-foreground">{t(`home.services.${s.key}.desc`)}</p>
+              </button>
+            );
+          })}
         </div>
+
+        <Dialog open={selectedService !== null} onOpenChange={(o) => { if (!o) setSelectedService(null); }}>
+          <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto sm:max-w-xl">
+            <VisuallyHidden>
+              <DialogTitle>{selectedService ? t(`home.services.${selectedService.key}.title`) : ""}</DialogTitle>
+            </VisuallyHidden>
+            {selectedService && (
+              <div className="space-y-5 pr-1">
+                <div className="flex items-center gap-4">
+                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl gradient-primary text-foreground">
+                    <selectedService.icon className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold">{t(`home.services.${selectedService.key}.title`)}</h3>
+                    <p className="text-sm text-muted-foreground">{t(`home.services.${selectedService.key}.desc`)}</p>
+                  </div>
+                </div>
+                <p className="text-sm leading-relaxed text-muted-foreground">{t(`home.services.${selectedService.key}.fullDesc`)}</p>
+                <div className="space-y-2.5">
+                  {(t(`home.services.${selectedService.key}.topics`, { returnObjects: true }) as string[]).map((topic, i) => (
+                    <div key={i} className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 p-3 text-sm">
+                      <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-primary/20 text-[11px] font-bold text-primary">
+                        {i + 1}
+                      </span>
+                      <span>{topic}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </Section>
+
+      <section id="purpose" className="relative overflow-hidden py-20 md:py-28">
+        <div className="pointer-events-none absolute inset-0 -z-0" aria-hidden="true">
+          <div className="absolute left-1/2 top-0 h-80 w-80 -translate-x-1/2 rounded-full bg-primary/5 blur-[100px]" />
+          <div className="absolute -left-20 top-1/3 h-40 w-40 rounded-full border border-primary/10" />
+          <div className="absolute -right-10 top-2/3 h-28 w-28 rounded-full border border-primary/10" />
+        </div>
+        <div className="container relative z-10 mx-auto max-w-7xl px-4">
+          <div className="mx-auto mb-14 max-w-2xl text-center">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary">{t("home.purpose.eyebrow")}</p>
+            <h2 className="text-3xl font-bold md:text-4xl">
+              {t("home.purpose.titlePrefix")}{" "}
+              <span className="text-gradient">{t("home.purpose.titleHighlight")}</span>
+            </h2>
+            <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{t("home.purpose.subtitle")}</p>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
+            {([
+              { icon: Eye, key: "vision" },
+              { icon: Target, key: "mission" },
+              { icon: Flag, key: "goal" },
+            ] as const).map((item, i) => {
+              const Icon = item.icon;
+              return (
+                <div
+                  key={item.key}
+                  className="group relative flex flex-col rounded-2xl border border-border bg-card p-8 transition duration-300 hover:-translate-y-1 hover:border-primary/50 hover:bg-card/80 hover:shadow-[0_0_24px_rgba(212,175,55,0.10)] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                >
+                  <div className="mb-5 grid h-14 w-14 place-items-center rounded-full border border-primary/30 bg-primary/10 transition duration-300 group-hover:shadow-[0_0_18px_rgba(212,175,55,0.25)]">
+                    <Icon className="h-6 w-6 text-primary" aria-hidden="true" />
+                  </div>
+                  <span className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/80">
+                    {t(`home.purpose.${item.key}.label`)}
+                  </span>
+                  <h3 className="mb-3 text-xl font-bold text-foreground">
+                    {t(`home.purpose.${item.key}.title`)}
+                  </h3>
+                  <p className="flex-1 text-sm leading-relaxed text-muted-foreground">
+                    {t(`home.purpose.${item.key}.desc`)}
+                  </p>
+                  <div className="mt-6 h-px w-12 bg-primary/40 transition-all duration-300 group-hover:w-full group-hover:bg-primary/60" />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
 
       <Section
         id="about"
