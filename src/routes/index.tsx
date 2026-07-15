@@ -154,7 +154,7 @@ function Home() {
           <div className="absolute left-1/2 top-0 h-80 w-80 -translate-x-1/2 rounded-full bg-primary/5 blur-[100px]" />
           <div className="absolute -left-20 top-1/3 h-40 w-40 rounded-full border border-primary/10" />
           <div className="absolute -right-10 top-2/3 h-28 w-28 rounded-full border border-primary/10" />
-        </div>
+        </div>  
         <div className="container relative z-10 mx-auto max-w-7xl px-4">
           <div className="mx-auto mb-14 max-w-2xl text-center">
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary">{t("home.purpose.eyebrow")}</p>
