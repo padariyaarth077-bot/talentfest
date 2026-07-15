@@ -60,7 +60,7 @@ export const translations = {
     },
     hero: {
       announcement: "Season 4 Registrations Open",
-      title: "Talent Festival Platform",
+      title: "Telent Festival Platform",
       description:
         "Discover extraordinary talent through competitions, concerts, performances and creative opportunities.",
       stats: {
