@@ -4121,6 +4121,27 @@ function ConfirmDialog({
   );
 }
 
+function EventThumbnail({ src, alt }: { src?: string | null; alt: string }) {
+  const [failed, setFailed] = useState(false);
+
+  if (!src || failed) {
+    return (
+      <div className="grid h-16 w-12 place-items-center rounded-lg border border-primary/20 bg-primary/5">
+        <ImageIcon className="h-4 w-4 text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="h-16 w-12 rounded-lg border border-primary/20 bg-black object-contain"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 function EventsView({
   events,
   onRefresh,
@@ -4488,15 +4509,7 @@ function EventsView({
               <tr key={ev.id} className="border-t border-border/60">
                 <td className="px-4 py-3 font-medium">{ev.name}</td>
                 <td className="px-4 py-3">
-                  {ev.event_image_url ? (
-                    <img
-                      src={ev.event_image_url}
-                      alt={`${ev.name} poster`}
-                      className="h-16 w-12 rounded-lg border border-primary/20 bg-black object-contain"
-                    />
-                  ) : (
-                    <span className="text-xs text-muted-foreground">No image</span>
-                  )}
+                  <EventThumbnail src={ev.event_image_url} alt={`${ev.name} poster`} />
                 </td>
                 <td className="px-4 py-3">{ev.city}</td>
                 <td className="px-4 py-3 font-mono text-xs">{ev.city_code}</td>

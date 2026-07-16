@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Outlet, createFileRoute, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { AlertCircle, Award, Building2, CheckCircle2, Loader2, Send, UserRound } from "lucide-react";
 
@@ -50,6 +50,7 @@ type FormState = typeof emptyForm;
 type FormErrors = Partial<Record<keyof FormState | "submit", string>>;
 
 function EmployeeAwardCeremonyPage() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const navigate = useNavigate();
   const [form, setForm] = useState<FormState>(emptyForm);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -60,6 +61,10 @@ function EmployeeAwardCeremonyPage() {
     if (form.otherAwardCategory.trim()) values.push(form.otherAwardCategory.trim());
     return values.join(", ") || "Select at least one category";
   }, [form.awardCategories, form.otherAwardCategory]);
+
+  if (pathname.endsWith("/success")) {
+    return <Outlet />;
+  }
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -132,6 +137,7 @@ function EmployeeAwardCeremonyPage() {
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (submitting) return;
     if (!validate()) return;
 
     setSubmitting(true);

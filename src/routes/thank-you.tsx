@@ -12,6 +12,31 @@ export const Route = createFileRoute("/thank-you")({
   validateSearch: (search: Record<string, string>) => ({ regId: search.regId || "" }),
 });
 
+function PassEventImage({ src, eventName, eventCity }: { src?: string; eventName: string; eventCity: string }) {
+  const [failed, setFailed] = useState(false);
+
+  if (!src || failed) {
+    return (
+      <div className="text-center p-6">
+        <div className="w-16 h-16 mx-auto rounded-2xl gradient-primary grid place-items-center">
+          <Sparkles className="h-8 w-8 text-primary-foreground" />
+        </div>
+        <p className="text-xs text-primary mt-3 font-semibold">{eventName}</p>
+        <p className="text-[10px] text-muted-foreground">{eventCity}</p>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={eventName}
+      className="h-full w-full object-contain"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 function ThankYouPage() {
   const { regId } = Route.useSearch();
   const { t } = useLang();
@@ -137,18 +162,12 @@ function ThankYouPage() {
             return (
               <div key={pass.id} className="glass rounded-2xl p-6 sm:p-8">
                 <div className="flex flex-col lg:flex-row rounded-xl overflow-hidden border border-primary/20 shadow-elegant bg-[#0B0B0B]">
-                  <div className="lg:w-[38%] bg-[#151515] min-h-[220px] flex items-center justify-center">
-                    {reg.eventImageUrl ? (
-                      <img src={reg.eventImageUrl} alt={reg.eventName} className="h-full w-full object-contain" />
-                    ) : (
-                      <div className="text-center p-6">
-                        <div className="w-16 h-16 mx-auto rounded-2xl gradient-primary grid place-items-center">
-                          <Sparkles className="h-8 w-8 text-primary-foreground" />
-                        </div>
-                        <p className="text-xs text-primary mt-3 font-semibold">{reg.eventName}</p>
-                        <p className="text-[10px] text-muted-foreground">{reg.eventCity}</p>
-                      </div>
-                    )}
+                  <div className="relative lg:w-[38%] bg-[#151515] min-h-[220px] flex items-center justify-center overflow-hidden">
+                    <PassEventImage
+                      src={reg.eventImageUrl}
+                      eventName={reg.eventName}
+                      eventCity={reg.eventCity}
+                    />
                     {reg.photoUrl && (
                       <div className="absolute bottom-2 left-2">
                         <img src={reg.photoUrl} alt="" className="h-10 w-10 rounded-lg border-2 border-primary/30 object-cover" />

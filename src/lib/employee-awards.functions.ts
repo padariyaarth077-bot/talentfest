@@ -66,6 +66,46 @@ function normalizeDate(value: string) {
   return value ? value : null;
 }
 
+function normalizeText(value: unknown) {
+  return String(value ?? "").trim();
+}
+
+function sameStringArray(left: unknown, right: string[]) {
+  if (!Array.isArray(left)) return right.length === 0;
+  if (left.length !== right.length) return false;
+  const leftValues = left.map(normalizeText).sort();
+  const rightValues = right.map(normalizeText).sort();
+  return leftValues.every((value, index) => value === rightValues[index]);
+}
+
+function isSameEmployeeAwardPayload(record: any, payload: Record<string, unknown>) {
+  return (
+    normalizeText(record.company_name) === normalizeText(payload.company_name) &&
+    normalizeText(record.company_address) === normalizeText(payload.company_address) &&
+    normalizeText(record.coordinator_name) === normalizeText(payload.coordinator_name) &&
+    normalizeText(record.contact_number) === normalizeText(payload.contact_number) &&
+    normalizeText(record.company_email).toLowerCase() === normalizeText(payload.company_email).toLowerCase() &&
+    normalizeText(record.employee_full_name) === normalizeText(payload.employee_full_name) &&
+    normalizeText(record.designation) === normalizeText(payload.designation) &&
+    normalizeText(record.department) === normalizeText(payload.department) &&
+    normalizeText(record.gender) === normalizeText(payload.gender) &&
+    normalizeText(record.mobile_number) === normalizeText(payload.mobile_number) &&
+    normalizeText(record.employee_email).toLowerCase() === normalizeText(payload.employee_email).toLowerCase() &&
+    sameStringArray(record.award_categories, payload.award_categories as string[]) &&
+    normalizeText(record.other_award_category) === normalizeText(payload.other_award_category) &&
+    normalizeText(record.working_since) === normalizeText(payload.working_since) &&
+    normalizeText(record.total_experience) === normalizeText(payload.total_experience) &&
+    normalizeText(record.major_achievements) === normalizeText(payload.major_achievements) &&
+    normalizeText(record.event_participation) === normalizeText(payload.event_participation) &&
+    Number(record.number_of_participants) === Number(payload.number_of_participants) &&
+    Boolean(record.declaration_accepted) === Boolean(payload.declaration_accepted) &&
+    normalizeText(record.employee_signature_name) === normalizeText(payload.employee_signature_name) &&
+    normalizeText(record.authorized_company_signature_name) ===
+      normalizeText(payload.authorized_company_signature_name) &&
+    normalizeText(record.declaration_date) === normalizeText(payload.declaration_date)
+  );
+}
+
 export type EmployeeAwardRecord = {
   id: string;
   application_number: string;
@@ -131,6 +171,29 @@ export const submitEmployeeAwardRegistration = createServerFn({ method: "POST" }
       status: "submitted",
     };
 
+    const duplicateWindowStart = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: recentMatches, error: lookupError } = await (supabaseAdmin as any)
+      .from("employee_award_registrations")
+      .select("*")
+      .eq("employee_email", payload.employee_email)
+      .eq("mobile_number", payload.mobile_number)
+      .gte("submitted_at", duplicateWindowStart)
+      .order("submitted_at", { ascending: false })
+      .limit(10);
+    if (lookupError) throw new Error("Unable to submit this registration. Please try again.");
+
+    const existing = (recentMatches ?? []).find((record: any) =>
+      isSameEmployeeAwardPayload(record, payload),
+    );
+    if (existing) {
+      return {
+        id: existing.id as string,
+        applicationNumber: existing.application_number as string,
+        employeeFullName: existing.employee_full_name as string,
+        submittedAt: existing.submitted_at as string,
+      };
+    }
+
     const { data: inserted, error } = await (supabaseAdmin as any)
       .from("employee_award_registrations")
       .insert(payload)
@@ -175,4 +238,3 @@ export const updateEmployeeAwardStatus = createServerFn({ method: "POST" })
     if (error) throw new Error("Unable to update Employee Award status.");
     return updated as EmployeeAwardRecord;
   });
-

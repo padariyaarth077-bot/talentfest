@@ -33,6 +33,42 @@ interface CategoryOption {
   id: string; name: string; slug: string; capacity?: number; registration_status: string;
 }
 
+function EventPosterImage({
+  src,
+  alt,
+  className,
+  fallbackClassName,
+  compact = false,
+}: {
+  src?: string;
+  alt: string;
+  className: string;
+  fallbackClassName: string;
+  compact?: boolean;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  if (!src || failed) {
+    return (
+      <div className={`${fallbackClassName} flex items-center justify-center text-center`}>
+        <div>
+          <Ticket className={`${compact ? "h-5 w-5" : "h-8 w-8"} mx-auto text-primary/50`} />
+          {!compact && <p className="mt-2 text-xs font-semibold text-primary">{alt || "Event"}</p>}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={className}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 function EntryPassPage() {
   const { t } = useLang();
   const navigate = useNavigate();
@@ -573,14 +609,13 @@ function VisitorForm({ onNavigate, onPreviewUpdate }: { onNavigate: (opts: any) 
         {selectedEvent && (
           <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2 text-sm">
             <div className="flex items-start gap-3">
-              {selectedEvent.event_image_url ? (
-                <img src={selectedEvent.event_image_url} alt={selectedEvent.name}
-                  className="h-14 w-20 rounded-lg object-cover shrink-0" />
-              ) : (
-                <div className="h-14 w-20 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <Ticket className="h-6 w-6 text-primary/40" />
-                </div>
-              )}
+              <EventPosterImage
+                src={selectedEvent.event_image_url}
+                alt={selectedEvent.name}
+                className="h-14 w-20 rounded-lg object-cover shrink-0"
+                fallbackClassName="h-14 w-20 rounded-lg bg-primary/10 shrink-0"
+                compact
+              />
               <div className="min-w-0">
                 <p className="font-semibold text-foreground">{selectedEvent.name}</p>
                 <p className="text-xs text-muted-foreground">{selectedEvent.city}</p>
@@ -638,15 +673,12 @@ function LivePassPreview({ tab, data, events }: { tab: TabType; data: Record<str
         <div className="max-w-lg mx-auto rounded-xl overflow-hidden border border-primary/20 shadow-elegant bg-[#0B0B0B]">
           <div className="flex flex-col sm:flex-row">
             <div className="sm:w-[38%] bg-[#151515] min-h-[200px] sm:min-h-[300px] flex items-center justify-center overflow-hidden">
-              {selectedEventImg ? (
-                <img src={selectedEventImg} alt={data.eventName} className="h-full w-full object-contain" />
-              ) : (
-                <div className="text-center p-4">
-                  <img src="/brand/telentfest-icon-tight.png" alt="TelentFest logo" className="mx-auto h-16 w-16 rounded-2xl object-contain" />
-                  <p className="text-xs text-primary mt-3 font-semibold">{data.eventName || "Event"}</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">Preview Only</p>
-                </div>
-              )}
+              <EventPosterImage
+                src={selectedEventImg}
+                alt={data.eventName || "Event"}
+                className="h-full w-full object-contain"
+                fallbackClassName="h-full min-h-[200px] w-full bg-[#151515] p-4"
+              />
             </div>
             <div className="sm:w-[62%] p-5 flex flex-col">
               <div className="text-center mb-3">
