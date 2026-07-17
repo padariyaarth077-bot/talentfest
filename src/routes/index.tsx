@@ -130,7 +130,7 @@ function Home() {
                   <div>
                     <h3 className="text-lg font-bold">{t(`home.services.${selectedService.key}.title`)}</h3>
                     <p className="text-sm text-muted-foreground">{t(`home.services.${selectedService.key}.desc`)}</p>
-                  </div>
+                  </div> 
                 </div>
                 <p className="text-sm leading-relaxed text-muted-foreground">{t(`home.services.${selectedService.key}.fullDesc`)}</p>
                 <div className="space-y-2.5">
