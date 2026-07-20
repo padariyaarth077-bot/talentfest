@@ -4159,6 +4159,7 @@ function EventsView({
   const [eventImageFile, setEventImageFile] = useState<File | null>(null);
   const [eventImagePreview, setEventImagePreview] = useState("");
   const [editingEvent, setEditingEvent] = useState<any | null>(null);
+  const [removeEventImage, setRemoveEventImage] = useState(false);
   const [form, setForm] = useState({
     name: "",
     slug: "",
@@ -4184,6 +4185,7 @@ function EventsView({
     setEditingEvent(null);
     setEventImageFile(null);
     setEventImagePreview("");
+    setRemoveEventImage(false);
     setForm({
       name: "",
       slug: "",
@@ -4210,6 +4212,7 @@ function EventsView({
     setEditingEvent(ev);
     setEventImageFile(null);
     setEventImagePreview(ev.event_image_url || "");
+    setRemoveEventImage(false);
     setForm({
       name: ev.name || "",
       slug: ev.slug || "",
@@ -4243,20 +4246,21 @@ function EventsView({
       return;
     }
     setEventImageFile(file);
+    setRemoveEventImage(false);
     const preview = URL.createObjectURL(file);
     setEventImagePreview(preview);
   };
 
-  const uploadEventImage = async (file: File, slug: string) => {
+  const uploadEventImage = async (file: File, eventId?: string) => {
     const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
-    const safeSlug = slugify(slug || form.name || "event");
-    const path = `${safeSlug}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
-    const { error } = await supabase.storage
+    const folder = eventId || editingEvent?.id || "new";
+    const path = `events/${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
+    const { error: uploadError } = await supabase.storage
       .from("event-images")
-      .upload(path, file, { cacheControl: "31536000", upsert: false });
-    if (error) throw error;
-    const { data } = supabase.storage.from("event-images").getPublicUrl(path);
-    return data.publicUrl;
+      .upload(path, file, { cacheControl: "31536000", upsert: true });
+    if (uploadError) throw uploadError;
+    const { data: publicUrlData } = supabase.storage.from("event-images").getPublicUrl(path);
+    return publicUrlData.publicUrl;
   };
 
   const saveEvent = async (event: React.FormEvent) => {
@@ -4268,9 +4272,12 @@ function EventsView({
     setSaving(true);
     try {
       const slug = form.slug.trim() || slugify(form.name);
-      const uploadedImageUrl = eventImageFile
-        ? await uploadEventImage(eventImageFile, slug)
-        : form.event_image_url.trim();
+      let finalImageUrl: string | null = form.event_image_url.trim() || null;
+      if (removeEventImage) {
+        finalImageUrl = null;
+      } else if (eventImageFile) {
+        finalImageUrl = await uploadEventImage(eventImageFile, editingEvent?.id);
+      }
       const payload = {
         name: form.name.trim(),
         slug,
@@ -4289,23 +4296,30 @@ function EventsView({
         registration_status: form.registration_status,
         visitor_registration_enabled: form.visitor_registration_enabled,
         is_active: form.is_active,
-        event_image_url: uploadedImageUrl || null,
+        event_image_url: finalImageUrl,
         updated_at: new Date().toISOString(),
       };
-      const result = editingEvent
-        ? await supabase
-            .from("events")
-            .update(payload as never)
-            .eq("id", editingEvent.id)
-        : await supabase.from("events").insert(payload as never);
-      if (result.error) throw result.error;
-      await logActivity(
-        editingEvent ? `Updated event ${payload.name}` : `Created event ${payload.name}`,
-      );
-      toast.success(editingEvent ? "Event updated" : "Event created");
+      if (editingEvent) {
+        const { data: updatedEvent, error: updateError } = await supabase
+          .from("events")
+          .update(payload as never)
+          .eq("id", editingEvent.id)
+          .select()
+          .single();
+        if (updateError) throw updateError;
+        if (!updatedEvent) throw new Error("Event update returned no data. Check RLS permissions.");
+        await logActivity(`Updated event ${payload.name}`);
+        toast.success("Event updated");
+      } else {
+        const { error: insertError } = await supabase.from("events").insert(payload as never);
+        if (insertError) throw insertError;
+        await logActivity(`Created event ${payload.name}`);
+        toast.success("Event created");
+      }
       resetForm();
       await onRefresh();
     } catch (error) {
+      console.error("Event save failed:", error);
       toast.error(error instanceof Error ? error.message : "Unable to save event.");
     } finally {
       setSaving(false);
@@ -4392,6 +4406,7 @@ function EventsView({
                 onClick={() => {
                   setEventImageFile(null);
                   setEventImagePreview("");
+                  setRemoveEventImage(true);
                   setForm((f) => ({ ...f, event_image_url: "" }));
                 }}
               >
@@ -4508,7 +4523,7 @@ function EventsView({
             {events.map((ev) => (
               <tr key={ev.id} className="border-t border-border/60">
                 <td className="px-4 py-3 font-medium">{ev.name}</td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 align-middle">
                   <EventThumbnail src={ev.event_image_url} alt={`${ev.name} poster`} />
                 </td>
                 <td className="px-4 py-3">{ev.city}</td>

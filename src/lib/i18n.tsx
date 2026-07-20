@@ -44,7 +44,7 @@ export const translations = {
       services: "Services",
       gallery: "Gallery",
       team: "Team",
-      entryPass: "Entry Pass",
+      entryPass: "Registration now",
       projects: "Projects",
       blog: "Blog",
       about: "About",
@@ -60,7 +60,7 @@ export const translations = {
     },
     hero: {
       announcement: "Season 4 Registrations Open",
-      title: "Telent Festival Platform",
+      title: "Talent Festival Platform",
       description:
         "Discover extraordinary talent through competitions, concerts, performances and creative opportunities.",
       stats: {
@@ -681,7 +681,7 @@ export const translations = {
       services: "सेवाएँ",
       gallery: "गैलरी",
       team: "टीम",
-      entryPass: "एंट्री पास",
+      entryPass: "अभी रजिस्ट्रेशन करें",
       projects: "प्रोजेक्ट्स",
       blog: "ब्लॉग",
       about: "हमारे बारे में",
