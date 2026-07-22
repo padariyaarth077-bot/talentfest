@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLang } from "@/lib/i18n";
+import { eventLabel, eventName } from "@/lib/utils";
 import {
   fetchEvents, fetchActivityCategories, createPendingRegistration,
   createVisitorPendingRegistration, uploadParticipantPhoto
@@ -174,7 +175,7 @@ function ParticipantForm({ onNavigate, onPreviewUpdate }: { onNavigate: (opts: a
     const fullName = [firstName, middleName, lastName].filter(Boolean).join(" ");
     onPreviewUpdate({
       name: fullName || "Your Name",
-      eventName: ev?.name || "Telent Fest",
+      eventName: ev ? eventName(ev) : "Telent Fest",
       eventCity: ev?.city || "",
       eventDate: ev?.event_date || "",
       eventId: ev?.id || "",
@@ -327,7 +328,7 @@ function ParticipantForm({ onNavigate, onPreviewUpdate }: { onNavigate: (opts: a
             <option value="">Select event...</option>
             {evList.filter((e) => e.registration_status === "active").map((ev) => (
               <option key={ev.id} value={ev.id} disabled={ev.registration_status !== "active"}>
-                {ev.name} — {ev.city} {ev.registration_status !== "active" ? "(Unavailable)" : ""}
+                {eventLabel(ev)} {ev.registration_status !== "active" ? "(Unavailable)" : ""}
               </option>
             ))}
           </select>
@@ -467,7 +468,7 @@ function VisitorForm({ onNavigate, onPreviewUpdate }: { onNavigate: (opts: any) 
   useEffect(() => {
     onPreviewUpdate({
       name: fullName || "Your Name",
-      eventName: selectedEvent?.name || "Select an event",
+      eventName: selectedEvent ? eventName(selectedEvent) : "Select an event",
       eventCity: selectedEvent?.city || "",
       eventDate: selectedEvent?.event_date || "",
       eventId: selectedEvent?.id || "",
@@ -599,7 +600,7 @@ function VisitorForm({ onNavigate, onPreviewUpdate }: { onNavigate: (opts: any) 
             <option value="">Select an event...</option>
             {evList.map((ev) => (
               <option key={ev.id} value={ev.id}>
-                {ev.name} — {ev.event_date || "TBD"} — {ev.city}
+                {eventLabel(ev)} — {ev.event_date || "TBD"}
               </option>
             ))}
           </select>

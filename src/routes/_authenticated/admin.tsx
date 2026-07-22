@@ -82,7 +82,7 @@ import {
   deleteContactMessage,
   type ContactMessageRecord,
 } from "@/lib/contact.functions";
-import { cn } from "@/lib/utils";
+import { cn, eventLabel } from "@/lib/utils";
 import { getSupabaseConfigError, supabase } from "@/integrations/supabase/client";
 import { GalleryAdminView } from "@/components/admin/GalleryAdminView";
 
@@ -3699,7 +3699,7 @@ function SeatingManagement() {
               className="field-input">
               <option value="">Select event...</option>
               {events.map((ev) => (
-                <option key={ev.id} value={ev.id}>{ev.name} — {ev.city}</option>
+                <option key={ev.id} value={ev.id}>{eventLabel(ev)}</option>
               ))}
             </select>
           </div>
