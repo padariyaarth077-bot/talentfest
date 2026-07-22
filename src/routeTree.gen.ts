@@ -14,6 +14,7 @@ import { Route as TermsAndConditionsRouteImport } from './routes/terms-and-condi
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as RegistrationRouteImport } from './routes/registration'
+import { Route as RefundCancellationPolicyRouteImport } from './routes/refund-cancellation-policy'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as PaymentRouteImport } from './routes/payment'
 import { Route as LoginRouteImport } from './routes/login'
@@ -27,6 +28,9 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as VerifyPassEntryIdRouteImport } from './routes/verify-pass.$entryId'
+import { Route as PaymentSuccessRouteImport } from './routes/payment.success'
+import { Route as PaymentPendingRouteImport } from './routes/payment.pending'
+import { Route as PaymentFailedRouteImport } from './routes/payment.failed'
 import { Route as EmployeeAwardCeremony2026SuccessRouteImport } from './routes/employee-award-ceremony-2026.success'
 import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
@@ -59,6 +63,12 @@ const RegistrationRoute = RegistrationRouteImport.update({
   path: '/registration',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RefundCancellationPolicyRoute =
+  RefundCancellationPolicyRouteImport.update({
+    id: '/refund-cancellation-policy',
+    path: '/refund-cancellation-policy',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
   id: '/privacy-policy',
   path: '/privacy-policy',
@@ -124,6 +134,21 @@ const VerifyPassEntryIdRoute = VerifyPassEntryIdRouteImport.update({
   path: '/verify-pass/$entryId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PaymentSuccessRoute = PaymentSuccessRouteImport.update({
+  id: '/success',
+  path: '/success',
+  getParentRoute: () => PaymentRoute,
+} as any)
+const PaymentPendingRoute = PaymentPendingRouteImport.update({
+  id: '/pending',
+  path: '/pending',
+  getParentRoute: () => PaymentRoute,
+} as any)
+const PaymentFailedRoute = PaymentFailedRouteImport.update({
+  id: '/failed',
+  path: '/failed',
+  getParentRoute: () => PaymentRoute,
+} as any)
 const EmployeeAwardCeremony2026SuccessRoute =
   EmployeeAwardCeremony2026SuccessRouteImport.update({
     id: '/success',
@@ -167,8 +192,9 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof ForgotPasswordRoute
   '/gallery': typeof GalleryRoute
   '/login': typeof LoginRoute
-  '/payment': typeof PaymentRoute
+  '/payment': typeof PaymentRouteWithChildren
   '/privacy-policy': typeof PrivacyPolicyRoute
+  '/refund-cancellation-policy': typeof RefundCancellationPolicyRoute
   '/registration': typeof RegistrationRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -179,6 +205,9 @@ export interface FileRoutesByFullPath {
   '/admin/login': typeof AdminLoginRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/employee-award-ceremony-2026/success': typeof EmployeeAwardCeremony2026SuccessRoute
+  '/payment/failed': typeof PaymentFailedRoute
+  '/payment/pending': typeof PaymentPendingRoute
+  '/payment/success': typeof PaymentSuccessRoute
   '/verify-pass/$entryId': typeof VerifyPassEntryIdRoute
   '/pass/$entryId': typeof AuthenticatedPassEntryIdRoute
 }
@@ -192,8 +221,9 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
   '/gallery': typeof GalleryRoute
   '/login': typeof LoginRoute
-  '/payment': typeof PaymentRoute
+  '/payment': typeof PaymentRouteWithChildren
   '/privacy-policy': typeof PrivacyPolicyRoute
+  '/refund-cancellation-policy': typeof RefundCancellationPolicyRoute
   '/registration': typeof RegistrationRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -204,6 +234,9 @@ export interface FileRoutesByTo {
   '/admin/login': typeof AdminLoginRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/employee-award-ceremony-2026/success': typeof EmployeeAwardCeremony2026SuccessRoute
+  '/payment/failed': typeof PaymentFailedRoute
+  '/payment/pending': typeof PaymentPendingRoute
+  '/payment/success': typeof PaymentSuccessRoute
   '/verify-pass/$entryId': typeof VerifyPassEntryIdRoute
   '/pass/$entryId': typeof AuthenticatedPassEntryIdRoute
 }
@@ -219,8 +252,9 @@ export interface FileRoutesById {
   '/forgot-password': typeof ForgotPasswordRoute
   '/gallery': typeof GalleryRoute
   '/login': typeof LoginRoute
-  '/payment': typeof PaymentRoute
+  '/payment': typeof PaymentRouteWithChildren
   '/privacy-policy': typeof PrivacyPolicyRoute
+  '/refund-cancellation-policy': typeof RefundCancellationPolicyRoute
   '/registration': typeof RegistrationRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -231,6 +265,9 @@ export interface FileRoutesById {
   '/admin/login': typeof AdminLoginRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/employee-award-ceremony-2026/success': typeof EmployeeAwardCeremony2026SuccessRoute
+  '/payment/failed': typeof PaymentFailedRoute
+  '/payment/pending': typeof PaymentPendingRoute
+  '/payment/success': typeof PaymentSuccessRoute
   '/verify-pass/$entryId': typeof VerifyPassEntryIdRoute
   '/_authenticated/pass/$entryId': typeof AuthenticatedPassEntryIdRoute
 }
@@ -248,6 +285,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/payment'
     | '/privacy-policy'
+    | '/refund-cancellation-policy'
     | '/registration'
     | '/signup'
     | '/sitemap.xml'
@@ -258,6 +296,9 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/blog/$slug'
     | '/employee-award-ceremony-2026/success'
+    | '/payment/failed'
+    | '/payment/pending'
+    | '/payment/success'
     | '/verify-pass/$entryId'
     | '/pass/$entryId'
   fileRoutesByTo: FileRoutesByTo
@@ -273,6 +314,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/payment'
     | '/privacy-policy'
+    | '/refund-cancellation-policy'
     | '/registration'
     | '/signup'
     | '/sitemap.xml'
@@ -283,6 +325,9 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/blog/$slug'
     | '/employee-award-ceremony-2026/success'
+    | '/payment/failed'
+    | '/payment/pending'
+    | '/payment/success'
     | '/verify-pass/$entryId'
     | '/pass/$entryId'
   id:
@@ -299,6 +344,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/payment'
     | '/privacy-policy'
+    | '/refund-cancellation-policy'
     | '/registration'
     | '/signup'
     | '/sitemap.xml'
@@ -309,6 +355,9 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/blog/$slug'
     | '/employee-award-ceremony-2026/success'
+    | '/payment/failed'
+    | '/payment/pending'
+    | '/payment/success'
     | '/verify-pass/$entryId'
     | '/_authenticated/pass/$entryId'
   fileRoutesById: FileRoutesById
@@ -324,8 +373,9 @@ export interface RootRouteChildren {
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   GalleryRoute: typeof GalleryRoute
   LoginRoute: typeof LoginRoute
-  PaymentRoute: typeof PaymentRoute
+  PaymentRoute: typeof PaymentRouteWithChildren
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
+  RefundCancellationPolicyRoute: typeof RefundCancellationPolicyRoute
   RegistrationRoute: typeof RegistrationRoute
   SignupRoute: typeof SignupRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -371,6 +421,13 @@ declare module '@tanstack/react-router' {
       path: '/registration'
       fullPath: '/registration'
       preLoaderRoute: typeof RegistrationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/refund-cancellation-policy': {
+      id: '/refund-cancellation-policy'
+      path: '/refund-cancellation-policy'
+      fullPath: '/refund-cancellation-policy'
+      preLoaderRoute: typeof RefundCancellationPolicyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy-policy': {
@@ -464,6 +521,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VerifyPassEntryIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/payment/success': {
+      id: '/payment/success'
+      path: '/success'
+      fullPath: '/payment/success'
+      preLoaderRoute: typeof PaymentSuccessRouteImport
+      parentRoute: typeof PaymentRoute
+    }
+    '/payment/pending': {
+      id: '/payment/pending'
+      path: '/pending'
+      fullPath: '/payment/pending'
+      preLoaderRoute: typeof PaymentPendingRouteImport
+      parentRoute: typeof PaymentRoute
+    }
+    '/payment/failed': {
+      id: '/payment/failed'
+      path: '/failed'
+      fullPath: '/payment/failed'
+      preLoaderRoute: typeof PaymentFailedRouteImport
+      parentRoute: typeof PaymentRoute
+    }
     '/employee-award-ceremony-2026/success': {
       id: '/employee-award-ceremony-2026/success'
       path: '/success'
@@ -539,6 +617,21 @@ const EmployeeAwardCeremony2026RouteWithChildren =
     EmployeeAwardCeremony2026RouteChildren,
   )
 
+interface PaymentRouteChildren {
+  PaymentFailedRoute: typeof PaymentFailedRoute
+  PaymentPendingRoute: typeof PaymentPendingRoute
+  PaymentSuccessRoute: typeof PaymentSuccessRoute
+}
+
+const PaymentRouteChildren: PaymentRouteChildren = {
+  PaymentFailedRoute: PaymentFailedRoute,
+  PaymentPendingRoute: PaymentPendingRoute,
+  PaymentSuccessRoute: PaymentSuccessRoute,
+}
+
+const PaymentRouteWithChildren =
+  PaymentRoute._addFileChildren(PaymentRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
@@ -550,8 +643,9 @@ const rootRouteChildren: RootRouteChildren = {
   ForgotPasswordRoute: ForgotPasswordRoute,
   GalleryRoute: GalleryRoute,
   LoginRoute: LoginRoute,
-  PaymentRoute: PaymentRoute,
+  PaymentRoute: PaymentRouteWithChildren,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
+  RefundCancellationPolicyRoute: RefundCancellationPolicyRoute,
   RegistrationRoute: RegistrationRoute,
   SignupRoute: SignupRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,

@@ -1,24 +1,17 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
   AlertCircle,
   ArrowLeft,
-  CheckCircle,
   CreditCard,
   Loader2,
   ShieldCheck,
   XCircle,
+  Clock,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import {
-  cancelDummyPayment,
-  createPaymentOrder,
-  failDummyPayment,
-  fetchRegistration,
-  verifyPayment,
-} from "@/lib/registrations.functions";
+import { fetchRegistration } from "@/lib/registrations.functions";
 
 export const Route = createFileRoute("/payment")({
   component: PaymentPage,
@@ -28,91 +21,67 @@ export const Route = createFileRoute("/payment")({
   }),
 });
 
+type RegistrationSummary = {
+  id: string;
+  registrationNumber?: string;
+  fullName?: string;
+  eventName?: string;
+};
+
 function PaymentPage() {
   const { regId, amount } = Route.useSearch();
   const navigate = useNavigate();
-  const [state, setState] = useState<
-    "loading" | "ready" | "processing" | "success" | "failed" | "cancelled" | "error"
-  >("loading");
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
-  const [reg, setReg] = useState<any>(null);
+  const [reg, setReg] = useState<RegistrationSummary | null>(null);
 
   useEffect(() => {
+    if (pathname !== "/payment") {
+      return;
+    }
     if (!regId) {
       setState("error");
       setErrorMsg("No registration ID provided.");
       return;
     }
     fetchRegistration({ data: { id: regId } })
-      .then((data) => {
-        setReg(data);
+      .then((data: unknown) => {
+        setReg(data as RegistrationSummary);
         setState("ready");
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         setState("error");
-        setErrorMsg(err.message || "Unable to load registration.");
+        setErrorMsg(err instanceof Error ? err.message : "Unable to load registration.");
       });
-  }, [regId]);
+  }, [pathname, regId]);
 
-  const createOrder = () =>
-    createPaymentOrder({ data: { registrationId: regId, amount: Number(amount) || 1 } });
+  if (pathname !== "/payment") {
+    return <Outlet />;
+  }
 
-  const handlePayment = async () => {
-    setState("processing");
-    setErrorMsg("");
-    try {
-      const orderResult = await createOrder();
-      if (!orderResult.success) throw new Error("Failed to create test payment order");
-      const transactionId = `TEST-TXN-${Date.now()}-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
-      const verifyResult = await verifyPayment({
-        data: {
-          registrationId: regId,
-          paymentId: orderResult.order.id,
-          transactionId,
-          orderId: orderResult.order.orderId,
-        },
-      });
-      if (!verifyResult.success) throw new Error("Payment confirmation failed");
-      setState("success");
-      setTimeout(() => navigate({ to: "/thank-you", search: { regId } }), 900);
-    } catch (err: any) {
-      setState("error");
-      setErrorMsg(err.message || "Payment failed. Please try again.");
-    }
-  };
-
-  const handleFailure = async () => {
-    setState("processing");
-    setErrorMsg("");
-    try {
-      await failDummyPayment({ data: { registrationId: regId, amount: Number(amount) || 1 } });
-      setState("failed");
-    } catch (err: any) {
-      setState("error");
-      setErrorMsg(err.message || "Unable to save failed test payment.");
-    }
-  };
-
-  const handleCancel = async () => {
-    setState("processing");
-    setErrorMsg("");
-    try {
-      await cancelDummyPayment({ data: { registrationId: regId, amount: Number(amount) || 1 } });
-      setState("cancelled");
-    } catch (err: any) {
-      setState("error");
-      setErrorMsg(err.message || "Unable to cancel this test payment.");
-    }
+  const goToStatus = (status: "success" | "failed" | "pending") => {
+    const testOrderId = `TEST-ORDER-${Date.now()}`;
+    navigate({
+      to: `/payment/${status}`,
+      search: {
+        regId,
+        amount,
+        testOrderId,
+      },
+    });
   };
 
   return (
-    <div className="min-h-screen bg-background pt-8 pb-16">
+    <div className="min-h-screen bg-background pb-16 pt-8">
       <div className="mx-auto max-w-lg px-6 sm:px-8">
         <div className="mb-8 text-center">
           <h1 className="font-display text-4xl font-semibold tracking-tight sm:text-5xl">
-            Complete <span className="text-gradient">Payment</span>
+            Test <span className="text-gradient">Payment</span>
           </h1>
-          <p className="mt-3 text-muted-foreground">Secure your registration for the event.</p>
+          <p className="mt-3 text-muted-foreground">
+            Complete the temporary dummy payment flow for website review.
+          </p>
         </div>
 
         <div className="glass space-y-6 rounded-2xl p-6 sm:p-8">
@@ -126,14 +95,11 @@ function PaymentPage() {
             <>
               {reg && (
                 <div className="space-y-2 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
-                  <InfoLine label="Registrant" value={reg.fullName} />
-                  <InfoLine label="Event" value={reg.eventName} />
-                  <InfoLine
-                    label="Registration"
-                    value={reg.registrationNumber || "Generating..."}
-                  />
+                  <InfoLine label="Participant" value={reg.fullName || "Not provided"} />
+                  <InfoLine label="Event" value={reg.eventName || "Not provided"} />
+                  <InfoLine label="Registration ID" value={reg.registrationNumber || reg.id} />
                   <div className="mt-2 flex justify-between border-t border-border pt-2 text-lg font-bold">
-                    <span>Total</span>
+                    <span>Total payable</span>
                     <span className="text-primary">Rs. {Number(amount).toFixed(2)}</span>
                   </div>
                 </div>
@@ -145,56 +111,29 @@ function PaymentPage() {
                   Test Payment Mode
                 </div>
                 <p className="mt-3 text-sm text-muted-foreground">
-                  No real payment will be charged.
+                  This is not Paytm staging or live checkout yet. No real payment is charged and no
+                  card, CVV, UPI PIN or banking password is collected.
                 </p>
               </div>
 
               <Button
-                onClick={handlePayment}
-                className="h-14 w-full border-0 gradient-primary text-base font-semibold text-primary-foreground shadow-soft hover:shadow-glow"
+                onClick={() => goToStatus("success")}
+                className="h-14 w-full border-0 text-base font-semibold gradient-primary text-primary-foreground shadow-soft hover:shadow-glow"
               >
                 <CreditCard className="mr-2 h-5 w-5" />
-                Simulate Successful Payment
+                Simulate Test Success
               </Button>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Button variant="outline" onClick={handleFailure}>
+                <Button variant="outline" onClick={() => goToStatus("failed")}>
                   <XCircle className="mr-2 h-4 w-4" />
-                  Simulate Failed Payment
+                  Simulate Failed
                 </Button>
-                <Button variant="outline" onClick={handleCancel}>
-                  Cancel Payment
+                <Button variant="outline" onClick={() => goToStatus("pending")}>
+                  <Clock className="mr-2 h-4 w-4" />
+                  Simulate Pending
                 </Button>
               </div>
             </>
-          )}
-
-          {state === "processing" && (
-            <StateMessage
-              icon={<Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />}
-              title="Processing Payment..."
-              text="Please wait while we confirm this test payment."
-            />
-          )}
-          {state === "success" && (
-            <StateMessage
-              icon={<CheckCircle className="mx-auto h-16 w-16 text-emerald-500" />}
-              title="Payment Successful!"
-              text="Redirecting to your passes..."
-            />
-          )}
-          {state === "failed" && (
-            <StateMessage
-              icon={<XCircle className="mx-auto h-16 w-16 text-red-400" />}
-              title="Test Payment Failed"
-              text="No active pass was generated. You can retry the payment."
-            />
-          )}
-          {state === "cancelled" && (
-            <StateMessage
-              icon={<AlertCircle className="mx-auto h-16 w-16 text-amber-400" />}
-              title="Payment Cancelled"
-              text="No pass was generated for this registration."
-            />
           )}
 
           {state === "error" && (
@@ -204,26 +143,16 @@ function PaymentPage() {
             </div>
           )}
 
-          {state !== "processing" && state !== "success" && (
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => navigate({ to: "/checkout", search: { regId } })}
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back
-              </Button>
-              {(state === "error" || state === "failed" || state === "cancelled") && (
-                <Button
-                  className="flex-1 border-0 gradient-primary text-primary-foreground"
-                  onClick={handlePayment}
-                >
-                  Retry Payment
-                </Button>
-              )}
-            </div>
-          )}
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => navigate({ to: "/checkout", search: { regId } })}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
+          </div>
         </div>
       </div>
     </div>
@@ -235,24 +164,6 @@ function InfoLine({ label, value }: { label: string; value: string }) {
     <div className="flex justify-between gap-3">
       <span className="text-muted-foreground">{label}</span>
       <span className="text-right font-medium">{value}</span>
-    </div>
-  );
-}
-
-function StateMessage({
-  icon,
-  title,
-  text,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  text: string;
-}) {
-  return (
-    <div className="py-8 text-center">
-      {icon}
-      <p className="mt-4 text-xl font-semibold">{title}</p>
-      <p className="mt-2 text-sm text-muted-foreground">{text}</p>
     </div>
   );
 }

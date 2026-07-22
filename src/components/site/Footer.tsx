@@ -1,26 +1,17 @@
 import { Link } from "@tanstack/react-router";
-import {
-  Instagram,
-  Facebook,
-  Youtube,
-  Mail,
-  Phone,
-  MapPin,
-} from "lucide-react";
+import { Instagram, Facebook, Youtube, Mail, Phone, MapPin } from "lucide-react";
 import { useLang } from "@/lib/i18n";
+import { businessDetails } from "@/lib/business-details";
 
 export function Footer() {
   const { t } = useLang();
 
-  const address =
-    "Ward No. 1, Raiya Rd, Opp. Alap Green City, Rameshvar Park, Indian Park, Rajkot, Gujarat 360005";
-
   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-    address,
+    businessDetails.registeredAddress,
   )}`;
 
   return (
-    <footer className="mt-12 sm:mt-16 border-t border-border bg-gradient-to-b from-transparent to-accent/40">
+    <footer className="mt-12 border-t border-border bg-gradient-to-b from-transparent to-accent/40 sm:mt-16">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-4 lg:px-8">
         {/* Brand Information */}
         <div>
@@ -34,9 +25,7 @@ export function Footer() {
             />
           </Link>
 
-          <p className="max-w-xs text-sm text-muted-foreground">
-            {t("footer.desc")}
-          </p>
+          <p className="max-w-xs text-sm text-muted-foreground">{t("footer.desc")}</p>
 
           <div className="mt-4 flex gap-2">
             <a
@@ -71,9 +60,7 @@ export function Footer() {
 
         {/* Quick Links */}
         <div>
-          <h4 className="mb-3 text-sm font-semibold">
-            {t("footer.quickLinks")}
-          </h4>
+          <h4 className="mb-3 text-sm font-semibold">{t("footer.quickLinks")}</h4>
 
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li>
@@ -89,28 +76,19 @@ export function Footer() {
             </li>
 
             <li>
-              <Link
-                to="/registration"
-                className="transition hover:text-foreground"
-              >
+              <Link to="/registration" className="transition hover:text-foreground">
                 {t("nav.registration")}
               </Link>
             </li>
 
             <li>
-              <Link
-                to="/gallery"
-                className="transition hover:text-foreground"
-              >
+              <Link to="/gallery" className="transition hover:text-foreground">
                 {t("nav.gallery")}
               </Link>
             </li>
 
             <li>
-              <Link
-                to="/entry-pass"
-                className="transition hover:text-foreground"
-              >
+              <Link to="/entry-pass" className="transition hover:text-foreground">
                 {t("nav.entryPass")}
               </Link>
             </li>
@@ -141,14 +119,20 @@ export function Footer() {
             </li>
 
             <li>
-              <a href="/#sponsor" className="transition hover:text-foreground">
-                {t("nav.sponsorship")}
-              </a>
+              <Link to="/refund-cancellation-policy" className="transition hover:text-foreground">
+                Refund &amp; Cancellation Policy
+              </Link>
             </li>
 
             <li>
-              <a href="/#blog" className="transition hover:text-foreground">
-                {t("nav.blog")}
+              <Link to="/contact" className="transition hover:text-foreground">
+                Contact Us
+              </Link>
+            </li>
+
+            <li>
+              <a href="/#sponsor" className="transition hover:text-foreground">
+                {t("nav.sponsorship")}
               </a>
             </li>
           </ul>
@@ -159,6 +143,7 @@ export function Footer() {
           <h4 className="mb-3 text-sm font-semibold">{t("footer.contact")}</h4>
 
           <ul className="space-y-3 text-sm text-muted-foreground">
+            <li className="font-semibold text-foreground">{businessDetails.legalName}</li>
             <li>
               <a
                 href={googleMapsUrl}
@@ -168,27 +153,33 @@ export function Footer() {
               >
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
 
-                <span className="leading-relaxed">{address}</span>
+                <span className="leading-relaxed">
+                  {businessDetails.addressLines.map((line) => (
+                    <span key={line} className="block">
+                      {line}
+                    </span>
+                  ))}
+                </span>
               </a>
             </li>
 
             <li>
               <a
-                href="tel:+918401960422"
+                href={businessDetails.phoneHref}
                 className="flex items-center gap-2 transition hover:text-foreground"
               >
                 <Phone className="h-4 w-4 shrink-0" />
-                <span>+91 84019 60422</span>
+                <span>{businessDetails.phone}</span>
               </a>
             </li>
 
             <li>
               <a
-                href="mailto:telentfestseminar@gmail.com"
+                href={businessDetails.emailHref}
                 className="flex items-center gap-2 break-all transition hover:text-foreground"
               >
                 <Mail className="h-4 w-4 shrink-0" />
-                <span>telentfestseminar@gmail.com</span>
+                <span>{businessDetails.email}</span>
               </a>
             </li>
           </ul>
@@ -199,7 +190,7 @@ export function Footer() {
       <div className="border-t border-border">
         <div className="mx-auto flex max-w-7xl flex-wrap justify-between gap-2 px-4 py-5 text-xs text-muted-foreground sm:px-6 lg:px-8">
           <p>
-            © {new Date().getFullYear()} Telent Fest. {t("footer.rights")}
+            © {new Date().getFullYear()} {businessDetails.legalName}. {t("footer.rights")}
           </p>
 
           <p>
