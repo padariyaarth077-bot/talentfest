@@ -278,11 +278,11 @@ function ParticipantForm({ onNavigate, onPreviewUpdate }: { onNavigate: (opts: a
 
         <Field label="Phone Number *" error={errors.phone}>
           <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium select-none">+91</span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">+91</span>
             <input value={phone.replace("+91", "")} onChange={(e) => {
               const v = e.target.value.replace(/\D/g, "").slice(0, 10);
               setPhone("+91" + v);
-            }} className="field-input pl-14" placeholder="Enter your 10-digit mobile number" inputMode="numeric" type="tel" />
+            }} className="field-input pl-12" placeholder="9876543210" inputMode="numeric" />
           </div>
         </Field>
 
@@ -566,11 +566,11 @@ function VisitorForm({ onNavigate, onPreviewUpdate }: { onNavigate: (opts: any) 
 
         <Field label="Phone Number *" error={errors.phone}>
           <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium select-none">+91</span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">+91</span>
             <input value={phone.replace("+91", "")} onChange={(e) => {
               const v = e.target.value.replace(/\D/g, "").slice(0, 10);
               setPhone("+91" + v);
-            }} className="field-input pl-14" placeholder="Enter your 10-digit mobile number" inputMode="numeric" type="tel" />
+            }} className="field-input pl-12" placeholder="Enter your 10-digit mobile number" inputMode="numeric" />
           </div>
         </Field>
 
