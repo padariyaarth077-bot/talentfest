@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Section } from "@/components/site/Section";
 import { Button } from "@/components/ui/button";
-import { getSupabaseConfigError, supabase } from "@/integrations/supabase/client";
+import { getDbConfigError, db } from "@/db/client";
 import { toast } from "sonner";
 import { useLang } from "@/lib/i18n";
 
@@ -25,7 +25,7 @@ function LoginPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const configError = getSupabaseConfigError();
+    const configError = getDbConfigError();
     if (configError) {
       toast.error(configError);
       return;
@@ -33,7 +33,7 @@ function LoginPage() {
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await db.auth.signInWithPassword({ email, password });
       if (error) return toast.error(error.message);
       toast.success(t("auth.welcomeToast"));
       navigate({ to: "/dashboard" });

@@ -13,8 +13,8 @@ const contactFormSchema = z.object({
 export const submitContactMessage = createServerFn({ method: "POST" })
   .validator((data: unknown) => contactFormSchema.parse(data))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const db = supabaseAdmin as any;
+    const { dbAdmin } = await import("@/db/client.server");
+    const db = dbAdmin as any;
     const now = new Date().toISOString();
     const { error } = await db.from("contact_messages").insert({
       full_name: data.full_name,
@@ -46,8 +46,8 @@ export type ContactMessageRecord = {
 
 export const fetchContactMessages = createServerFn({ method: "GET" })
   .handler(async () => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const db = supabaseAdmin as any;
+    const { dbAdmin } = await import("@/db/client.server");
+    const db = dbAdmin as any;
     const { data, error } = await db
       .from("contact_messages")
       .select("*")
@@ -61,8 +61,8 @@ export const updateContactMessageStatus = createServerFn({ method: "POST" })
     z.object({ id: z.string().uuid(), status: z.enum(["new", "in_progress", "resolved"]) }).parse(data)
   )
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const db = supabaseAdmin as any;
+    const { dbAdmin } = await import("@/db/client.server");
+    const db = dbAdmin as any;
     const { error } = await db
       .from("contact_messages")
       .update({ status: data.status, updated_at: new Date().toISOString() })
@@ -74,8 +74,8 @@ export const updateContactMessageStatus = createServerFn({ method: "POST" })
 export const deleteContactMessage = createServerFn({ method: "POST" })
   .validator((data: unknown) => z.object({ id: z.string().uuid() }).parse(data))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const db = supabaseAdmin as any;
+    const { dbAdmin } = await import("@/db/client.server");
+    const db = dbAdmin as any;
     const { error } = await db.from("contact_messages").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { success: true };

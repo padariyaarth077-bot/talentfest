@@ -11,7 +11,7 @@ import {
   type GalleryCitySlug,
   type GalleryItem,
 } from "@/data/eventGallery";
-import { getSupabaseConfigError, supabase } from "@/integrations/supabase/client";
+import { getDbConfigError, db } from "@/db/client";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
@@ -66,12 +66,12 @@ function GalleryPage() {
     let ignore = false;
 
     async function loadRemoteGallery() {
-      if (getSupabaseConfigError()) return;
+      if (getDbConfigError()) return;
 
       try {
         const [citiesResult, mediaResult] = await Promise.all([
-          supabase.from("gallery_cities").select("id, name, slug").eq("is_active", true),
-          supabase
+          db.from("gallery_cities").select("id, name, slug").eq("is_active", true),
+          db
             .from("gallery_media")
             .select("id, city_id, title, media_type, category, media_url, thumbnail_url, description, display_order, is_active")
             .eq("is_active", true)

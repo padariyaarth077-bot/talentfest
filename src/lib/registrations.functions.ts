@@ -34,9 +34,9 @@ const visitorSchema = z.object({
   eventId: z.string().uuid(),
 });
 
-type SupabaseAdminClient = Awaited<
-  typeof import("@/integrations/supabase/client.server")
->["supabaseAdmin"];
+type DbAdminClient = Awaited<
+  typeof import("@/db/client.server")
+>["dbAdmin"];
 
 function isRegistrationWindowOpen(event: any) {
   const now = Date.now();
@@ -50,11 +50,11 @@ function isRegistrationWindowOpen(event: any) {
 }
 
 async function countReservedSeats(
-  supabaseAdmin: SupabaseAdminClient,
+  dbAdmin: DbAdminClient,
   eventId: string,
   excludeRegistrationId?: string,
 ) {
-  const { data: regs } = await supabaseAdmin
+  const { data: regs } = await dbAdmin
     .from("registrations")
     .select("id, registration_type, registration_status")
     .eq("event_id", eventId)
@@ -67,7 +67,7 @@ async function countReservedSeats(
 
   let guestCount = 0;
   if (participantIds.length > 0) {
-    const { count } = await supabaseAdmin
+    const { count } = await dbAdmin
       .from("guests")
       .select("id", { count: "exact", head: true })
       .in("registration_id", participantIds);
@@ -95,10 +95,10 @@ function testOrderId(registrationId: string) {
   return `TEST-ORDER-${registrationId.slice(0, 8).toUpperCase()}`;
 }
 
-async function checkRateLimit(supabaseAdmin: any, actionKey: string, identifier: string, maxAttempts = 10, windowMinutes = 1): Promise<void> {
+async function checkRateLimit(dbAdmin: any, actionKey: string, identifier: string, maxAttempts = 10, windowMinutes = 1): Promise<void> {
   try {
     const windowStart = new Date(Date.now() - windowMinutes * 60 * 1000).toISOString();
-    const { data: row } = await supabaseAdmin
+    const { data: row } = await dbAdmin
       .from("rate_limits")
       .select("attempt_count")
       .eq("action_key", actionKey)
@@ -114,7 +114,7 @@ async function checkRateLimit(supabaseAdmin: any, actionKey: string, identifier:
     }
 
     // Increment or insert
-    await supabaseAdmin.rpc("increment_rate_limit", {
+    await dbAdmin.rpc("increment_rate_limit", {
       p_action_key: actionKey,
       p_identifier: identifier,
     });
@@ -128,8 +128,8 @@ function testTransactionId() {
   return `TEST-TXN-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 }
 
-async function fetchLatestPayment(supabaseAdmin: SupabaseAdminClient, registrationId: string) {
-  const withMode = await supabaseAdmin
+async function fetchLatestPayment(dbAdmin: DbAdminClient, registrationId: string) {
+  const withMode = await dbAdmin
     .from("payments")
     .select(
       "id, registration_id, provider, payment_mode, order_id, transaction_id, amount, currency, status, verified_at, created_at",
@@ -140,7 +140,7 @@ async function fetchLatestPayment(supabaseAdmin: SupabaseAdminClient, registrati
 
   if (!withMode.error) return (withMode.data?.[0] ?? null) as any;
 
-  const withoutMode = await supabaseAdmin
+  const withoutMode = await dbAdmin
     .from("payments")
     .select(
       "id, registration_id, provider, order_id, transaction_id, amount, currency, status, verified_at, created_at",
@@ -152,14 +152,14 @@ async function fetchLatestPayment(supabaseAdmin: SupabaseAdminClient, registrati
 }
 
 async function upsertDummyPayment(
-  supabaseAdmin: SupabaseAdminClient,
+  dbAdmin: DbAdminClient,
   registrationId: string,
   amount: number,
   status: "pending" | "paid" | "failed" | "cancelled",
   transactionId?: string,
   idempotencyKey?: string,
 ) {
-  const existing = await fetchLatestPayment(supabaseAdmin, registrationId);
+  const existing = await fetchLatestPayment(dbAdmin, registrationId);
   const payload: Record<string, unknown> = {
     registration_id: registrationId,
     amount,
@@ -174,13 +174,13 @@ async function upsertDummyPayment(
   };
 
   const result = existing?.id
-    ? await supabaseAdmin
+    ? await dbAdmin
         .from("payments")
         .update(payload as never)
         .eq("id", existing.id)
         .select("id, order_id, amount, currency, status, transaction_id, verified_at")
         .single()
-    : await supabaseAdmin
+    : await dbAdmin
         .from("payments")
         .insert(payload as never)
         .select("id, order_id, amount, currency, status, transaction_id, verified_at")
@@ -190,13 +190,13 @@ async function upsertDummyPayment(
 
   const { payment_mode: _paymentMode, ...fallbackPayload } = payload;
   const fallback = existing?.id
-    ? await supabaseAdmin
+    ? await dbAdmin
         .from("payments")
         .update(fallbackPayload as never)
         .eq("id", existing.id)
         .select("id, order_id, amount, currency, status, transaction_id, verified_at")
         .single()
-    : await supabaseAdmin
+    : await dbAdmin
         .from("payments")
         .insert(fallbackPayload as never)
         .select("id, order_id, amount, currency, status, transaction_id, verified_at")
@@ -206,17 +206,17 @@ async function upsertDummyPayment(
 }
 
 async function ensureRegistrationPasses(
-  supabaseAdmin: SupabaseAdminClient,
+  dbAdmin: DbAdminClient,
   registrationId: string,
 ) {
-  const { data: reg, error } = await supabaseAdmin
+  const { data: reg, error } = await dbAdmin
     .from("registrations")
     .select("id, registration_type")
     .eq("id", registrationId)
     .single();
   if (error || !reg) throw new Error("Registration not found");
 
-  const { data: existingPasses } = await supabaseAdmin
+  const { data: existingPasses } = await dbAdmin
     .from("passes")
     .select("id, pass_type, guest_id")
     .eq("registration_id", registrationId);
@@ -224,14 +224,14 @@ async function ensureRegistrationPasses(
 
   if ((reg as any).registration_type === "participant") {
     if (!existing.some((p: any) => p.pass_type === "participant")) {
-      await supabaseAdmin.from("passes").insert({
+      await dbAdmin.from("passes").insert({
         registration_id: registrationId,
         pass_type: "participant",
         status: "active",
       } as never);
     }
 
-    const { data: guests } = await supabaseAdmin
+    const { data: guests } = await dbAdmin
       .from("guests")
       .select("id, guest_number")
       .eq("registration_id", registrationId)
@@ -243,7 +243,7 @@ async function ensureRegistrationPasses(
         (p: any) => p.guest_id === (guest as any).id || p.pass_type === type,
       );
       if (!exists) {
-        await supabaseAdmin.from("passes").insert({
+        await dbAdmin.from("passes").insert({
           registration_id: registrationId,
           guest_id: (guest as any).id,
           pass_type: type,
@@ -252,12 +252,12 @@ async function ensureRegistrationPasses(
       }
     }
   } else if (!existing.some((p: any) => p.pass_type === "visitor")) {
-    await supabaseAdmin
+    await dbAdmin
       .from("passes")
       .insert({ registration_id: registrationId, pass_type: "visitor", status: "active" } as never);
   }
 
-  await supabaseAdmin
+  await dbAdmin
     .from("passes")
     .update({ status: "active", updated_at: new Date().toISOString() } as never)
     .eq("registration_id", registrationId)
@@ -265,10 +265,10 @@ async function ensureRegistrationPasses(
 }
 
 export const fetchEvents = createServerFn({ method: "GET" }).handler(async () => {
-  // Try Supabase JS client first (wrapped in try/catch for init failures)
+  // Try db JS client first (wrapped in try/catch for init failures)
   const events: any[] | null = null;
   try {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { dbAdmin } = await import("@/db/client.server");
 
     const colSets = [
       "id, name, slug, city, city_code, event_image_url, event_date, start_time, venue, participant_price, visitor_price, guest_price, participant_capacity, visitor_capacity, guest_capacity, maximum_guests_per_participant, registration_status, visitor_registration_enabled, registration_opens_at, registration_closes_at",
@@ -278,7 +278,7 @@ export const fetchEvents = createServerFn({ method: "GET" }).handler(async () =>
     ];
 
     for (const cols of colSets) {
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await dbAdmin
         .from("events")
         .select(cols)
         .order("name")
@@ -287,52 +287,21 @@ export const fetchEvents = createServerFn({ method: "GET" }).handler(async () =>
     }
   } catch (err) {
     console.error(
-      "fetchEvents: Supabase JS client failed —",
+      "fetchEvents: db JS client failed —",
       err instanceof Error ? err.message : err,
     );
   }
 
-  // Fallback: raw REST API (bypasses Supabase JS client entirely)
-  console.error("fetchEvents: trying raw REST API fallback");
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-  if (supabaseUrl && serviceKey) {
-    try {
-      const res = await fetch(
-        `${supabaseUrl}/rest/v1/events?select=id,name,slug,city,city_code,event_date&limit=100`,
-        {
-          headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
-        },
-      );
-      if (res.ok) {
-        const raw = await res.json();
-        if (Array.isArray(raw) && raw.length > 0) {
-          console.error("fetchEvents: raw REST API succeeded, returning", raw.length, "events");
-          return raw;
-        }
-        console.error("fetchEvents: raw REST API returned empty array");
-        return [];
-      }
-      const text = await res.text();
-      console.error("fetchEvents: raw REST API returned", res.status, text);
-    } catch (rawErr) {
-      console.error(
-        "fetchEvents: raw REST API failed —",
-        rawErr instanceof Error ? rawErr.message : rawErr,
-      );
-    }
-  }
-
-  console.error("fetchEvents: ALL methods failed");
+  console.error("fetchEvents: MySQL query failed");
   return [];
 });
 
 export const fetchVisitorEvent = createServerFn({ method: "GET" }).handler(async () => {
   try {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { dbAdmin } = await import("@/db/client.server");
 
     // First try: query with visitor_registration_enabled column
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await dbAdmin
       .from("events")
       .select(
         "id, name, slug, city, city_code, event_image_url, event_date, start_time, venue, participant_price, visitor_price, guest_price, participant_capacity, visitor_capacity, guest_capacity, maximum_guests_per_participant, registration_status, visitor_registration_enabled, registration_opens_at, registration_closes_at, is_active",
@@ -345,7 +314,7 @@ export const fetchVisitorEvent = createServerFn({ method: "GET" }).handler(async
       for (const event of data as any[]) {
         if (event.visitor_registration_enabled === false || !isRegistrationWindowOpen(event))
           continue;
-        const reserved = await countReservedSeats(supabaseAdmin, event.id);
+        const reserved = await countReservedSeats(dbAdmin, event.id);
         const remaining = Number(event.visitor_capacity) - reserved.visitors;
         if (remaining > 0) return { ...event, available_visitor_seats: remaining };
       }
@@ -353,7 +322,7 @@ export const fetchVisitorEvent = createServerFn({ method: "GET" }).handler(async
 
     // Fallback: column might not exist — try without visitor_registration_enabled filter
     // but still get any active event with visitor capacity
-    const { data: fallback } = await supabaseAdmin
+    const { data: fallback } = await dbAdmin
       .from("events")
       .select(
         "id, name, slug, city, city_code, event_image_url, event_date, start_time, venue, participant_price, visitor_price, guest_price, participant_capacity, visitor_capacity, guest_capacity, maximum_guests_per_participant, registration_status, registration_opens_at, registration_closes_at, is_active",
@@ -365,7 +334,7 @@ export const fetchVisitorEvent = createServerFn({ method: "GET" }).handler(async
     if (fallback && fallback.length > 0) {
       for (const event of fallback as any[]) {
         if (!isRegistrationWindowOpen(event)) continue;
-        const reserved = await countReservedSeats(supabaseAdmin, event.id);
+        const reserved = await countReservedSeats(dbAdmin, event.id);
         const remaining = Number(event.visitor_capacity) - reserved.visitors;
         if (remaining > 0)
           return {
@@ -385,8 +354,8 @@ export const fetchVisitorEvent = createServerFn({ method: "GET" }).handler(async
 export const fetchActivityCategories = createServerFn({ method: "GET" })
   .validator((data: unknown) => z.object({ eventId: z.string().uuid() }).parse(data))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: result, error } = await supabaseAdmin
+    const { dbAdmin } = await import("@/db/client.server");
+    const { data: result, error } = await dbAdmin
       .from("event_activity_categories")
       .select(
         "id, activity_category_id, capacity, registration_status, activity_categories!inner(id, name, slug)",
@@ -409,8 +378,8 @@ export const checkSeatAvailability = createServerFn({ method: "GET" })
       .parse(data),
   )
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: event, error } = await supabaseAdmin
+    const { dbAdmin } = await import("@/db/client.server");
+    const { data: event, error } = await dbAdmin
       .from("events")
       .select("participant_capacity, visitor_capacity, guest_capacity, registration_status")
       .eq("id", data.eventId)
@@ -430,16 +399,16 @@ export const checkSeatAvailability = createServerFn({ method: "GET" })
 export const createPendingRegistration = createServerFn({ method: "POST" })
   .validator((data: unknown) => participantSchema.parse(data))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { dbAdmin } = await import("@/db/client.server");
     assertHumanName(data.firstName, "First name");
     if (data.middleName) assertHumanName(data.middleName, "Middle name");
     assertHumanName(data.lastName, "Last name");
     if (data.guest1Name) assertHumanName(data.guest1Name, "Guest 1 name");
     if (data.guest2Name) assertHumanName(data.guest2Name, "Guest 2 name");
 
-    await checkRateLimit(supabaseAdmin, "create_registration", data.phone);
+    await checkRateLimit(dbAdmin, "create_registration", data.phone);
 
-    const eventCheck = await supabaseAdmin
+    const eventCheck = await dbAdmin
       .from("events")
       .select(
         "participant_capacity, guest_capacity, registration_status, registration_opens_at, registration_closes_at, maximum_guests_per_participant",
@@ -451,7 +420,7 @@ export const createPendingRegistration = createServerFn({ method: "POST" })
     if (ev.registration_status !== "active" || !isRegistrationWindowOpen(ev))
       throw new Error("Event registration is not active");
 
-    const reserved = await countReservedSeats(supabaseAdmin, data.eventId);
+    const reserved = await countReservedSeats(dbAdmin, data.eventId);
     const requestedGuests = [data.guest1Name, data.guest2Name].filter(Boolean).length;
     if (Number(ev.participant_capacity) - reserved.participants <= 0)
       throw new Error("No participant seats available");
@@ -460,7 +429,7 @@ export const createPendingRegistration = createServerFn({ method: "POST" })
     if (requestedGuests > 0 && Number(ev.guest_capacity) - reserved.guests < requestedGuests)
       throw new Error("No guest seats available");
 
-    const { data: categoryLink } = await supabaseAdmin
+    const { data: categoryLink } = await dbAdmin
       .from("event_activity_categories")
       .select("id, registration_status, capacity")
       .eq("event_id", data.eventId)
@@ -471,13 +440,13 @@ export const createPendingRegistration = createServerFn({ method: "POST" })
 
     const fullName = [data.firstName, data.middleName, data.lastName].filter(Boolean).join(" ");
 
-    const { data: eventSnapshot } = await supabaseAdmin
+    const { data: eventSnapshot } = await dbAdmin
       .from("events")
       .select("name, city, event_date, start_time, end_time, venue")
       .eq("id", data.eventId)
       .single();
 
-    const { data: reg, error: regError } = await supabaseAdmin
+    const { data: reg, error: regError } = await dbAdmin
       .from("registrations")
       .insert({
         registration_type: "participant",
@@ -508,7 +477,7 @@ export const createPendingRegistration = createServerFn({ method: "POST" })
     let guest2Id: string | null = null;
 
     if (data.guest1Name) {
-      const { data: g1 } = await supabaseAdmin
+      const { data: g1 } = await dbAdmin
         .from("guests")
         .insert({
           registration_id: reg.id,
@@ -522,7 +491,7 @@ export const createPendingRegistration = createServerFn({ method: "POST" })
     }
 
     if (data.guest2Name && guest1Id) {
-      const { data: g2 } = await supabaseAdmin
+      const { data: g2 } = await dbAdmin
         .from("guests")
         .insert({
           registration_id: reg.id,
@@ -535,7 +504,7 @@ export const createPendingRegistration = createServerFn({ method: "POST" })
       if (g2) guest2Id = g2.id;
     }
 
-    const { data: event } = await supabaseAdmin
+    const { data: event } = await dbAdmin
       .from("events")
       .select(
         "participant_price, guest_price, name, city, event_date, start_time, venue, city_code",
@@ -575,10 +544,10 @@ export const createPendingRegistration = createServerFn({ method: "POST" })
 export const createVisitorPendingRegistration = createServerFn({ method: "POST" })
   .validator((data: unknown) => visitorSchema.parse(data))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { dbAdmin } = await import("@/db/client.server");
     assertHumanName(data.fullName, "Full name");
 
-    const eventCheck = await supabaseAdmin
+    const eventCheck = await dbAdmin
       .from("events")
       .select(
         "visitor_capacity, registration_status, visitor_registration_enabled, registration_opens_at, registration_closes_at",
@@ -592,11 +561,11 @@ export const createVisitorPendingRegistration = createServerFn({ method: "POST" 
       throw new Error("Event registration is not active");
     if (ev.visitor_registration_enabled === false)
       throw new Error("Visitor registration is not enabled for this event");
-    const reserved = await countReservedSeats(supabaseAdmin, data.eventId);
+    const reserved = await countReservedSeats(dbAdmin, data.eventId);
     if (Number(ev.visitor_capacity) - reserved.visitors <= 0)
       throw new Error("No visitor seats available");
 
-    const { data: reg, error: regError } = await supabaseAdmin
+    const { data: reg, error: regError } = await dbAdmin
       .from("registrations")
       .insert({
         registration_type: "visitor",
@@ -615,7 +584,7 @@ export const createVisitorPendingRegistration = createServerFn({ method: "POST" 
       .single();
     if (regError) throw new Error(regError.message);
 
-    const { data: event } = await supabaseAdmin
+    const { data: event } = await dbAdmin
       .from("events")
       .select("visitor_price, name, city, event_date, start_time, venue, city_code")
       .eq("id", data.eventId)
@@ -652,9 +621,9 @@ export const createPaymentOrder = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { dbAdmin } = await import("@/db/client.server");
 
-    const { data: reg, error: regErr } = await supabaseAdmin
+    const { data: reg, error: regErr } = await dbAdmin
       .from("registrations")
       .select("id, payment_status")
       .eq("id", data.registrationId)
@@ -662,7 +631,7 @@ export const createPaymentOrder = createServerFn({ method: "POST" })
     if (regErr || !reg) throw new Error("Registration not found");
 
     const payment = await upsertDummyPayment(
-      supabaseAdmin,
+      dbAdmin,
       data.registrationId,
       data.amount,
       (reg as any).payment_status === "paid" ? "paid" : "pending",
@@ -694,11 +663,11 @@ export const verifyPayment = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { dbAdmin } = await import("@/db/client.server");
 
-    await checkRateLimit(supabaseAdmin, "verify_payment", data.registrationId, 5);
+    await checkRateLimit(dbAdmin, "verify_payment", data.registrationId, 5);
 
-    const { data: payment, error: payErr } = await supabaseAdmin
+    const { data: payment, error: payErr } = await dbAdmin
       .from("payments")
       .select("id, status, amount, order_id, transaction_id")
       .eq("id", data.paymentId)
@@ -706,7 +675,7 @@ export const verifyPayment = createServerFn({ method: "POST" })
       .single();
     if (payErr || !payment) throw new Error("Payment record not found");
 
-    const { data: regBefore, error: regBeforeError } = await supabaseAdmin
+    const { data: regBefore, error: regBeforeError } = await dbAdmin
       .from("registrations")
       .select(
         "id, registration_number, full_name, event_id, activity_category_id, registration_type, registration_status, payment_status",
@@ -715,7 +684,7 @@ export const verifyPayment = createServerFn({ method: "POST" })
       .single();
     if (regBeforeError || !regBefore) throw new Error("Registration not found");
 
-    const { data: eventCheck, error: eventError } = await supabaseAdmin
+    const { data: eventCheck, error: eventError } = await dbAdmin
       .from("events")
       .select(
         "id, participant_capacity, visitor_capacity, guest_capacity, registration_status, registration_opens_at, registration_closes_at",
@@ -725,11 +694,11 @@ export const verifyPayment = createServerFn({ method: "POST" })
     if (eventError || !eventCheck) throw new Error("Selected event is no longer available");
 
     const reserved = await countReservedSeats(
-      supabaseAdmin,
+      dbAdmin,
       (regBefore as any).event_id,
       data.registrationId,
     );
-    const { count: guestCount } = await supabaseAdmin
+    const { count: guestCount } = await dbAdmin
       .from("guests")
       .select("id", { count: "exact", head: true })
       .eq("registration_id", data.registrationId);
@@ -757,7 +726,7 @@ export const verifyPayment = createServerFn({ method: "POST" })
 
     // Idempotency: check if already processed with this order_id
     const idempotencyKey = data.orderId || `pay_${data.registrationId}_${finalTransactionId}`;
-    const { data: existingProcessed } = await supabaseAdmin
+    const { data: existingProcessed } = await dbAdmin
       .from("payments")
       .select("id, status")
       .eq("idempotency_key", idempotencyKey)
@@ -766,12 +735,12 @@ export const verifyPayment = createServerFn({ method: "POST" })
 
     if (existingProcessed && (existingProcessed as any).status === "paid") {
       // Already processed - return existing result without re-executing
-      const { data: existingReg } = await supabaseAdmin
+      const { data: existingReg } = await dbAdmin
         .from("registrations")
         .select("id, registration_number, full_name, event_id, activity_category_id, registration_type")
         .eq("id", data.registrationId)
         .single();
-      const { data: existingPasses } = await supabaseAdmin
+      const { data: existingPasses } = await dbAdmin
         .from("passes")
         .select("id, pass_number, pass_type, secure_qr_token, status, guest_id")
         .eq("registration_id", data.registrationId);
@@ -792,7 +761,7 @@ export const verifyPayment = createServerFn({ method: "POST" })
     }
 
     const finalPayment = await upsertDummyPayment(
-      supabaseAdmin,
+      dbAdmin,
       data.registrationId,
       Number((payment as any).amount),
       "paid",
@@ -800,7 +769,7 @@ export const verifyPayment = createServerFn({ method: "POST" })
       idempotencyKey,
     );
 
-    await supabaseAdmin
+    await dbAdmin
       .from("registrations")
       .update({
         payment_status: "paid",
@@ -809,18 +778,18 @@ export const verifyPayment = createServerFn({ method: "POST" })
       } as never)
       .eq("id", data.registrationId);
 
-    await ensureRegistrationPasses(supabaseAdmin, data.registrationId);
+    await ensureRegistrationPasses(dbAdmin, data.registrationId);
 
     // Allocate seats atomically
     try {
-      await supabaseAdmin.rpc("allocate_registration_seats", {
+      await dbAdmin.rpc("allocate_registration_seats", {
         p_registration_id: data.registrationId,
       });
     } catch (seatErr) {
       console.error("Seat allocation failed (may need seats configured):", seatErr);
     }
 
-    const { data: reg } = await supabaseAdmin
+    const { data: reg } = await dbAdmin
       .from("registrations")
       .select(
         "id, registration_number, full_name, event_id, activity_category_id, registration_type",
@@ -830,12 +799,12 @@ export const verifyPayment = createServerFn({ method: "POST" })
 
     const regData = reg as any;
 
-    const { data: passes } = await supabaseAdmin
+    const { data: passes } = await dbAdmin
       .from("passes")
       .select("id, pass_number, pass_type, secure_qr_token, status, guest_id")
       .eq("registration_id", data.registrationId);
 
-    const { data: event } = await supabaseAdmin
+    const { data: event } = await dbAdmin
       .from("events")
       .select("name, city, city_code, event_date, start_time, venue, event_image_url")
       .eq("id", (reg as any).event_id)
@@ -843,7 +812,7 @@ export const verifyPayment = createServerFn({ method: "POST" })
 
     let activityName = "";
     if (regData.activity_category_id) {
-      const { data: cat } = await supabaseAdmin
+      const { data: cat } = await dbAdmin
         .from("activity_categories")
         .select("name")
         .eq("id", regData.activity_category_id)
@@ -853,7 +822,7 @@ export const verifyPayment = createServerFn({ method: "POST" })
 
     let photoUrl = null;
     if (regData.photo_storage_path) {
-      const { data: pubUrl } = supabaseAdmin.storage
+      const { data: pubUrl } = dbAdmin.storage
         .from("participant-photos")
         .getPublicUrl(regData.photo_storage_path);
       photoUrl = pubUrl?.publicUrl ?? null;
@@ -861,7 +830,7 @@ export const verifyPayment = createServerFn({ method: "POST" })
 
     let seatBookings: any[] = [];
     try {
-      const { data: seats } = await supabaseAdmin
+      const { data: seats } = await dbAdmin
         .from("seat_bookings")
         .select("id, seat_id, holder_type, holder_name, event_seats!inner(id, seat_label, row_label, seat_number, event_seat_sections!inner(section_name, section_code))")
         .eq("registration_id", data.registrationId);
@@ -921,8 +890,8 @@ export const failDummyPayment = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: reg, error } = await supabaseAdmin
+    const { dbAdmin } = await import("@/db/client.server");
+    const { data: reg, error } = await dbAdmin
       .from("registrations")
       .select("id")
       .eq("id", data.registrationId)
@@ -930,13 +899,13 @@ export const failDummyPayment = createServerFn({ method: "POST" })
     if (error || !reg) throw new Error("Registration not found");
 
     const payment = await upsertDummyPayment(
-      supabaseAdmin,
+      dbAdmin,
       data.registrationId,
       data.amount,
       "failed",
       testTransactionId(),
     );
-    await supabaseAdmin
+    await dbAdmin
       .from("registrations")
       .update({
         payment_status: "failed",
@@ -957,8 +926,8 @@ export const cancelDummyPayment = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: reg, error } = await supabaseAdmin
+    const { dbAdmin } = await import("@/db/client.server");
+    const { data: reg, error } = await dbAdmin
       .from("registrations")
       .select("id")
       .eq("id", data.registrationId)
@@ -966,13 +935,13 @@ export const cancelDummyPayment = createServerFn({ method: "POST" })
     if (error || !reg) throw new Error("Registration not found");
 
     const payment = await upsertDummyPayment(
-      supabaseAdmin,
+      dbAdmin,
       data.registrationId,
       data.amount,
       "cancelled",
       testTransactionId(),
     );
-    await supabaseAdmin
+    await dbAdmin
       .from("registrations")
       .update({
         payment_status: "failed",
@@ -986,8 +955,8 @@ export const cancelDummyPayment = createServerFn({ method: "POST" })
 export const fetchRegistration = createServerFn({ method: "GET" })
   .validator((data: unknown) => z.object({ id: z.string().uuid() }).parse(data))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: reg } = await supabaseAdmin
+    const { dbAdmin } = await import("@/db/client.server");
+    const { data: reg } = await dbAdmin
       .from("registrations")
       .select(
         "id, registration_number, full_name, phone, email, aadhaar_last_four, event_id, activity_category_id, payment_status, registration_status, registration_type, created_at",
@@ -997,7 +966,7 @@ export const fetchRegistration = createServerFn({ method: "GET" })
     if (!reg) throw new Error("Registration not found");
     const r = reg as any;
 
-    const { data: event } = await supabaseAdmin
+    const { data: event } = await dbAdmin
       .from("events")
       .select(
         "name, city, city_code, event_date, start_time, venue, event_image_url, participant_price, visitor_price, guest_price",
@@ -1005,25 +974,25 @@ export const fetchRegistration = createServerFn({ method: "GET" })
       .eq("id", r.event_id)
       .single();
 
-    const { data: guests } = await supabaseAdmin
+    const { data: guests } = await dbAdmin
       .from("guests")
       .select("id, guest_number, full_name, phone")
       .eq("registration_id", data.id)
       .order("guest_number");
 
-    const { data: passes } = await supabaseAdmin
+    const { data: passes } = await dbAdmin
       .from("passes")
       .select(
         "id, pass_number, pass_type, secure_qr_token, status, checked_in, checked_in_at, guest_id, generated_at",
       )
       .eq("registration_id", data.id);
 
-    const { data: seatBookings } = await supabaseAdmin
+    const { data: seatBookings } = await dbAdmin
       .from("seat_bookings")
       .select("id, seat_id, holder_type, holder_name, event_seats!inner(id, seat_label, row_label, seat_number, event_seat_sections!inner(section_name, section_code))")
       .eq("registration_id", data.id);
 
-    const { data: payments } = await supabaseAdmin
+    const { data: payments } = await dbAdmin
       .from("payments")
       .select("id, order_id, transaction_id, amount, currency, status, verified_at")
       .eq("registration_id", data.id)
@@ -1032,7 +1001,7 @@ export const fetchRegistration = createServerFn({ method: "GET" })
 
     let activityName = "";
     if (r.activity_category_id) {
-      const { data: cat } = await supabaseAdmin
+      const { data: cat } = await dbAdmin
         .from("activity_categories")
         .select("name")
         .eq("id", r.activity_category_id)
@@ -1041,7 +1010,7 @@ export const fetchRegistration = createServerFn({ method: "GET" })
     }
 
     const photoUrl = r.photo_storage_path
-      ? supabaseAdmin.storage.from("participant-photos").getPublicUrl(r.photo_storage_path).data?.publicUrl ?? null
+      ? dbAdmin.storage.from("participant-photos").getPublicUrl(r.photo_storage_path).data?.publicUrl ?? null
       : null;
 
     return {
@@ -1143,7 +1112,7 @@ export const uploadParticipantPhoto = createServerFn({ method: "POST" })
     }).parse(data),
   )
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { dbAdmin } = await import("@/db/client.server");
 
     const base64Data = data.base64Image.replace(/^data:image\/\w+;base64,/, "");
 
@@ -1161,7 +1130,7 @@ export const uploadParticipantPhoto = createServerFn({ method: "POST" })
       throw new Error("Image resolution too high. Maximum 5 megapixels.");
     }
 
-    const { data: reg } = await supabaseAdmin
+    const { data: reg } = await dbAdmin
       .from("registrations")
       .select("id, photo_storage_path")
       .eq("id", data.registrationId)
@@ -1170,7 +1139,7 @@ export const uploadParticipantPhoto = createServerFn({ method: "POST" })
 
     // Delete old photo if exists
     if ((reg as any).photo_storage_path) {
-      await supabaseAdmin.storage
+      await dbAdmin.storage
         .from("participant-photos")
         .remove([(reg as any).photo_storage_path]);
     }
@@ -1180,7 +1149,7 @@ export const uploadParticipantPhoto = createServerFn({ method: "POST" })
 
     const buffer = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
 
-    const { error: uploadError } = await supabaseAdmin.storage
+    const { error: uploadError } = await dbAdmin.storage
       .from("participant-photos")
       .upload(filename, buffer, {
         contentType: data.mimeType,
@@ -1188,11 +1157,11 @@ export const uploadParticipantPhoto = createServerFn({ method: "POST" })
       });
     if (uploadError) throw new Error(uploadError.message);
 
-    const { data: publicUrlData } = supabaseAdmin.storage
+    const { data: publicUrlData } = dbAdmin.storage
       .from("participant-photos")
       .getPublicUrl(filename);
 
-    await supabaseAdmin
+    await dbAdmin
       .from("registrations")
       .update({
         photo_storage_path: filename,
@@ -1213,8 +1182,8 @@ export const uploadParticipantPhoto = createServerFn({ method: "POST" })
 export const verifyPassByToken = createServerFn({ method: "GET" })
   .validator((data: unknown) => z.object({ token: z.string().min(1) }).parse(data))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: pass, error } = await supabaseAdmin
+    const { dbAdmin } = await import("@/db/client.server");
+    const { data: pass, error } = await dbAdmin
       .from("passes")
       .select("id, pass_number, pass_type, status, checked_in, checked_in_at, registration_id")
       .eq("secure_qr_token", data.token)
@@ -1222,7 +1191,7 @@ export const verifyPassByToken = createServerFn({ method: "GET" })
     if (error || !pass) return { valid: false };
 
     const p = pass as any;
-    const { data: reg } = await supabaseAdmin
+    const { data: reg } = await dbAdmin
       .from("registrations")
       .select("full_name, event_id, activity_category_id, registration_type, photo_storage_path, phone, email")
       .eq("id", p.registration_id)
@@ -1231,7 +1200,7 @@ export const verifyPassByToken = createServerFn({ method: "GET" })
     if (!reg) return { valid: false };
 
     const r = reg as any;
-    const { data: event } = await supabaseAdmin
+    const { data: event } = await dbAdmin
       .from("events")
       .select("name, city, event_date, start_time, end_time, venue")
       .eq("id", r.event_id)
@@ -1239,7 +1208,7 @@ export const verifyPassByToken = createServerFn({ method: "GET" })
 
     let activityName = "";
     if (r.activity_category_id) {
-      const { data: cat } = await supabaseAdmin
+      const { data: cat } = await dbAdmin
         .from("activity_categories")
         .select("name")
         .eq("id", r.activity_category_id)
@@ -1249,14 +1218,14 @@ export const verifyPassByToken = createServerFn({ method: "GET" })
 
     let photoUrl = null;
     if (r.photo_storage_path) {
-      const { data: pubUrl } = supabaseAdmin.storage
+      const { data: pubUrl } = dbAdmin.storage
         .from("participant-photos")
         .getPublicUrl(r.photo_storage_path);
       photoUrl = pubUrl?.publicUrl ?? null;
     }
 
     let seatInfo = null;
-    const { data: seatBooking } = await supabaseAdmin
+    const { data: seatBooking } = await dbAdmin
       .from("seat_bookings")
       .select("id, holder_type, holder_name, event_seats!inner(id, seat_label, row_label, seat_number, event_seat_sections!inner(section_name, section_code))")
       .eq("registration_id", p.registration_id)

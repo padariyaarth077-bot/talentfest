@@ -12,9 +12,9 @@ const generateSchema = z.object({
 export const generateEntryPass = createServerFn({ method: "POST" })
   .validator((data: unknown) => generateSchema.parse(data))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { dbAdmin } = await import("@/db/client.server");
 
-    const { data: record, error } = await supabaseAdmin
+    const { data: record, error } = await dbAdmin
       .from("public_entry_passes")
       .insert({ participant_name: data.participantName })
       .select("id, entry_number, participant_name, event_name, status, created_at")

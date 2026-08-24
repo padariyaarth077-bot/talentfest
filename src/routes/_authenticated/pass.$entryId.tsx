@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/db/client";
 import { Section } from "@/components/site/Section";
 import { Button } from "@/components/ui/button";
 import { PassCard, type PassData } from "@/components/site/PassCard";
@@ -19,7 +19,7 @@ function PassPage() {
 
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("entry_passes")
         .select("*")
         .eq("id", entryId)
@@ -31,7 +31,7 @@ function PassPage() {
       }
       let photoUrl: string | null = null;
       if (data.photo_url) {
-        const { data: signed } = await supabase.storage
+        const { data: signed } = await db.storage
           .from("pass-photos")
           .createSignedUrl(data.photo_url, 3600);
         photoUrl = signed?.signedUrl ?? null;

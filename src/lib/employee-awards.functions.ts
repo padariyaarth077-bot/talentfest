@@ -2,7 +2,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-type AdminDb = Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"];
+type AdminDb = Awaited<typeof import("@/db/client.server")>["dbAdmin"];
 
 const awardStatuses = ["submitted", "reviewing", "approved", "rejected"] as const;
 const awardCategories = [
@@ -144,7 +144,7 @@ export const submitEmployeeAwardRegistration = createServerFn({ method: "POST" }
       throw new Error("Please select at least one award category.");
     }
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { dbAdmin } = await import("@/db/client.server");
     const payload = {
       company_name: data.companyName,
       company_address: data.companyAddress,
@@ -172,7 +172,7 @@ export const submitEmployeeAwardRegistration = createServerFn({ method: "POST" }
     };
 
     const duplicateWindowStart = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { data: recentMatches, error: lookupError } = await (supabaseAdmin as any)
+    const { data: recentMatches, error: lookupError } = await (dbAdmin as any)
       .from("employee_award_registrations")
       .select("*")
       .eq("employee_email", payload.employee_email)
@@ -194,7 +194,7 @@ export const submitEmployeeAwardRegistration = createServerFn({ method: "POST" }
       };
     }
 
-    const { data: inserted, error } = await (supabaseAdmin as any)
+    const { data: inserted, error } = await (dbAdmin as any)
       .from("employee_award_registrations")
       .insert(payload)
       .select("*")
@@ -214,8 +214,8 @@ export const fetchEmployeeAwardRegistration = createServerFn({ method: "GET" })
     z.object({ applicationNumber: z.string().trim().min(1) }).parse(data),
   )
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: record, error } = await (supabaseAdmin as any)
+    const { dbAdmin } = await import("@/db/client.server");
+    const { data: record, error } = await (dbAdmin as any)
       .from("employee_award_registrations")
       .select("*")
       .eq("application_number", data.applicationNumber)
@@ -227,9 +227,9 @@ export const fetchEmployeeAwardRegistration = createServerFn({ method: "GET" })
 export const updateEmployeeAwardStatus = createServerFn({ method: "POST" })
   .validator((data: unknown) => adminStatusSchema.parse(data))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await assertAdmin(supabaseAdmin, data.adminUserId);
-    const { data: updated, error } = await (supabaseAdmin as any)
+    const { dbAdmin } = await import("@/db/client.server");
+    await assertAdmin(dbAdmin, data.adminUserId);
+    const { data: updated, error } = await (dbAdmin as any)
       .from("employee_award_registrations")
       .update({ status: data.status })
       .eq("id", data.id)

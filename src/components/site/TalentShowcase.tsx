@@ -192,14 +192,14 @@ export function CarouselControls({
   const { t } = useLang();
 
   return (
-    <div className="mt-4 flex items-center justify-center gap-4">
+    <div className="hero-slider-controls relative z-20 mt-4 flex items-center justify-center gap-4">
       <button
         type="button"
         aria-label={t("a11y.previousTalent")}
         onClick={onPrevious}
-        className="carousel-arrow grid h-10 w-10 place-items-center rounded-full border border-primary/40 bg-black/40 text-primary backdrop-blur transition hover:-translate-x-0.5 hover:border-primary hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="hero-slider-arrow grid h-12 w-12 min-w-[44px] place-items-center rounded-full border border-primary/50 bg-black/50 text-primary backdrop-blur transition duration-300 hover:scale-105 hover:border-primary/90 hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/80 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
-        <ChevronLeft className="h-5 w-5" />
+        <ChevronLeft className="h-5 w-5 transition-transform duration-250 group-hover:-translate-x-0.5" />
       </button>
 
       <div className="flex items-center gap-2">
@@ -225,9 +225,9 @@ export function CarouselControls({
         type="button"
         aria-label={t("a11y.nextTalent")}
         onClick={onNext}
-        className="carousel-arrow grid h-10 w-10 place-items-center rounded-full border border-primary/40 bg-black/40 text-primary backdrop-blur transition hover:translate-x-0.5 hover:border-primary hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="hero-slider-arrow grid h-12 w-12 min-w-[44px] place-items-center rounded-full border border-primary/50 bg-black/50 text-primary backdrop-blur transition duration-300 hover:scale-105 hover:border-primary/90 hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/80 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
-        <ChevronRight className="h-5 w-5" />
+        <ChevronRight className="h-5 w-5 transition-transform duration-250 group-hover:translate-x-0.5" />
       </button>
     </div>
   );
@@ -297,6 +297,9 @@ export function TalentHeroCarousel() {
       onMouseLeave={() => setPaused(false)}
       onPointerDown={(event) => {
         pointerStart.current = event.clientX;
+        const target = event.target as HTMLElement;
+        const isInteractive = target.closest("button, a, input, select, textarea, [role='button']");
+        if (isInteractive) return;
         event.currentTarget.setPointerCapture?.(event.pointerId);
       }}
       onPointerUp={(event) => handleSwipeEnd(event.clientX)}

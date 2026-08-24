@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/db/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -248,12 +248,12 @@ export function GalleryAdminView({
 
       let result;
       if (editingCity) {
-        result = await supabase
+        result = await db
           .from("gallery_cities")
           .update(payload as never)
           .eq("id", editingCity.id);
       } else {
-        result = await supabase.from("gallery_cities").insert(payload as never);
+        result = await db.from("gallery_cities").insert(payload as never);
       }
 
       if (result.error) throw result.error;
@@ -296,12 +296,12 @@ export function GalleryAdminView({
 
       let result;
       if (editingMedia) {
-        result = await supabase
+        result = await db
           .from("gallery_media")
           .update(payload as never)
           .eq("id", editingMedia.id);
       } else {
-        result = await supabase.from("gallery_media").insert(payload as never);
+        result = await db.from("gallery_media").insert(payload as never);
       }
 
       if (result.error) throw result.error;
@@ -319,7 +319,7 @@ export function GalleryAdminView({
   };
 
   const toggleCity = async (city: GalleryCity) => {
-    const { error } = await supabase
+    const { error } = await db
       .from("gallery_cities")
       .update({ is_active: !city.is_active, updated_at: new Date().toISOString() } as never)
       .eq("id", city.id);
@@ -330,7 +330,7 @@ export function GalleryAdminView({
   };
 
   const deleteCity = async (city: GalleryCity) => {
-    const { error } = await supabase.from("gallery_cities").delete().eq("id", city.id);
+    const { error } = await db.from("gallery_cities").delete().eq("id", city.id);
     if (error) throw error;
     await logActivity(`Deleted gallery city ${city.name}`);
     toast.success("Gallery city deleted");
@@ -338,7 +338,7 @@ export function GalleryAdminView({
   };
 
   const deleteMedia = async (item: GalleryMedia) => {
-    const { error } = await supabase.from("gallery_media").delete().eq("id", item.id);
+    const { error } = await db.from("gallery_media").delete().eq("id", item.id);
     if (error) throw error;
     await logActivity(`Deleted gallery media ${item.title}`);
     toast.success("Gallery media deleted");
@@ -413,7 +413,7 @@ export function GalleryAdminView({
       const timestamp = Date.now();
       const storagePath = `gallery-images/${citySlug}/${year}/${timestamp}-${safeName}.${ext}`;
 
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError } = await db.storage
         .from("gallery-images")
         .upload(storagePath, uploadFile.file, {
           contentType: uploadFile.file.type,
@@ -422,10 +422,10 @@ export function GalleryAdminView({
 
       if (uploadError) throw uploadError;
 
-      const { data: publicUrlData } = supabase.storage.from("gallery-images").getPublicUrl(storagePath);
+      const { data: publicUrlData } = db.storage.from("gallery-images").getPublicUrl(storagePath);
       const mediaUrl = publicUrlData.publicUrl;
 
-      const { data: mediaRecord, error: insertError } = await supabase
+      const { data: mediaRecord, error: insertError } = await db
         .from("gallery_media")
         .insert({
           title: uploadFile.file.name.replace(/\.[^/.]+$/, ""),
@@ -523,7 +523,7 @@ export function GalleryAdminView({
           updates.category = bulkCategory;
           break;
         case "delete":
-          const { error } = await supabase
+          const { error } = await db
             .from("gallery_media")
             .delete()
             .in("id", selectedMedia);
@@ -538,7 +538,7 @@ export function GalleryAdminView({
 
       if (Object.keys(updates).length > 0 && bulkAction !== "delete") {
         updates.updated_at = new Date().toISOString();
-        const { error } = await supabase
+        const { error } = await db
           .from("gallery_media")
           .update(updates as never)
           .in("id", selectedMedia);
@@ -583,8 +583,8 @@ export function GalleryAdminView({
     const targetOrder = targetMedia.display_order;
 
     const updates = [
-      supabase.from("gallery_media").update({ display_order: targetOrder } as never).eq("id", draggedId),
-      supabase.from("gallery_media").update({ display_order: draggedOrder } as never).eq("id", targetId),
+      db.from("gallery_media").update({ display_order: targetOrder } as never).eq("id", draggedId),
+      db.from("gallery_media").update({ display_order: draggedOrder } as never).eq("id", targetId),
     ];
 
     try {
@@ -645,7 +645,7 @@ export function GalleryAdminView({
     return (
       <Card className="border-primary/25 bg-primary/10 p-4 text-sm text-muted-foreground">
         Gallery database tables are not ready yet. Review and run the gallery SQL migration, then
-        refresh. Supabase said: {dataError}
+        refresh. db said: {dataError}
       </Card>
     );
   }
@@ -1002,7 +1002,7 @@ export function GalleryAdminView({
                             value={item.display_order}
                             onChange={(e) => {
                               const newOrder = Number(e.target.value) || 0;
-                              supabase
+                              db
                                 .from("gallery_media")
                                 .update({ display_order: newOrder } as never)
                                 .eq("id", item.id);
@@ -1016,7 +1016,7 @@ export function GalleryAdminView({
                               type="checkbox"
                               checked={item.is_featured || false}
                               onChange={(e) => {
-                                supabase
+                                db
                                   .from("gallery_media")
                                   .update({ is_featured: e.target.checked } as never)
                                   .eq("id", item.id);
@@ -1032,7 +1032,7 @@ export function GalleryAdminView({
                               type="checkbox"
                               checked={item.is_active}
                               onChange={(e) => {
-                                supabase
+                                db
                                   .from("gallery_media")
                                   .update({ is_active: e.target.checked } as never)
                                   .eq("id", item.id);
@@ -1046,7 +1046,7 @@ export function GalleryAdminView({
                           <Select
                             value={item.fit_mode || "contain"}
                             onValueChange={(v) => {
-                              supabase
+                              db
                                 .from("gallery_media")
                                 .update({ fit_mode: v } as never)
                                 .eq("id", item.id);
@@ -1064,7 +1064,7 @@ export function GalleryAdminView({
                             <Select
                               value={item.fit_position || "center"}
                               onValueChange={(v) => {
-                                supabase
+                                db
                                   .from("gallery_media")
                                   .update({ fit_position: v } as never)
                                   .eq("id", item.id);
@@ -1139,7 +1139,7 @@ export function GalleryAdminView({
                                       type="checkbox"
                                       checked={item.is_featured || false}
                                       onChange={(e) =>
-                                        supabase
+                                        db
                                           .from("gallery_media")
                                           .update({ is_featured: e.target.checked } as never)
                                           .eq("id", item.id)
@@ -1153,7 +1153,7 @@ export function GalleryAdminView({
                                       type="checkbox"
                                       checked={item.is_active}
                                       onChange={(e) =>
-                                        supabase
+                                        db
                                           .from("gallery_media")
                                           .update({ is_active: e.target.checked } as never)
                                           .eq("id", item.id)
@@ -1194,7 +1194,7 @@ export function GalleryAdminView({
                                     const timestamp = Date.now();
                                     const storagePath = `gallery-images/${citySlug}/${year}/${timestamp}-${file.name.replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-").toLowerCase().slice(0, 50)}.${ext}`;
 
-                                    const { error: uploadError } = await supabase.storage
+                                    const { error: uploadError } = await db.storage
                                       .from("gallery-images")
                                       .upload(storagePath, file, {
                                         contentType: file.type,
@@ -1205,12 +1205,12 @@ export function GalleryAdminView({
                                       return;
                                     }
 
-                                    const { data: publicUrlData } = supabase.storage
+                                    const { data: publicUrlData } = db.storage
                                       .from("gallery-images")
                                       .getPublicUrl(storagePath);
                                     const mediaUrl = publicUrlData.publicUrl;
 
-                                    const { error: updateError } = await supabase
+                                    const { error: updateError } = await db
                                       .from("gallery_media")
                                       .update({
                                         media_url: mediaUrl,
@@ -1236,7 +1236,7 @@ export function GalleryAdminView({
                               size="icon"
                               className="h-8 w-8"
                               onClick={() => {
-                                supabase
+                                db
                                   .from("gallery_media")
                                   .update({ display_order: item.display_order + 1 } as never)
                                   .eq("id", item.id)
@@ -1250,7 +1250,7 @@ export function GalleryAdminView({
                               size="icon"
                               className="h-8 w-8"
                               onClick={() => {
-                                supabase
+                                db
                                   .from("gallery_media")
                                   .update({ display_order: item.display_order - 1 } as never)
                                   .eq("id", item.id)

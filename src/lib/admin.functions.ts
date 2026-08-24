@@ -2,7 +2,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-type AdminDb = Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"];
+type AdminDb = Awaited<typeof import("@/db/client.server")>["dbAdmin"];
 
 const adminUserSchema = z.object({ adminUserId: z.string().uuid() });
 const verifyQrSchema = adminUserSchema.extend({ code: z.string().min(1) });
@@ -241,22 +241,22 @@ function normalizeLegacyPass(pass: any) {
 export const fetchAdminData = createServerFn({ method: "GET" })
   .validator((data: unknown) => adminUserSchema.parse(data))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await assertAdmin(supabaseAdmin, data.adminUserId);
+    const { dbAdmin } = await import("@/db/client.server");
+    await assertAdmin(dbAdmin, data.adminUserId);
 
     const modernPassRows = await safeList<any>(
-      (supabaseAdmin as any)
+      (dbAdmin as any)
         .from("passes")
         .select(
           "id, pass_number, pass_type, status, checked_in, checked_in_at, registration_id, guest_id, secure_qr_token, generated_at, created_at, updated_at",
         )
         .order("created_at", { ascending: false }),
     );
-    const modernPasses = await Promise.all(modernPassRows.map((pass) => buildModernPass(supabaseAdmin, pass)));
+    const modernPasses = await Promise.all(modernPassRows.map((pass) => buildModernPass(dbAdmin, pass)));
     const modernNumbers = new Set(modernPasses.map((pass) => pass.entry_number).filter(Boolean));
 
     const legacyRows = await safeList<any>(
-      (supabaseAdmin as any)
+      (dbAdmin as any)
         .from("public_entry_passes")
         .select(
           "id, participant_name, event_name, entry_number, qr_value, email, phone, created_at, checked_in, checked_in_at, pass_status, status, updated_at",
@@ -279,24 +279,24 @@ export const fetchAdminData = createServerFn({ method: "GET" })
     ] =
       await Promise.all([
         safeList<any>(
-          (supabaseAdmin as any)
+          (dbAdmin as any)
             .from("admin_activity")
             .select("id, action, entry_number, participant_name, created_at, admin_email")
             .order("created_at", { ascending: false })
             .limit(12),
         ),
         safeList<any>(
-          (supabaseAdmin as any).from("events").select("*").order("name", { ascending: true }),
+          (dbAdmin as any).from("events").select("*").order("name", { ascending: true }),
         ),
         safeList<any>(
-          (supabaseAdmin as any)
+          (dbAdmin as any)
             .from("gallery_cities")
             .select("id, name, slug, display_order, is_active, created_at, updated_at")
             .order("display_order", { ascending: true })
             .order("name", { ascending: true }),
         ),
         safeList<any>(
-          (supabaseAdmin as any)
+          (dbAdmin as any)
             .from("gallery_media")
             .select(
               "id, city_id, title, media_type, category, media_url, thumbnail_url, description, display_order, is_active, is_featured, fit_mode, fit_position, storage_path, alt_text, width, height, created_at, updated_at",
@@ -305,28 +305,28 @@ export const fetchAdminData = createServerFn({ method: "GET" })
             .order("created_at", { ascending: false }),
         ),
         safeList<any>(
-          (supabaseAdmin as any)
+          (dbAdmin as any)
             .from("concert_settings")
             .select("*")
             .order("updated_at", { ascending: false })
             .limit(1),
         ),
         safeList<any>(
-          (supabaseAdmin as any)
+          (dbAdmin as any)
             .from("concert_artists")
             .select("*")
             .order("display_order", { ascending: true })
             .order("artist_name", { ascending: true }),
         ),
         safeList<any>(
-          (supabaseAdmin as any)
+          (dbAdmin as any)
             .from("blog_posts")
             .select("*")
             .order("display_order", { ascending: true })
             .order("published_at", { ascending: false }),
         ),
         safeList<any>(
-          (supabaseAdmin as any)
+          (dbAdmin as any)
             .from("employee_award_registrations")
             .select("*")
             .order("created_at", { ascending: false }),
@@ -387,14 +387,14 @@ async function findModernPassByQr(db: AdminDb, parsed: ReturnType<typeof parseQr
 export const verifyAdminQr = createServerFn({ method: "POST" })
   .validator((data: unknown) => verifyQrSchema.parse(data))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await assertAdmin(supabaseAdmin, data.adminUserId);
+    const { dbAdmin } = await import("@/db/client.server");
+    await assertAdmin(dbAdmin, data.adminUserId);
     const parsed = parseQrValue(data.code);
 
     try {
-      const modern = await findModernPassByQr(supabaseAdmin, parsed);
+      const modern = await findModernPassByQr(dbAdmin, parsed);
       if (modern) {
-        const pass = await buildModernPass(supabaseAdmin, modern);
+        const pass = await buildModernPass(dbAdmin, modern);
         if (pass.status === "revoked" || pass.pass_status === "revoked") {
           return { state: "revoked", message: "Pass Revoked. This pass cannot be used for entry.", pass };
         }
@@ -425,7 +425,7 @@ export const verifyAdminQr = createServerFn({ method: "POST" })
     }
 
     const legacyRow = await safeMaybeSingle<any>(
-      (supabaseAdmin as any)
+      (dbAdmin as any)
         .from("public_entry_passes")
         .select(
           "id, participant_name, event_name, entry_number, qr_value, email, phone, created_at, checked_in, checked_in_at, pass_status, status, updated_at",
@@ -450,12 +450,12 @@ export const verifyAdminQr = createServerFn({ method: "POST" })
 export const checkInAdminPass = createServerFn({ method: "POST" })
   .validator((data: unknown) => checkInSchema.parse(data))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await assertAdmin(supabaseAdmin, data.adminUserId);
+    const { dbAdmin } = await import("@/db/client.server");
+    await assertAdmin(dbAdmin, data.adminUserId);
 
     const modern = isUuid(data.passId)
       ? await safeMaybeSingle<any>(
-          (supabaseAdmin as any)
+          (dbAdmin as any)
             .from("passes")
             .select("*")
             .eq("id", data.passId)
@@ -464,19 +464,19 @@ export const checkInAdminPass = createServerFn({ method: "POST" })
       : null;
 
     if (modern) {
-      const pass = await buildModernPass(supabaseAdmin, modern);
+      const pass = await buildModernPass(dbAdmin, modern);
       if (pass.payment_status !== "paid") throw new Error("Payment is not paid. This pass cannot be checked in.");
       if (pass.pass_status === "revoked" || pass.status === "revoked") throw new Error("This pass is revoked.");
       if (pass.checked_in) throw new Error(`Already checked in at ${pass.checked_in_at || "the gate"}.`);
 
       const now = new Date().toISOString();
-      const { error: updateError } = await (supabaseAdmin as any)
+      const { error: updateError } = await (dbAdmin as any)
         .from("passes")
         .update({ checked_in: true, checked_in_at: now, status: "checked_in", updated_at: now })
         .eq("id", data.passId);
       if (updateError) throw updateError;
 
-      await (supabaseAdmin as any).from("check_in_logs").insert({
+      await (dbAdmin as any).from("check_in_logs").insert({
         pass_id: data.passId,
         admin_user_id: data.adminUserId,
         previous_status: modern.status || "active",
@@ -488,7 +488,7 @@ export const checkInAdminPass = createServerFn({ method: "POST" })
     }
 
     const legacy = await safeMaybeSingle<any>(
-      (supabaseAdmin as any)
+      (dbAdmin as any)
         .from("public_entry_passes")
         .select("*")
         .eq("id", data.passId)
@@ -497,7 +497,7 @@ export const checkInAdminPass = createServerFn({ method: "POST" })
     if (!legacy) throw new Error("Pass not found.");
     if (legacy.checked_in) throw new Error(`Already checked in at ${legacy.checked_in_at || "the gate"}.`);
     const now = new Date().toISOString();
-    const { error } = await (supabaseAdmin as any)
+    const { error } = await (dbAdmin as any)
       .from("public_entry_passes")
       .update({ checked_in: true, checked_in_at: now, status: "checked_in", updated_at: now })
       .eq("id", data.passId);
@@ -532,8 +532,8 @@ const concertSettingsSchema = z.object({
 export const saveConcertSettings = createServerFn({ method: "POST" })
   .validator((data: unknown) => concertSettingsSchema.parse(data))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const db = supabaseAdmin as any;
+    const { dbAdmin } = await import("@/db/client.server");
+    const db = dbAdmin as any;
     const now = new Date().toISOString();
 
     if (data.id) {
@@ -568,8 +568,8 @@ const concertArtistSchema = z.object({
 export const saveConcertArtist = createServerFn({ method: "POST" })
   .validator((data: unknown) => concertArtistSchema.parse(data))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const db = supabaseAdmin as any;
+    const { dbAdmin } = await import("@/db/client.server");
+    const db = dbAdmin as any;
     const now = new Date().toISOString();
 
     if (data.id) {
@@ -608,8 +608,8 @@ export const saveConcertArtist = createServerFn({ method: "POST" })
 export const deleteConcertArtist = createServerFn({ method: "POST" })
   .validator((data: unknown) => z.object({ id: z.string().uuid() }).parse(data))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const db = supabaseAdmin as any;
+    const { dbAdmin } = await import("@/db/client.server");
+    const db = dbAdmin as any;
     const { error } = await db.from("concert_artists").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { success: true };
@@ -620,8 +620,8 @@ export const reorderConcertArtist = createServerFn({ method: "POST" })
     z.object({ id: z.string().uuid(), display_order: z.number().int().min(0) }).parse(data),
   )
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const db = supabaseAdmin as any;
+    const { dbAdmin } = await import("@/db/client.server");
+    const db = dbAdmin as any;
     const { error } = await db
       .from("concert_artists")
       .update({ display_order: data.display_order, updated_at: new Date().toISOString() })
@@ -633,8 +633,8 @@ export const reorderConcertArtist = createServerFn({ method: "POST" })
 export const toggleConcertArtistStatus = createServerFn({ method: "POST" })
   .validator((data: unknown) => z.object({ id: z.string().uuid(), is_active: z.boolean() }).parse(data))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const db = supabaseAdmin as any;
+    const { dbAdmin } = await import("@/db/client.server");
+    const db = dbAdmin as any;
     const { error } = await db
       .from("concert_artists")
       .update({ is_active: data.is_active, updated_at: new Date().toISOString() })

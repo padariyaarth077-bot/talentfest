@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/db/client";
 import { Section } from "@/components/site/Section";
 import { Button } from "@/components/ui/button";
 import { Ticket, ArrowRight, LogOut } from "lucide-react";
@@ -36,9 +36,9 @@ function DashboardPage() {
 
   useEffect(() => {
     (async () => {
-      const { data: userData } = await supabase.auth.getUser();
+      const { data: userData } = await db.auth.getUser();
       setEmail(userData.user?.email ?? "");
-      const { data } = await supabase
+      const { data } = await db
         .from("entry_passes")
         .select("id, entry_number, competition, category, status, created_at")
         .order("created_at", { ascending: false });
@@ -48,7 +48,7 @@ function DashboardPage() {
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await db.auth.signOut();
     window.location.href = "/";
   };
 

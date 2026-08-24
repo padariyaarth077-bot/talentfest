@@ -11,7 +11,13 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { fetchRegistration } from "@/lib/registrations.functions";
+import {
+  fetchRegistration,
+  createPaymentOrder,
+  verifyPayment,
+  failDummyPayment,
+  cancelDummyPayment,
+} from "@/lib/registrations.functions";
 
 export const Route = createFileRoute("/payment")({
   component: PaymentPage,
@@ -26,15 +32,26 @@ type RegistrationSummary = {
   registrationNumber?: string;
   fullName?: string;
   eventName?: string;
+  paymentStatus?: string;
+  registrationStatus?: string;
+};
+
+type PaymentOrder = {
+  id: string;
+  orderId: string;
+  amount: number;
+  currency: string;
+  status: string;
 };
 
 function PaymentPage() {
   const { regId, amount } = Route.useSearch();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const [state, setState] = useState<"loading" | "ready" | "error" | "verifying">("loading");
   const [errorMsg, setErrorMsg] = useState("");
   const [reg, setReg] = useState<RegistrationSummary | null>(null);
+  const [paymentOrder, setPaymentOrder] = useState<PaymentOrder | null>(null);
 
   useEffect(() => {
     if (pathname !== "/payment") {
@@ -45,31 +62,100 @@ function PaymentPage() {
       setErrorMsg("No registration ID provided.");
       return;
     }
-    fetchRegistration({ data: { id: regId } })
-      .then((data: unknown) => {
-        setReg(data as RegistrationSummary);
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const regData = await fetchRegistration({ data: { id: regId } });
+        if (cancelled) return;
+        const r = regData as RegistrationSummary;
+        setReg(r);
+
+        if (r.paymentStatus === "paid" && r.registrationStatus === "confirmed") {
+          navigate({ to: "/thank-you", search: { regId }, replace: true });
+          return;
+        }
+
+        const numAmount = Number(amount);
+        if (!numAmount || numAmount <= 0) {
+          const fetchedAmount =
+            (regData as any).participantPrice || (regData as any).visitorPrice || 0;
+          if (fetchedAmount <= 0) {
+            setState("error");
+            setErrorMsg("Invalid payment amount.");
+            return;
+          }
+        }
+
+        const orderResult = await createPaymentOrder({
+          data: {
+            registrationId: regId,
+            amount: numAmount > 0 ? numAmount : ((regData as any).participantPrice || (regData as any).visitorPrice || 0),
+          },
+        });
+        if (cancelled) return;
+        setPaymentOrder(orderResult.order);
         setState("ready");
-      })
-      .catch((err: unknown) => {
+      } catch (err: unknown) {
+        if (cancelled) return;
         setState("error");
         setErrorMsg(err instanceof Error ? err.message : "Unable to load registration.");
-      });
-  }, [pathname, regId]);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [pathname, regId, amount, navigate]);
 
   if (pathname !== "/payment") {
     return <Outlet />;
   }
 
-  const goToStatus = (status: "success" | "failed" | "pending") => {
-    const testOrderId = `TEST-ORDER-${Date.now()}`;
-    navigate({
-      to: `/payment/${status}`,
-      search: {
-        regId,
-        amount,
-        testOrderId,
-      },
-    });
+  const handlePayment = async (status: "success" | "failed" | "pending") => {
+    if (!regId || !paymentOrder) return;
+
+    if (status === "success") {
+      setState("verifying");
+      try {
+        const txId = `TEST-TXN-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+        const result = await verifyPayment({
+          data: {
+            registrationId: regId,
+            paymentId: paymentOrder.id,
+            transactionId: txId,
+            orderId: paymentOrder.orderId,
+          },
+        });
+        if (result.success) {
+          navigate({ to: "/thank-you", search: { regId }, replace: true });
+        } else {
+          setState("error");
+          setErrorMsg("Payment verification returned an unexpected response.");
+        }
+      } catch (err: unknown) {
+        setState("error");
+        setErrorMsg(err instanceof Error ? err.message : "Payment verification failed. Please try again.");
+      }
+    } else if (status === "failed") {
+      setState("verifying");
+      try {
+        await failDummyPayment({
+          data: { registrationId: regId, amount: Number(amount) },
+        });
+        navigate({
+          to: "/payment/failed",
+          search: { regId, amount, testOrderId: paymentOrder.orderId },
+        });
+      } catch (err: unknown) {
+        setState("error");
+        setErrorMsg(err instanceof Error ? err.message : "Failed to record payment failure.");
+      }
+    } else {
+      navigate({
+        to: "/payment/pending",
+        search: { regId, amount, testOrderId: paymentOrder.orderId },
+      });
+    }
   };
 
   return (
@@ -88,6 +174,13 @@ function PaymentPage() {
           {state === "loading" && (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          )}
+
+          {state === "verifying" && (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="mt-4 text-sm text-muted-foreground">Verifying payment...</p>
             </div>
           )}
 
@@ -117,18 +210,18 @@ function PaymentPage() {
               </div>
 
               <Button
-                onClick={() => goToStatus("success")}
+                onClick={() => handlePayment("success")}
                 className="h-14 w-full border-0 text-base font-semibold gradient-primary text-primary-foreground shadow-soft hover:shadow-glow"
               >
                 <CreditCard className="mr-2 h-5 w-5" />
                 Simulate Test Success
               </Button>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Button variant="outline" onClick={() => goToStatus("failed")}>
+                <Button variant="outline" onClick={() => handlePayment("failed")}>
                   <XCircle className="mr-2 h-4 w-4" />
                   Simulate Failed
                 </Button>
-                <Button variant="outline" onClick={() => goToStatus("pending")}>
+                <Button variant="outline" onClick={() => handlePayment("pending")}>
                   <Clock className="mr-2 h-4 w-4" />
                   Simulate Pending
                 </Button>

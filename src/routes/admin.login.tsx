@@ -4,7 +4,7 @@ import { Eye, EyeOff, KeyRound, Loader2, Lock, Mail, ShieldCheck } from "lucide-
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { getSupabaseConfigError, supabase } from "@/integrations/supabase/client";
+import { getDbConfigError, db } from "@/db/client";
 
 export const Route = createFileRoute("/admin/login")({
   head: () => ({ meta: [{ title: "Admin Login - Telent Fest" }] }),
@@ -21,12 +21,12 @@ function AdminLoginPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const configError = getSupabaseConfigError();
+    const configError = getDbConfigError();
     if (configError) return;
 
-    supabase.auth.getUser().then(async ({ data }) => {
+    db.auth.getUser().then(async ({ data }) => {
       if (!data.user) return;
-      const { data: roleData } = await supabase
+      const { data: roleData } = await db
         .from("user_roles")
         .select("role")
         .eq("user_id", data.user.id)
@@ -40,7 +40,7 @@ function AdminLoginPage() {
     event.preventDefault();
     setError("");
 
-    const configError = getSupabaseConfigError();
+    const configError = getDbConfigError();
     if (configError) {
       setError(configError);
       return;
@@ -48,11 +48,11 @@ function AdminLoginPage() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await db.auth.signInWithPassword({ email, password });
       if (error) throw error;
       if (!data.user) throw new Error("Unable to verify admin account.");
 
-      const { data: roleData, error: roleError } = await supabase
+      const { data: roleData, error: roleError } = await db
         .from("user_roles")
         .select("role")
         .eq("user_id", data.user.id)
@@ -61,7 +61,7 @@ function AdminLoginPage() {
 
       if (roleError) throw roleError;
       if (!roleData) {
-        await supabase.auth.signOut();
+        await db.auth.signOut();
         throw new Error("This account is not authorized for admin access.");
       }
 
@@ -85,7 +85,7 @@ function AdminLoginPage() {
     setResetLoading(true);
     setError("");
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      const { error } = await db.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: `${window.location.origin}/admin/login`,
       });
       if (error) throw error;
@@ -109,7 +109,7 @@ function AdminLoginPage() {
           <p className="text-xs uppercase tracking-[0.3em] text-primary">Secure Admin</p>
           <h1 className="mt-2 text-3xl font-semibold">Telent Fest Admin Login</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Sign in with your Supabase admin account. Passwords are never stored in the frontend.
+            Sign in with your db admin account. Passwords are never stored in the frontend.
           </p>
         </div>
 

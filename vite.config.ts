@@ -13,10 +13,6 @@ export default defineConfig({
     server: { entry: "server" },
   },
   nitro: {
-    preset: "cloudflare_pages",
-    cloudflare: {
-      deployConfig: true,
-      nodeCompat: true,
-    },
+    preset: "vercel",
   },
 });

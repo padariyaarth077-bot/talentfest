@@ -9,10 +9,10 @@ const verifySchema = z.object({
 export const verifyPassPublic = createServerFn({ method: "GET" })
   .inputValidator((data: unknown) => verifySchema.parse(data))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { dbAdmin } = await import("@/db/client.server");
 
     // First try new passes table
-    const { data: newPass } = await supabaseAdmin
+    const { data: newPass } = await dbAdmin
       .from("passes")
       .select("id, pass_number, pass_type, status, checked_in, checked_in_at, secure_qr_token, registration_id")
       .eq("id", data.entryId)
@@ -22,7 +22,7 @@ export const verifyPassPublic = createServerFn({ method: "GET" })
       const p = newPass as any;
       if (p.secure_qr_token !== data.token) return { valid: false as const };
 
-      const { data: reg } = await supabaseAdmin
+      const { data: reg } = await dbAdmin
         .from("registrations")
         .select("full_name, event_id, activity_category_id, registration_type, photo_storage_path, phone, email")
         .eq("id", p.registration_id)
@@ -31,7 +31,7 @@ export const verifyPassPublic = createServerFn({ method: "GET" })
       if (!reg) return { valid: false as const };
       const r = reg as any;
 
-      const { data: event } = await supabaseAdmin
+      const { data: event } = await dbAdmin
         .from("events")
         .select("name, city, event_date, start_time, end_time, venue")
         .eq("id", r.event_id)
@@ -39,7 +39,7 @@ export const verifyPassPublic = createServerFn({ method: "GET" })
 
       let activityName = "";
       if (r.activity_category_id) {
-        const { data: cat } = await supabaseAdmin
+        const { data: cat } = await dbAdmin
           .from("activity_categories")
           .select("name")
           .eq("id", r.activity_category_id)
@@ -49,14 +49,14 @@ export const verifyPassPublic = createServerFn({ method: "GET" })
 
       let photoUrl = null;
       if (r.photo_storage_path) {
-        const { data: pubUrl } = supabaseAdmin.storage
+        const { data: pubUrl } = dbAdmin.storage
           .from("participant-photos")
           .getPublicUrl(r.photo_storage_path);
         photoUrl = pubUrl?.publicUrl ?? null;
       }
 
       let seatInfo = null;
-      const { data: seatBooking } = await supabaseAdmin
+      const { data: seatBooking } = await dbAdmin
         .from("seat_bookings")
         .select("id, holder_type, holder_name, event_seats!inner(id, seat_label, row_label, seat_number, event_seat_sections!inner(section_name, section_code))")
         .eq("registration_id", p.registration_id)
@@ -101,7 +101,7 @@ export const verifyPassPublic = createServerFn({ method: "GET" })
     }
 
     // Fallback to old entry_passes table
-    const { data: pass, error } = await supabaseAdmin
+    const { data: pass, error } = await dbAdmin
       .from("entry_passes")
       .select(
         "id, entry_number, participant_name, photo_url, competition, category, sub_category, venue, hall, stage, event_date, reporting_time, status, verification_token",
@@ -114,7 +114,7 @@ export const verifyPassPublic = createServerFn({ method: "GET" })
 
     let signedPhotoUrl: string | null = null;
     if (pass.photo_url) {
-      const { data: signed } = await supabaseAdmin.storage
+      const { data: signed } = await dbAdmin.storage
         .from("pass-photos")
         .createSignedUrl(pass.photo_url, 60 * 60);
       signedPhotoUrl = signed?.signedUrl ?? null;

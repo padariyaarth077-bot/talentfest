@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Menu, X, Globe, LayoutDashboard } from "lucide-react";
 import { useLang } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
-import { isSupabaseConfigured, supabase } from "@/integrations/supabase/client";
+import { isDbConfigured, db } from "@/db/client";
 
 const menu = [
   { to: "/", labelKey: "nav.home" },
@@ -27,13 +27,13 @@ export function Header() {
   const [signedIn, setSignedIn] = useState(false);
 
   useEffect(() => {
-    if (!isSupabaseConfigured()) {
+    if (!isDbConfigured()) {
       setSignedIn(false);
       return;
     }
 
-    supabase.auth.getSession().then(({ data }) => setSignedIn(!!data.session));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => setSignedIn(!!session));
+    db.auth.getSession().then(({ data }) => setSignedIn(!!data.session));
+    const { data: sub } = db.auth.onAuthStateChange((_e, session) => setSignedIn(!!session));
     return () => sub.subscription.unsubscribe();
   }, []);
 

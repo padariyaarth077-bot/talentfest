@@ -172,9 +172,9 @@ const fallbackBlogs: BlogPost[] = [
 
 export const fetchConcertContent = createServerFn({ method: "GET" })
   .handler(async () => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { dbAdmin } = await import("@/db/client.server");
 
-    const db = supabaseAdmin as any;
+    const db = dbAdmin as any;
     const { data: settings, error: settingsError } = await db
       .from("concert_settings")
       .select("*")
@@ -205,8 +205,8 @@ export const fetchConcertContent = createServerFn({ method: "GET" })
 export const fetchPublishedBlogPosts = createServerFn({ method: "GET" })
   .validator((data: unknown) => z.object({ limit: z.number().optional().default(3) }).parse(data ?? {}))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const db = supabaseAdmin as any;
+    const { dbAdmin } = await import("@/db/client.server");
+    const db = dbAdmin as any;
     const { data: posts, error } = await db
       .from("blog_posts")
       .select("*")
@@ -221,8 +221,8 @@ export const fetchPublishedBlogPosts = createServerFn({ method: "GET" })
 export const fetchBlogPostBySlug = createServerFn({ method: "GET" })
   .validator((data: unknown) => z.object({ slug: z.string().min(1) }).parse(data))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const db = supabaseAdmin as any;
+    const { dbAdmin } = await import("@/db/client.server");
+    const db = dbAdmin as any;
     const { data: post, error } = await db
       .from("blog_posts")
       .select("*")

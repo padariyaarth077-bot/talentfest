@@ -83,7 +83,7 @@ import {
   type ContactMessageRecord,
 } from "@/lib/contact.functions";
 import { cn, eventLabel } from "@/lib/utils";
-import { getSupabaseConfigError, supabase } from "@/integrations/supabase/client";
+import { getDbConfigError, db } from "@/db/client";
 import { GalleryAdminView } from "@/components/admin/GalleryAdminView";
 
 type AdminView =
@@ -346,7 +346,7 @@ function AdminPanel() {
   const detailQrRef = useRef<HTMLCanvasElement>(null);
 
   const loadAdminData = useCallback(async (quiet = false) => {
-    const configError = getSupabaseConfigError();
+    const configError = getDbConfigError();
     if (configError) {
       setIsAdmin(false);
       setLoading(false);
@@ -358,7 +358,7 @@ function AdminPanel() {
     else setLoading(true);
 
     try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
+      const { data: userData, error: userError } = await db.auth.getUser();
       if (userError || !userData.user) {
         window.location.href = "/admin/login";
         return;
@@ -366,7 +366,7 @@ function AdminPanel() {
 
       setAdminEmail(userData.user.email ?? "");
       setAdminUserId(userData.user.id);
-      const { data: roleData, error: roleError } = await supabase
+      const { data: roleData, error: roleError } = await db
         .from("user_roles")
         .select("role")
         .eq("user_id", userData.user.id)
@@ -399,14 +399,14 @@ function AdminPanel() {
         console.warn("Server admin fetch failed, falling back to browser queries", serverError);
       }
 
-      const eventsResult = await supabase
+      const eventsResult = await db
         .from("events")
         .select("*")
         .order("name", { ascending: true });
       if (!eventsResult.error) setEventsList(eventsResult.data ?? []);
 
       // Also load from new passes table
-      const { data: newPassesData } = await supabase
+      const { data: newPassesData } = await db
         .from("passes")
         .select(
           "id, pass_number, pass_type, status, checked_in, checked_in_at, registration_id, guest_id, secure_qr_token, created_at",
@@ -416,7 +416,7 @@ function AdminPanel() {
       const newPasses: PublicEntryPass[] = [];
       if (newPassesData) {
         for (const np of newPassesData as any[]) {
-          const { data: reg } = await supabase
+          const { data: reg } = await db
             .from("registrations")
             .select(
               "full_name, email, phone, event_id, registration_number, payment_status, registration_status, activity_category_id, registration_type, aadhaar_last_four",
@@ -431,7 +431,7 @@ function AdminPanel() {
           let activityCategory = "";
           let payment: any = null;
           if (reg) {
-            const { data: ev } = await supabase
+            const { data: ev } = await db
               .from("events")
               .select("name, city, event_date, start_time, venue")
               .eq("id", (reg as any).event_id)
@@ -444,14 +444,14 @@ function AdminPanel() {
               venue = (ev as any).venue || "";
             }
             if ((reg as any).activity_category_id) {
-              const { data: cat } = await supabase
+              const { data: cat } = await db
                 .from("activity_categories")
                 .select("name")
                 .eq("id", (reg as any).activity_category_id)
                 .single();
               activityCategory = (cat as any)?.name || "";
             }
-            const paymentWithMode = await (supabase as any)
+            const paymentWithMode = await (db as any)
               .from("payments")
               .select("provider, payment_mode, status, transaction_id, order_id")
               .eq("registration_id", np.registration_id)
@@ -460,7 +460,7 @@ function AdminPanel() {
             if (!paymentWithMode.error) {
               payment = paymentWithMode.data?.[0] ?? null;
             } else {
-              const paymentFallback = await (supabase as any)
+              const paymentFallback = await (db as any)
                 .from("payments")
                 .select("provider, status, transaction_id, order_id")
                 .eq("registration_id", np.registration_id)
@@ -472,7 +472,7 @@ function AdminPanel() {
           let passName = (reg as any)?.full_name || "Unknown";
           let linkedParticipantName: string | null = null;
           if (np.guest_id) {
-            const { data: guest } = await supabase
+            const { data: guest } = await db
               .from("guests")
               .select("full_name")
               .eq("id", np.guest_id)
@@ -517,23 +517,23 @@ function AdminPanel() {
       }
 
       const [passesResult, activityResult, citiesResult, mediaResult] = await Promise.all([
-        supabase
+        db
           .from("public_entry_passes")
           .select(
             "id, participant_name, event_name, entry_number, qr_value, email, phone, created_at, checked_in, checked_in_at, pass_status, status, updated_at",
           )
           .order("created_at", { ascending: false }),
-        supabase
+        db
           .from("admin_activity")
           .select("id, action, entry_number, participant_name, created_at, admin_email")
           .order("created_at", { ascending: false })
           .limit(12),
-        supabase
+        db
           .from("gallery_cities")
           .select("id, name, slug, display_order, is_active, created_at, updated_at")
           .order("display_order", { ascending: true })
           .order("name", { ascending: true }),
-        supabase
+        db
           .from("gallery_media")
           .select(
             "id, city_id, title, media_type, category, media_url, thumbnail_url, description, display_order, is_active, is_featured, fit_mode, fit_position, storage_path, alt_text, width, height, created_at, updated_at",
@@ -570,7 +570,7 @@ function AdminPanel() {
         setGalleryMedia((mediaResult.data ?? []) as unknown as GalleryMedia[]);
       }
 
-      const db = supabase as any;
+      const db = db as any;
       const [concertSettingsResult, concertArtistsResult, blogPostsResult] = await Promise.all([
         db
           .from("concert_settings")
@@ -697,7 +697,7 @@ function AdminPanel() {
   }, [query, filter]);
 
   const logActivity = async (action: string, pass?: PublicEntryPass) => {
-    await supabase.from("admin_activity").insert({
+    await db.from("admin_activity").insert({
       action,
       entry_number: pass?.entry_number ?? null,
       participant_name: pass?.participant_name ?? null,
@@ -711,7 +711,7 @@ function AdminPanel() {
     patch: Record<string, unknown>,
     action: string,
   ) => {
-    const { error } = await supabase
+    const { error } = await db
       .from("public_entry_passes")
       .update({ ...patch, updated_at: new Date().toISOString() } as never)
       .eq("id", pass.id);
@@ -742,13 +742,13 @@ function AdminPanel() {
   };
 
   const undoCheckIn = async (pass: PublicEntryPass) => {
-    const { data: checkNew } = await supabase
+    const { data: checkNew } = await db
       .from("passes")
       .select("id")
       .eq("id", pass.id)
       .maybeSingle();
     if (checkNew) {
-      await supabase
+      await db
         .from("passes")
         .update({
           checked_in: false,
@@ -757,7 +757,7 @@ function AdminPanel() {
           updated_at: new Date().toISOString(),
         } as never)
         .eq("id", pass.id);
-      await supabase.from("check_in_logs").insert({
+      await db.from("check_in_logs").insert({
         pass_id: pass.id,
         admin_user_id: adminUserId || null,
         previous_status: "checked_in",
@@ -778,13 +778,13 @@ function AdminPanel() {
   };
 
   const revokePass = async (pass: PublicEntryPass) => {
-    const { data: checkNew } = await supabase
+    const { data: checkNew } = await db
       .from("passes")
       .select("id")
       .eq("id", pass.id)
       .maybeSingle();
     if (checkNew) {
-      await supabase
+      await db
         .from("passes")
         .update({
           status: "revoked",
@@ -801,13 +801,13 @@ function AdminPanel() {
   };
 
   const restorePass = async (pass: PublicEntryPass) => {
-    const { data: checkNew } = await supabase
+    const { data: checkNew } = await db
       .from("passes")
       .select("id")
       .eq("id", pass.id)
       .maybeSingle();
     if (checkNew) {
-      await supabase
+      await db
         .from("passes")
         .update({
           status: "active",
@@ -828,14 +828,14 @@ function AdminPanel() {
   };
 
   const deletePass = async (pass: PublicEntryPass) => {
-    const { data: checkNew } = await supabase
+    const { data: checkNew } = await db
       .from("passes")
       .select("id")
       .eq("id", pass.id)
       .maybeSingle();
     const { error } = checkNew
-      ? await supabase.from("passes").delete().eq("id", pass.id)
-      : await supabase.from("public_entry_passes").delete().eq("id", pass.id);
+      ? await db.from("passes").delete().eq("id", pass.id)
+      : await db.from("public_entry_passes").delete().eq("id", pass.id);
     if (error) throw error;
     await logActivity("Deleted pass record", pass);
     toast.success("Deleted pass record");
@@ -924,7 +924,7 @@ function AdminPanel() {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
+    await db.auth.signOut();
     window.location.href = "/admin/login";
   };
 
@@ -1592,11 +1592,11 @@ function GalleryCitiesView({
         updated_at: new Date().toISOString(),
       };
       const result = editingCity
-        ? await supabase
+        ? await db
             .from("gallery_cities")
             .update(payload as never)
             .eq("id", editingCity.id)
-        : await supabase.from("gallery_cities").insert(payload as never);
+        : await db.from("gallery_cities").insert(payload as never);
 
       if (result.error) throw result.error;
       await logActivity(
@@ -1638,11 +1638,11 @@ function GalleryCitiesView({
         updated_at: new Date().toISOString(),
       };
       const result = editingMedia
-        ? await supabase
+        ? await db
             .from("gallery_media")
             .update(payload as never)
             .eq("id", editingMedia.id)
-        : await supabase.from("gallery_media").insert(payload as never);
+        : await db.from("gallery_media").insert(payload as never);
 
       if (result.error) throw result.error;
       await logActivity(
@@ -1661,7 +1661,7 @@ function GalleryCitiesView({
   };
 
   const toggleCity = async (city: GalleryCity) => {
-    const { error } = await supabase
+    const { error } = await db
       .from("gallery_cities")
       .update({ is_active: !city.is_active, updated_at: new Date().toISOString() } as never)
       .eq("id", city.id);
@@ -1672,7 +1672,7 @@ function GalleryCitiesView({
   };
 
   const deleteCity = async (city: GalleryCity) => {
-    const { error } = await supabase.from("gallery_cities").delete().eq("id", city.id);
+    const { error } = await db.from("gallery_cities").delete().eq("id", city.id);
     if (error) throw error;
     await logActivity(`Deleted gallery city ${city.name}`);
     toast.success("Gallery city deleted");
@@ -1680,7 +1680,7 @@ function GalleryCitiesView({
   };
 
   const deleteMedia = async (item: GalleryMedia) => {
-    const { error } = await supabase.from("gallery_media").delete().eq("id", item.id);
+    const { error } = await db.from("gallery_media").delete().eq("id", item.id);
     if (error) throw error;
     await logActivity(`Deleted gallery media ${item.title}`);
     toast.success("Gallery media deleted");
@@ -1694,7 +1694,7 @@ function GalleryCitiesView({
       {dataError && (
         <div className="rounded-2xl border border-primary/25 bg-primary/10 p-4 text-sm text-muted-foreground">
           Gallery database tables are not ready yet. Review and run the gallery SQL migration, then
-          refresh. Supabase said: {dataError}
+          refresh. db said: {dataError}
         </div>
       )}
 
@@ -1985,7 +1985,7 @@ function GalleryCitiesView({
                             setConfirmAction({
                               title: "Delete gallery item?",
                               description:
-                                "This removes the media record only. It does not delete files from Supabase Storage.",
+                                "This removes the media record only. It does not delete files from db Storage.",
                               action: () => deleteMedia(item),
                             })
                           }
@@ -2278,7 +2278,7 @@ function ConcertInformationView({
       {dataError && (
         <div className="rounded-2xl border border-primary/25 bg-primary/10 p-4 text-sm text-muted-foreground">
           Concert database tables are not ready yet. Run the latest migration, then refresh.
-          Supabase said: {dataError}
+          db said: {dataError}
         </div>
       )}
 
@@ -2624,7 +2624,7 @@ function BlogPostsView({
         display_order: Number(form.display_order) || 0,
         updated_at: new Date().toISOString(),
       };
-      const db = supabase as any;
+      const db = db as any;
       const result = editingPost
         ? await db.from("blog_posts").update(payload).eq("id", editingPost.id)
         : await db.from("blog_posts").insert(payload);
@@ -2646,7 +2646,7 @@ function BlogPostsView({
     <div className="space-y-6">
       {dataError && (
         <div className="rounded-2xl border border-primary/25 bg-primary/10 p-4 text-sm text-muted-foreground">
-          Blog database table is not ready yet. Run the latest migration, then refresh. Supabase
+          Blog database table is not ready yet. Run the latest migration, then refresh. db
           said: {dataError}
         </div>
       )}
@@ -2802,7 +2802,7 @@ function BlogPostsView({
                             description:
                               "This permanently removes the post from the public website.",
                             action: async () => {
-                              const result = await (supabase as any)
+                              const result = await (db as any)
                                 .from("blog_posts")
                                 .delete()
                                 .eq("id", post.id);
@@ -3024,7 +3024,7 @@ async function validateScannedCode(
 
   // Try new passes table first
   if (parsed.id) {
-    const { data: newPass } = await supabase
+    const { data: newPass } = await db
       .from("passes")
       .select(
         "id, pass_number, pass_type, status, checked_in, checked_in_at, registration_id, secure_qr_token",
@@ -3038,7 +3038,7 @@ async function validateScannedCode(
         setResult({ state: "invalid", message: "Invalid QR Code. Token mismatch." });
         return;
       }
-      const { data: reg } = await supabase
+      const { data: reg } = await db
         .from("registrations")
         .select(
           "full_name, email, phone, event_id, registration_number, payment_status, activity_category_id",
@@ -3047,14 +3047,14 @@ async function validateScannedCode(
         .single();
 
       const event = reg
-        ? await supabase
+        ? await db
             .from("events")
             .select("name, city")
             .eq("id", (reg as any).event_id)
             .single()
             .then((r) => r.data as any)
         : null;
-      const paymentResult = await (supabase as any)
+      const paymentResult = await (db as any)
         .from("payments")
         .select("provider, payment_mode, status, transaction_id, order_id")
         .eq("registration_id", p.registration_id)
@@ -3063,7 +3063,7 @@ async function validateScannedCode(
       const payment = paymentResult.data?.[0] ?? null;
       let activityCategory = "";
       if ((reg as any)?.activity_category_id) {
-        const { data: cat } = await supabase
+        const { data: cat } = await db
           .from("activity_categories")
           .select("name")
           .eq("id", (reg as any).activity_category_id)
@@ -3128,7 +3128,7 @@ async function validateScannedCode(
   }
 
   // Fallback to old public_entry_passes table
-  let query = supabase
+  let query = db
     .from("public_entry_passes")
     .select(
       "id, participant_name, event_name, entry_number, qr_value, email, phone, created_at, checked_in, checked_in_at, pass_status, status, updated_at",
@@ -3516,7 +3516,7 @@ function SettingsView({ adminEmail }: { adminEmail: string }) {
     <Panel title="Admin Settings">
       <div className="space-y-4 text-sm">
         <InfoRow label="Current admin" value={adminEmail || "Unknown"} />
-        <InfoRow label="Access model" value="Supabase Auth plus user_roles.role = admin" />
+        <InfoRow label="Access model" value="db Auth plus user_roles.role = admin" />
         <InfoRow
           label="Database protection"
           value="Use the provided SQL to enable RLS policies for admin-only access."
@@ -3544,8 +3544,7 @@ function SeatingManagement() {
 
   const loadEvents = useCallback(async () => {
     try {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const { data } = await (supabaseAdmin as any)
+      const { data } = await (db as any)
         .from("events")
         .select("id, name, city, event_date, participant_capacity, guest_capacity, visitor_capacity")
         .order("event_date", { ascending: false });
@@ -3556,8 +3555,7 @@ function SeatingManagement() {
   const loadSections = useCallback(async () => {
     if (!selectedEventId) { setSections([]); return; }
     try {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const { data } = await (supabaseAdmin as any)
+      const { data } = await (db as any)
         .from("event_seat_sections")
         .select("*")
         .eq("event_id", selectedEventId)
@@ -3569,8 +3567,7 @@ function SeatingManagement() {
   const loadSeats = useCallback(async () => {
     if (!selectedSectionId) { setSeats([]); return; }
     try {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const { data } = await (supabaseAdmin as any)
+      const { data } = await (db as any)
         .from("event_seats")
         .select("id, seat_label, row_label, seat_number, status, display_order, is_accessible")
         .eq("section_id", selectedSectionId)
@@ -3582,8 +3579,7 @@ function SeatingManagement() {
   const loadBookings = useCallback(async () => {
     if (!selectedEventId) { setBookings([]); return; }
     try {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const { data } = await (supabaseAdmin as any)
+      const { data } = await (db as any)
         .from("seat_bookings")
         .select("id, holder_type, holder_name, booked_at, seat_id, event_seats!inner(id, seat_label, row_label, seat_number, event_seat_sections!inner(section_name))")
         .eq("event_id", selectedEventId)
@@ -3595,8 +3591,7 @@ function SeatingManagement() {
   const loadAudit = useCallback(async () => {
     if (!selectedEventId) { setAuditLog([]); return; }
     try {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const { data } = await (supabaseAdmin as any)
+      const { data } = await (db as any)
         .from("seat_allocation_audit")
         .select("id, action, changed_by, reason, created_at, new_seat_id, old_seat_id, event_seats!new_seat_id(seat_label)")
         .eq("event_id", selectedEventId)
@@ -3614,14 +3609,13 @@ function SeatingManagement() {
 
   const toggleSeatStatus = async (seat: any, newStatus: string) => {
     try {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      await (supabaseAdmin as any)
+      await (db as any)
         .from("event_seats")
         .update({ status: newStatus, updated_at: new Date().toISOString() })
         .eq("id", seat.id);
 
       // Audit
-      await (supabaseAdmin as any)
+      await (db as any)
         .from("seat_allocation_audit")
         .insert({
           event_id: selectedEventId,
@@ -3642,8 +3636,7 @@ function SeatingManagement() {
     setGenResult("");
     try {
       // First create section
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const { data: newSection, error: secErr } = await (supabaseAdmin as any)
+      const { data: newSection, error: secErr } = await (db as any)
         .from("event_seat_sections")
         .insert({
           event_id: selectedEventId,
@@ -3659,7 +3652,7 @@ function SeatingManagement() {
       if (!newSection) { setGenResult("Failed to create section"); setGenerating(false); return; }
 
       // Generate seats via DB function
-      const { data: genData, error: genErr } = await (supabaseAdmin as any)
+      const { data: genData, error: genErr } = await (db as any)
         .rpc("generate_event_seats", {
           p_event_id: selectedEventId,
           p_section_id: newSection.id,
@@ -4255,11 +4248,11 @@ function EventsView({
     const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
     const folder = eventId || editingEvent?.id || "new";
     const path = `events/${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await db.storage
       .from("event-images")
       .upload(path, file, { cacheControl: "31536000", upsert: true });
     if (uploadError) throw uploadError;
-    const { data: publicUrlData } = supabase.storage.from("event-images").getPublicUrl(path);
+    const { data: publicUrlData } = db.storage.from("event-images").getPublicUrl(path);
     return publicUrlData.publicUrl;
   };
 
@@ -4300,7 +4293,7 @@ function EventsView({
         updated_at: new Date().toISOString(),
       };
       if (editingEvent) {
-        const { data: updatedEvent, error: updateError } = await supabase
+        const { data: updatedEvent, error: updateError } = await db
           .from("events")
           .update(payload as never)
           .eq("id", editingEvent.id)
@@ -4311,7 +4304,7 @@ function EventsView({
         await logActivity(`Updated event ${payload.name}`);
         toast.success("Event updated");
       } else {
-        const { error: insertError } = await supabase.from("events").insert(payload as never);
+        const { error: insertError } = await db.from("events").insert(payload as never);
         if (insertError) throw insertError;
         await logActivity(`Created event ${payload.name}`);
         toast.success("Event created");
@@ -4558,7 +4551,7 @@ function EventsView({
                       label={ev.is_active ? "Disable event" : "Enable event"}
                       icon={RefreshCcw}
                       onClick={async () => {
-                        await supabase
+                        await db
                           .from("events")
                           .update({
                             is_active: !ev.is_active,
