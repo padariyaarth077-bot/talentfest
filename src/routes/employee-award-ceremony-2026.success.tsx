@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Award, CalendarDays, CheckCircle2, CreditCard, Download, Home, Loader2, XCircle } from "lucide-react";
+import { Award, CalendarDays, CheckCircle2, CreditCard, Download, Home, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
+  createEmployeeAwardPaymentOrder,
   failEmployeeAwardPayment,
   fetchEmployeeAwardRegistration,
   formatEmployeeAwardDateTime,
@@ -11,6 +12,32 @@ import {
   verifyEmployeeAwardPayment,
   type EmployeeAwardRecord,
 } from "@/lib/employee-awards.functions";
+
+type RazorpayInstance = {
+  open: () => void;
+  on: (event: "payment.failed", handler: (response: any) => void) => void;
+};
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: Record<string, any>) => RazorpayInstance;
+  }
+}
+
+let razorpayScript: Promise<void> | null = null;
+
+function loadRazorpay() {
+  if (window.Razorpay) return Promise.resolve();
+  razorpayScript ||= new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Unable to load Razorpay checkout."));
+    document.body.appendChild(script);
+  });
+  return razorpayScript;
+}
 
 export const Route = createFileRoute("/employee-award-ceremony-2026/success")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -36,39 +63,69 @@ function EmployeeAwardSuccessPage() {
       .catch(() => setError("Unable to load this registration."));
   }, [company]);
 
-  const markPaid = async () => {
-    if (!record?.payment) return;
+  const startPayment = async () => {
+    if (!record) return;
     setBusy(true);
     setError("");
     try {
-      const result = await verifyEmployeeAwardPayment({
-        data: {
-          company: record.id,
-          paymentId: record.payment.id,
-          orderId: record.payment.order_id,
-          transactionId: `TEST-EAC-${Date.now()}`,
+      const { key, order, company: updatedCompany } = await createEmployeeAwardPaymentOrder({
+        data: { company: record.id },
+      });
+      setRecord(updatedCompany);
+      await loadRazorpay();
+      if (!window.Razorpay) throw new Error("Razorpay checkout is not available.");
+
+      const checkout = new window.Razorpay({
+        key,
+        amount: order.amount,
+        currency: order.currency,
+        name: "Telent Fest",
+        description: "Employee Award Ceremony 2026 Registration",
+        order_id: order.id,
+        prefill: {
+          name: record.owner_name,
+          email: record.owner_email,
+          contact: record.owner_mobile.replace(/^\+91/, ""),
+        },
+        notes: {
+          company_registration_number: record.company_registration_number,
+          invoice_number: record.invoice_number,
+        },
+        theme: { color: "#d6b562" },
+        handler: async (response: any) => {
+          setBusy(true);
+          try {
+            const result = await verifyEmployeeAwardPayment({
+              data: {
+                company: record.id,
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature,
+              },
+            });
+            setRecord(result.company);
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Unable to verify payment.");
+          } finally {
+            setBusy(false);
+          }
+        },
+        modal: {
+          ondismiss: () => setBusy(false),
         },
       });
-      setRecord(result.company);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to verify payment.");
-    } finally {
-      setBusy(false);
-    }
-  };
 
-  const markFailed = async () => {
-    if (!record?.payment) return;
-    setBusy(true);
-    setError("");
-    try {
-      await failEmployeeAwardPayment({ data: { company: record.id, paymentId: record.payment.id } });
-      const updated = await fetchEmployeeAwardRegistration({ data: { company: record.id } });
-      setRecord(updated);
+      checkout.on("payment.failed", async (response: any) => {
+        if (updatedCompany.payment?.id) {
+          await failEmployeeAwardPayment({ data: { company: record.id, paymentId: updatedCompany.payment.id } }).catch(() => null);
+        }
+        setBusy(false);
+        setError(response?.error?.description || "Payment failed. Please try again.");
+      });
+      checkout.open();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to update payment status.");
-    } finally {
       setBusy(false);
+      setError(err instanceof Error ? err.message : "Unable to start Razorpay payment.");
     }
   };
 
@@ -88,7 +145,7 @@ function EmployeeAwardSuccessPage() {
             <p className="mt-3 text-muted-foreground">
               {paid
                 ? "Your company award registration, recipient IDs and invoice are ready."
-                : "Review the server-calculated amount and complete the test payment verification."}
+                : "Review the server-calculated amount and complete the secure Razorpay payment."}
             </p>
           </div>
 
@@ -145,16 +202,10 @@ function EmployeeAwardSuccessPage() {
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
                 {!paid && (
-                  <>
-                    <Button onClick={markPaid} disabled={busy} className="h-12 gradient-primary px-5 text-primary-foreground">
-                      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                      Simulate Test Payment Success
-                    </Button>
-                    <Button variant="outline" onClick={markFailed} disabled={busy} className="h-12 px-5">
-                      <XCircle className="h-4 w-4" />
-                      Mark Payment Failed
-                    </Button>
-                  </>
+                  <Button onClick={startPayment} disabled={busy} className="h-12 gradient-primary px-5 text-primary-foreground">
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                    Pay with Razorpay
+                  </Button>
                 )}
                 {paid && (
                   <Button variant="outline" onClick={() => downloadInvoice(record)} className="h-12 px-5">

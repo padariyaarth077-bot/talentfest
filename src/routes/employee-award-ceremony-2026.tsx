@@ -14,6 +14,15 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { submitEmployeeAwardRegistration } from "@/lib/employee-awards.functions";
 
 export const Route = createFileRoute("/employee-award-ceremony-2026")({
@@ -84,11 +93,55 @@ const emptyForm: FormState = {
   declarationAccepted: false,
 };
 
+const fieldLabels: Record<string, string> = {
+  companyName: "Company name",
+  companyLogo: "Company logo",
+  companyEmail: "Company email",
+  companyMobile: "Company mobile",
+  companyAddress: "Company address",
+  city: "City",
+  state: "State",
+  pincode: "Pincode",
+  ownerName: "Owner name",
+  ownerDesignation: "Owner designation",
+  ownerEmail: "Owner email",
+  ownerMobile: "Owner mobile",
+  declarationAccepted: "Declaration",
+};
+
+function validationList(next: ErrorMap) {
+  return Object.entries(next)
+    .filter((entry): entry is [string, string] => Boolean(entry[1]))
+    .map(([key, message]) => {
+      const employee = key.match(/^employee-(\d+)-(.+)$/);
+      if (employee) return `Employee ${Number(employee[1]) + 1} ${employee[2]}: ${message}`;
+      return `${fieldLabels[key] || key}: ${message}`;
+    });
+}
+
+function readableSubmitError(error: unknown) {
+  const raw = error instanceof Error ? error.message : String(error || "");
+  try {
+    const parsed = JSON.parse(raw) as Array<{ message?: string; path?: Array<string | number> }>;
+    if (Array.isArray(parsed)) {
+      return parsed.map((item) => {
+        const path = item.path?.join(" ") || "Field";
+        return `${path}: ${item.message || "Invalid value."}`;
+      });
+    }
+  } catch {
+    // Keep the original message for non-Zod errors.
+  }
+  return [raw || "Unable to submit this registration. Please try again."];
+}
+
 function EmployeeAwardCeremonyPage() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const navigate = useNavigate();
   const [form, setForm] = useState<FormState>(emptyForm);
   const [errors, setErrors] = useState<ErrorMap>({});
+  const [alertErrors, setAlertErrors] = useState<string[]>([]);
+  const [alertOpen, setAlertOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [idempotencyKey] = useState(() =>
     crypto.randomUUID ? crypto.randomUUID() : `employee-award-${Date.now()}-${Math.random()}`,
@@ -160,6 +213,12 @@ function EmployeeAwardCeremonyPage() {
       if (typeof value === "string" && !value.trim()) next[key] = "This field is required.";
     });
     if (!form.companyLogo) next.companyLogo = "Company logo is required.";
+    if (form.companyName.trim() && form.companyName.trim().length < 2) next.companyName = "Enter at least 2 characters.";
+    if (form.companyAddress.trim() && form.companyAddress.trim().length < 5) next.companyAddress = "Enter at least 5 characters.";
+    if (form.city.trim() && form.city.trim().length < 2) next.city = "Enter at least 2 characters.";
+    if (form.state.trim() && form.state.trim().length < 2) next.state = "Enter at least 2 characters.";
+    if (form.ownerName.trim() && form.ownerName.trim().length < 2) next.ownerName = "Enter at least 2 characters.";
+    if (form.ownerDesignation.trim() && form.ownerDesignation.trim().length < 2) next.ownerDesignation = "Enter at least 2 characters.";
     if (!email.test(form.companyEmail.trim())) next.companyEmail = "Enter a valid email address.";
     if (!email.test(form.ownerEmail.trim())) next.ownerEmail = "Enter a valid email address.";
     if (form.companyMobile.length !== 10) next.companyMobile = "Enter a valid 10-digit mobile number.";
@@ -169,13 +228,20 @@ function EmployeeAwardCeremonyPage() {
 
     form.employees.forEach((employee, index) => {
       if (!employee.name.trim()) next[`employee-${index}-name`] = "Employee name is required.";
+      else if (employee.name.trim().length < 2) next[`employee-${index}-name`] = "Enter at least 2 characters.";
       if (!employee.designation.trim()) next[`employee-${index}-designation`] = "Designation is required.";
+      else if (employee.designation.trim().length < 2) next[`employee-${index}-designation`] = "Enter at least 2 characters.";
       if (employee.email && !email.test(employee.email.trim())) next[`employee-${index}-email`] = "Enter a valid email address.";
       if (employee.mobile && employee.mobile.length !== 10) next[`employee-${index}-mobile`] = "Enter a valid 10-digit mobile number.";
     });
 
     setErrors(next);
-    return Object.keys(next).length === 0;
+    const list = validationList(next);
+    if (list.length) {
+      setAlertErrors(list);
+      setAlertOpen(true);
+    }
+    return list.length === 0;
   };
 
   const submit = async (event: React.FormEvent) => {
@@ -198,7 +264,10 @@ function EmployeeAwardCeremonyPage() {
       });
       navigate({ to: "/employee-award-ceremony-2026/success", search: { company: result.companyRegistrationNumber } });
     } catch (error) {
-      setErrors({ submit: error instanceof Error ? error.message : "Unable to submit this registration. Please try again." });
+      const list = readableSubmitError(error);
+      setErrors({ submit: list[0] });
+      setAlertErrors(list);
+      setAlertOpen(true);
     } finally {
       setSubmitting(false);
     }
@@ -295,13 +364,6 @@ function EmployeeAwardCeremonyPage() {
             {errors.declarationAccepted && <ErrorText text={errors.declarationAccepted} className="md:col-span-2" />}
           </FormSection>
 
-          {errors.submit && (
-            <div className="flex items-start gap-2 rounded-2xl border border-destructive/25 bg-destructive/10 p-4 text-sm text-destructive">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              {errors.submit}
-            </div>
-          )}
-
           <div className="flex justify-center">
             <Button type="submit" disabled={submitting} className="h-14 min-w-64 border-0 gradient-primary px-8 text-base font-semibold text-primary-foreground shadow-soft hover:shadow-glow">
               {submitting ? (
@@ -319,6 +381,29 @@ function EmployeeAwardCeremonyPage() {
           </div>
         </form>
       </section>
+      <AlertDialog open={alertOpen} onOpenChange={setAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              Please fix the form
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {alertErrors.length === 1 ? "One field needs attention before payment." : "Some fields need attention before payment."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="max-h-72 overflow-y-auto rounded-xl border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive">
+            <ul className="list-disc space-y-1 pl-5">
+              {alertErrors.map((message, index) => (
+                <li key={`${message}-${index}`}>{message}</li>
+              ))}
+            </ul>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogAction>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

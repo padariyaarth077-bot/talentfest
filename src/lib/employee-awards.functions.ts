@@ -44,9 +44,9 @@ const companySchema = z.object({
 
 const companyRefSchema = z.object({ company: z.string().trim().min(1) });
 const verifySchema = companyRefSchema.extend({
-  paymentId: z.string().uuid(),
-  orderId: z.string().min(1),
-  transactionId: z.string().min(6),
+  razorpayOrderId: z.string().min(6),
+  razorpayPaymentId: z.string().min(6),
+  razorpaySignature: z.string().min(20),
 });
 const failSchema = companyRefSchema.extend({ paymentId: z.string().uuid() });
 const adminSchema = z.object({ adminUserId: z.string().uuid() });
@@ -145,6 +145,73 @@ function phone(value: string) {
 
 function money(value: unknown) {
   return Number(value || 0);
+}
+
+async function serverEnv(name: string) {
+  const { getServerEnv } = await import("@/db/env");
+  return getServerEnv(name);
+}
+
+async function razorpayKey() {
+  const key = await serverEnv("RAZORPAY_KEY");
+  if (!key) throw new Error("Razorpay key is not configured.");
+  return key;
+}
+
+async function razorpaySecret() {
+  const secret = await serverEnv("RAZORPAY_SECRET");
+  if (!secret) throw new Error("Razorpay secret is not configured.");
+  return secret;
+}
+
+function basicAuth(key: string, secret: string) {
+  return btoa(`${key}:${secret}`);
+}
+
+async function createRazorpayOrder(input: {
+  amount: number;
+  receipt: string;
+  companyRegistrationNumber: string;
+}) {
+  const key = await razorpayKey();
+  const secret = await razorpaySecret();
+  const response = await fetch("https://api.razorpay.com/v1/orders", {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${basicAuth(key, secret)}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      amount: Math.round(input.amount * 100),
+      currency: "INR",
+      receipt: input.receipt.slice(0, 40),
+      notes: {
+        company_registration_number: input.companyRegistrationNumber,
+        product: "employee_award_ceremony_2026",
+      },
+    }),
+  });
+  const body = await response.json().catch(() => null) as any;
+  if (!response.ok) {
+    throw new Error(body?.error?.description || "Unable to create Razorpay order.");
+  }
+  return body as { id: string; amount: number; currency: string; status: string };
+}
+
+function bytesToHex(bytes: Uint8Array) {
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function razorpaySignature(orderId: string, paymentId: string) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(await razorpaySecret()),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${orderId}|${paymentId}`));
+  return bytesToHex(new Uint8Array(signature));
 }
 
 export function employeeAwardAssetUrl(value?: string | null, baseUrl = "") {
@@ -360,6 +427,35 @@ export const fetchEmployeeAwardRegistration = createServerFn({ method: "GET" })
   .validator((data: unknown) => companyRefSchema.parse(data))
   .handler(async ({ data }) => getCompanyAward(data.company));
 
+export const createEmployeeAwardPaymentOrder = createServerFn({ method: "POST" })
+  .validator((data: unknown) => companyRefSchema.parse(data))
+  .handler(async ({ data }) => {
+    const key = await razorpayKey();
+    const company = await getCompanyAward(data.company);
+    if (company.payment_status === "paid") throw new Error("This registration is already paid.");
+
+    const payment = company.payment;
+    if (!payment) throw new Error("Payment record not found.");
+    if (payment.order_id?.startsWith("order_") && payment.status !== "failed") {
+      return { key, order: { id: payment.order_id, amount: Math.round(company.total_amount * 100), currency: "INR" }, company };
+    }
+
+    const order = await createRazorpayOrder({
+      amount: company.total_amount,
+      receipt: company.invoice_number,
+      companyRegistrationNumber: company.company_registration_number,
+    });
+    await runQuery(
+      "UPDATE employee_award_payments SET order_id = ?, provider = 'razorpay', payment_mode = 'live', status = 'created' WHERE id = ?",
+      [order.id, payment.id],
+    );
+    await runQuery("UPDATE employee_award_company_registrations SET payment_order_id = ?, payment_method = 'razorpay' WHERE id = ?", [
+      order.id,
+      company.id,
+    ]);
+    return { key, order, company: await getCompanyAward(company.id) };
+  });
+
 export const fetchEmployeeAwardsForAdmin = createServerFn({ method: "GET" })
   .validator((data: unknown) => adminSchema.parse(data))
   .handler(async ({ data }) => {
@@ -406,8 +502,10 @@ export const verifyEmployeeAwardPayment = createServerFn({ method: "POST" })
     const company = await findCompany(data.company);
     if (!company) throw new Error("Company registration not found.");
     if (company.payment_status === "paid") return { success: true, company: await getCompanyAward(company.id) };
-    if (data.orderId !== company.payment_order_id) throw new Error("Payment order mismatch.");
-    const payments = await runQuery<any>("SELECT * FROM employee_award_payments WHERE id = ? AND company_registration_id = ? LIMIT 1", [data.paymentId, company.id]);
+    if (data.razorpayOrderId !== company.payment_order_id) throw new Error("Payment order mismatch.");
+    const expected = await razorpaySignature(data.razorpayOrderId, data.razorpayPaymentId);
+    if (expected !== data.razorpaySignature) throw new Error("Payment signature verification failed.");
+    const payments = await runQuery<any>("SELECT * FROM employee_award_payments WHERE order_id = ? AND company_registration_id = ? LIMIT 1", [data.razorpayOrderId, company.id]);
     const payment = payments[0];
     if (!payment || money(payment.amount) !== money(company.total_amount)) throw new Error("Payment amount verification failed.");
 
@@ -415,12 +513,12 @@ export const verifyEmployeeAwardPayment = createServerFn({ method: "POST" })
     try {
       await conn.beginTransaction();
       await conn.execute(
-        "UPDATE employee_award_payments SET status = 'paid', transaction_id = ?, verified_at = CURRENT_TIMESTAMP WHERE id = ?",
-        [data.transactionId, data.paymentId],
+        "UPDATE employee_award_payments SET status = 'paid', transaction_id = ?, provider = 'razorpay', payment_mode = 'live', verified_at = CURRENT_TIMESTAMP WHERE id = ?",
+        [data.razorpayPaymentId, payment.id],
       );
       await conn.execute(
-        "UPDATE employee_award_company_registrations SET status = 'confirmed', payment_status = 'paid', transaction_id = ?, payment_method = 'test', paid_at = CURRENT_TIMESTAMP WHERE id = ?",
-        [data.transactionId, company.id],
+        "UPDATE employee_award_company_registrations SET status = 'confirmed', payment_status = 'paid', transaction_id = ?, payment_method = 'razorpay', paid_at = CURRENT_TIMESTAMP WHERE id = ?",
+        [data.razorpayPaymentId, company.id],
       );
       await conn.execute("UPDATE employee_award_recipients SET status = 'confirmed' WHERE company_registration_id = ?", [company.id]);
       await conn.commit();
