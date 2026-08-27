@@ -79,7 +79,6 @@ import {
   formatEmployeeAwardDateTime,
   invoiceHtml,
   exportEmployeeAwardsExcel,
-  updateEmployeeAwardStatus,
   type EmployeeAwardRecord,
 } from "@/lib/employee-awards.functions";
 import {
@@ -945,23 +944,6 @@ function AdminPanel() {
     void logActivity(`Exported ${rows.length} participant records`);
   };
 
-  const changeEmployeeAwardStatus = async (
-    award: EmployeeAwardRecord,
-    status: EmployeeAwardRecord["status"],
-  ) => {
-    try {
-      const updated = await updateEmployeeAwardStatus({
-        data: { adminUserId, id: award.id, status },
-      });
-      setEmployeeAwards((current) =>
-        current.map((item) => (item.id === award.id ? updated : item)),
-      );
-      toast.success("Employee Award status updated");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to update status");
-    }
-  };
-
   const logout = async () => {
     await db.auth.signOut();
     window.location.href = "/admin/login";
@@ -1077,7 +1059,6 @@ function AdminPanel() {
             awards={employeeAwards}
             loading={employeeAwardsLoading}
             error={employeeAwardsError}
-            onStatusChange={changeEmployeeAwardStatus}
           />
         )}
         {activeView === "contact_messages" && (
@@ -3301,13 +3282,11 @@ function EmployeeAwardsView({
   awards,
   loading,
   error,
-  onStatusChange,
 }: {
   adminUserId: string;
   awards: EmployeeAwardRecord[];
   loading: boolean;
   error: string;
-  onStatusChange: (award: EmployeeAwardRecord, status: EmployeeAwardRecord["status"]) => Promise<void>;
 }) {
   const [selected, setSelected] = useState<EmployeeAwardRecord | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -3341,7 +3320,7 @@ function EmployeeAwardsView({
         </div>
 
         <div className="mt-6 overflow-x-auto rounded-2xl border border-border">
-          <table className="min-w-[1100px] w-full text-left text-sm">
+          <table className="min-w-[980px] w-full text-left text-sm">
             <thead className="bg-accent text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="px-4 py-3">Company ID</th>
@@ -3351,7 +3330,6 @@ function EmployeeAwardsView({
                 <th className="px-4 py-3">Amount</th>
                 <th className="px-4 py-3">Payment</th>
                 <th className="px-4 py-3">Submitted</th>
-                <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -3376,26 +3354,6 @@ function EmployeeAwardsView({
                   </td>
                   <td className="px-4 py-4">{formatEmployeeAwardDateTime(award.submitted_at)}</td>
                   <td className="px-4 py-4">
-                    <select
-                      value={award.status}
-                      onChange={(event) =>
-                        onStatusChange(
-                          award,
-                          event.target.value as EmployeeAwardRecord["status"],
-                        )
-                      }
-                      className="rounded-full border border-border bg-background px-3 py-2 text-xs font-semibold uppercase"
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="confirmed">Confirmed</option>
-                      <option value="reviewing">Reviewing</option>
-                      <option value="approved">Approved</option>
-                      <option value="rejected">Rejected</option>
-                      <option value="failed">Failed</option>
-                      <option value="cancelled">Cancelled</option>
-                    </select>
-                  </td>
-                  <td className="px-4 py-4">
                     <div className="flex justify-end gap-2">
                       <Button variant="outline" size="sm" onClick={() => setSelected(award)}>
                         <Eye className="h-4 w-4" />
@@ -3411,21 +3369,21 @@ function EmployeeAwardsView({
               ))}
               {loading && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
                     Loading Employee Award registrations from database...
                   </td>
                 </tr>
               )}
               {!loading && error && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-destructive">
+                  <td colSpan={8} className="px-4 py-12 text-center text-destructive">
                     {error}
                   </td>
                 </tr>
               )}
               {!loading && !error && awards.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
                     No Employee Award registrations found.
                   </td>
                 </tr>
