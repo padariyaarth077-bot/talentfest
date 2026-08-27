@@ -1,45 +1,96 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Award, CalendarDays, CheckCircle2, Home, ListChecks } from "lucide-react";
+import { Award, CalendarDays, CheckCircle2, CreditCard, Download, Home, Loader2, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { fetchEmployeeAwardRegistration, type EmployeeAwardRecord } from "@/lib/employee-awards.functions";
+import { Button } from "@/components/ui/button";
+import {
+  failEmployeeAwardPayment,
+  fetchEmployeeAwardRegistration,
+  formatEmployeeAwardDateTime,
+  invoiceHtml,
+  verifyEmployeeAwardPayment,
+  type EmployeeAwardRecord,
+} from "@/lib/employee-awards.functions";
 
 export const Route = createFileRoute("/employee-award-ceremony-2026/success")({
   validateSearch: (search: Record<string, unknown>) => ({
-    application: typeof search.application === "string" ? search.application : "",
+    company: typeof search.company === "string" ? search.company : "",
   }),
-  head: () => ({ meta: [{ title: "Employee Award Registration Submitted - Telent Fest" }] }),
+  head: () => ({ meta: [{ title: "Employee Award Payment - Telent Fest" }] }),
   component: EmployeeAwardSuccessPage,
 });
 
 function EmployeeAwardSuccessPage() {
-  const { application } = Route.useSearch();
+  const { company } = Route.useSearch();
   const [record, setRecord] = useState<EmployeeAwardRecord | null>(null);
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!application) {
-      setError("Application number is missing.");
+    if (!company) {
+      setError("Company registration number is missing.");
       return;
     }
-    fetchEmployeeAwardRegistration({ data: { applicationNumber: application } })
+    fetchEmployeeAwardRegistration({ data: { company } })
       .then(setRecord)
-      .catch(() => setError("Unable to load this registration confirmation."));
-  }, [application]);
+      .catch(() => setError("Unable to load this registration."));
+  }, [company]);
+
+  const markPaid = async () => {
+    if (!record?.payment) return;
+    setBusy(true);
+    setError("");
+    try {
+      const result = await verifyEmployeeAwardPayment({
+        data: {
+          company: record.id,
+          paymentId: record.payment.id,
+          orderId: record.payment.order_id,
+          transactionId: `TEST-EAC-${Date.now()}`,
+        },
+      });
+      setRecord(result.company);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to verify payment.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const markFailed = async () => {
+    if (!record?.payment) return;
+    setBusy(true);
+    setError("");
+    try {
+      await failEmployeeAwardPayment({ data: { company: record.id, paymentId: record.payment.id } });
+      const updated = await fetchEmployeeAwardRegistration({ data: { company: record.id } });
+      setRecord(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to update payment status.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const paid = record?.payment_status === "paid";
 
   return (
     <div className="min-h-screen bg-background py-12 sm:py-16">
-      <section className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-        <div className="rounded-3xl border border-primary/25 bg-card/80 p-7 text-center shadow-elegant sm:p-10">
-          <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-primary/35 bg-primary/15 text-primary">
-            <CheckCircle2 className="h-8 w-8" />
+      <section className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+        <div className="rounded-3xl border border-primary/25 bg-card/80 p-7 shadow-elegant sm:p-10">
+          <div className="text-center">
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-primary/35 bg-primary/15 text-primary">
+              {paid ? <CheckCircle2 className="h-8 w-8" /> : <CreditCard className="h-8 w-8" />}
+            </div>
+            <h1 className="mt-6 font-display text-4xl font-semibold">
+              {paid ? "Registration Confirmed" : "Complete Payment"}
+            </h1>
+            <p className="mt-3 text-muted-foreground">
+              {paid
+                ? "Your company award registration, recipient IDs and invoice are ready."
+                : "Review the server-calculated amount and complete the test payment verification."}
+            </p>
           </div>
-          <h1 className="mt-6 font-display text-4xl font-semibold">
-            Registration Submitted Successfully
-          </h1>
-          <p className="mt-3 text-muted-foreground">
-            Your Employee Award Ceremony 2026 registration has been received.
-          </p>
 
           {error && (
             <div className="mt-8 rounded-2xl border border-destructive/25 bg-destructive/10 p-4 text-sm text-destructive">
@@ -47,57 +98,84 @@ function EmployeeAwardSuccessPage() {
             </div>
           )}
 
-          {record && (
-            <div className="mt-8 grid gap-4 rounded-2xl border border-border bg-background/60 p-5 text-left sm:grid-cols-2">
-              <Info icon={Award} label="Applicant / Nominee" value={record.employee_full_name} />
-              <Info icon={ListChecks} label="Application Number" value={record.application_number} />
-              <Info
-                icon={CalendarDays}
-                label="Submission Date"
-                value={new Date(record.submitted_at).toLocaleDateString("en-IN", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                })}
-              />
-              <Info label="Current Status" value={record.status.toUpperCase()} />
+          {!record && !error && (
+            <div className="mt-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading registration...
             </div>
           )}
 
-          <p className="mt-6 text-sm text-muted-foreground">
-            Our team will review your details and contact you using the submitted phone or email.
-          </p>
+          {record && (
+            <>
+              <div className="mt-8 grid gap-4 rounded-2xl border border-border bg-background/60 p-5 text-left sm:grid-cols-2 lg:grid-cols-4">
+                <Info icon={Award} label="Company ID" value={record.company_registration_number} />
+                <Info label="Invoice" value={record.invoice_number} />
+                <Info label="Employees" value={String(record.employee_count)} />
+                <Info label="Amount" value={`Rs. ${record.total_amount.toLocaleString("en-IN")}`} />
+                <Info label="Company" value={record.company_name} />
+                <Info label="Owner" value={record.owner_name} />
+                <Info icon={CalendarDays} label="Submitted" value={formatEmployeeAwardDateTime(record.submitted_at)} />
+                <Info label="Payment" value={record.payment_status.toUpperCase()} />
+              </div>
 
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-            <Link
-              to="/"
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-border px-5 text-sm font-semibold hover:bg-accent"
-            >
-              <Home className="h-4 w-4" />
-              Return Home
-            </Link>
-            <Link
-              to="/registration"
-              className="inline-flex h-12 items-center justify-center rounded-xl gradient-primary px-5 text-sm font-semibold text-primary-foreground"
-            >
-              View Another Registration Option
-            </Link>
-          </div>
+              <div className="mt-6 overflow-x-auto rounded-2xl border border-border">
+                <table className="min-w-[760px] w-full text-left text-sm">
+                  <thead className="bg-accent text-xs uppercase tracking-wider text-muted-foreground">
+                    <tr>
+                      <th className="px-4 py-3">Award ID</th>
+                      <th className="px-4 py-3">Employee</th>
+                      <th className="px-4 py-3">Type</th>
+                      <th className="px-4 py-3">Designation</th>
+                      <th className="px-4 py-3 text-right">Fee</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {record.recipients.map((recipient) => (
+                      <tr key={recipient.id} className="border-t border-border">
+                        <td className="px-4 py-3 font-semibold text-primary">{recipient.award_registration_number}</td>
+                        <td className="px-4 py-3">{recipient.name}</td>
+                        <td className="px-4 py-3 capitalize">{recipient.recipient_type}</td>
+                        <td className="px-4 py-3">{recipient.designation}</td>
+                        <td className="px-4 py-3 text-right">Rs. {recipient.fee_amount.toLocaleString("en-IN")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+                {!paid && (
+                  <>
+                    <Button onClick={markPaid} disabled={busy} className="h-12 gradient-primary px-5 text-primary-foreground">
+                      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                      Simulate Test Payment Success
+                    </Button>
+                    <Button variant="outline" onClick={markFailed} disabled={busy} className="h-12 px-5">
+                      <XCircle className="h-4 w-4" />
+                      Mark Payment Failed
+                    </Button>
+                  </>
+                )}
+                {paid && (
+                  <Button variant="outline" onClick={() => downloadInvoice(record)} className="h-12 px-5">
+                    <Download className="h-4 w-4" />
+                    Download Invoice
+                  </Button>
+                )}
+                <Link to="/" className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-border px-5 text-sm font-semibold hover:bg-accent">
+                  <Home className="h-4 w-4" />
+                  Return Home
+                </Link>
+              </div>
+            </>
+          )}
         </div>
       </section>
     </div>
   );
 }
 
-function Info({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon?: typeof Award;
-  label: string;
-  value: string;
-}) {
+function Info({ icon: Icon, label, value }: { icon?: typeof Award; label: string; value: string }) {
   return (
     <div>
       <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
@@ -107,4 +185,16 @@ function Info({
       <div className="mt-1 font-semibold">{value}</div>
     </div>
   );
+}
+
+function downloadInvoice(record: EmployeeAwardRecord) {
+  const blob = new Blob([invoiceHtml(record, window.location.origin)], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${record.invoice_number}.html`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
 }

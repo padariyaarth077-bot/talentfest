@@ -23,6 +23,7 @@ import {
   KeyRound,
   LayoutDashboard,
   LayoutGrid,
+  Loader2,
   LogOut,
   MessageCircle,
   Menu,
@@ -73,6 +74,11 @@ import {
   resolveGoogleMapsUrl,
 } from "@/lib/admin.functions";
 import {
+  employeeAwardCompanyLogoUrl,
+  fetchEmployeeAwardsForAdmin,
+  formatEmployeeAwardDateTime,
+  invoiceHtml,
+  exportEmployeeAwardsExcel,
   updateEmployeeAwardStatus,
   type EmployeeAwardRecord,
 } from "@/lib/employee-awards.functions";
@@ -114,6 +120,22 @@ type PassFilter =
   | "test_paid"
   | "payment_pending";
 type ScannerState = "idle" | "valid" | "checked_in" | "invalid" | "revoked" | "error";
+
+function withTimeout<T>(promise: Promise<T>, ms: number) {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error("Admin data request timed out.")), ms);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timeout);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timeout);
+        reject(error);
+      },
+    );
+  });
+}
 
 type PublicEntryPass = {
   id: string;
@@ -328,6 +350,8 @@ function AdminPanel() {
   const [blogPosts, setBlogPosts] = useState<BlogPostRecord[]>([]);
   const [blogDataError, setBlogDataError] = useState("");
   const [employeeAwards, setEmployeeAwards] = useState<EmployeeAwardRecord[]>([]);
+  const [employeeAwardsLoading, setEmployeeAwardsLoading] = useState(false);
+  const [employeeAwardsError, setEmployeeAwardsError] = useState("");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<PassFilter>("all");
   const [page, setPage] = useState(1);
@@ -359,29 +383,41 @@ function AdminPanel() {
 
     try {
       const { data: userData, error: userError } = await db.auth.getUser();
-      if (userError || !userData.user) {
+      const authUser = (userData?.user as any)?.user ?? userData?.user;
+      if (userError || !authUser) {
         window.location.href = "/admin/login";
         return;
       }
 
-      setAdminEmail(userData.user.email ?? "");
-      setAdminUserId(userData.user.id);
-      const { data: roleData, error: roleError } = await db
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userData.user.id)
-        .eq("role", "admin")
-        .maybeSingle();
-
-      if (roleError) throw roleError;
-      if (!roleData) {
+      setAdminEmail(authUser.email ?? "");
+      setAdminUserId(authUser.id);
+      if (authUser.role !== "admin") {
         setIsAdmin(false);
         return;
       }
 
       setIsAdmin(true);
+      setLoading(false);
+      setEmployeeAwardsLoading(true);
+      setEmployeeAwardsError("");
+      const employeeAwardsPromise = fetchEmployeeAwardsForAdmin({
+        data: { adminUserId: authUser.id },
+      })
+        .then((employeeAwardsData) => {
+          setEmployeeAwards(employeeAwardsData as EmployeeAwardRecord[]);
+        })
+        .catch((error) => {
+          setEmployeeAwardsError(
+            error instanceof Error ? error.message : "Unable to load Employee Award registrations.",
+          );
+        })
+        .finally(() => setEmployeeAwardsLoading(false));
+
       try {
-        const adminData = await fetchAdminData({ data: { adminUserId: userData.user.id } });
+        const adminData = await withTimeout(
+          fetchAdminData({ data: { adminUserId: authUser.id } }),
+          8000,
+        );
         setPasses((adminData.passes ?? []).map((pass) => normalizePass(pass as PublicEntryPass)));
         setActivities((adminData.activities ?? []) as AdminActivity[]);
         setEventsList(adminData.events ?? []);
@@ -393,10 +429,12 @@ function AdminPanel() {
         setConcertArtists((adminData.concertArtists ?? []) as ConcertArtistRecord[]);
         setBlogDataError("");
         setBlogPosts((adminData.blogPosts ?? []) as BlogPostRecord[]);
-        setEmployeeAwards((adminData.employeeAwards ?? []) as EmployeeAwardRecord[]);
+        await employeeAwardsPromise;
         return;
       } catch (serverError) {
-        console.warn("Server admin fetch failed, falling back to browser queries", serverError);
+        console.warn("Full admin fetch failed; Employee Awards load continues independently", serverError);
+        await employeeAwardsPromise;
+        return;
       }
 
       const eventsResult = await db
@@ -570,20 +608,20 @@ function AdminPanel() {
         setGalleryMedia((mediaResult.data ?? []) as unknown as GalleryMedia[]);
       }
 
-      const db = db as any;
+      const dbClient = db as any;
       const [concertSettingsResult, concertArtistsResult, blogPostsResult] = await Promise.all([
-        db
+        dbClient
           .from("concert_settings")
           .select("*")
           .order("updated_at", { ascending: false })
           .limit(1)
           .maybeSingle(),
-        db
+        dbClient
           .from("concert_artists")
           .select("*")
           .order("display_order", { ascending: true })
           .order("artist_name", { ascending: true }),
-        db
+        dbClient
           .from("blog_posts")
           .select("*")
           .order("display_order", { ascending: true })
@@ -645,8 +683,9 @@ function AdminPanel() {
           p.payment_status === "paid" &&
           (p.payment_mode === "test" || p.payment_provider === "dummy"),
       ).length,
+      employeeAwards: employeeAwards.length,
     };
-  }, [passes, today]);
+  }, [employeeAwards.length, passes, today]);
 
   const filteredPasses = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -928,7 +967,7 @@ function AdminPanel() {
     window.location.href = "/admin/login";
   };
 
-  if (loading)
+  if (loading || isAdmin === null) {
     return (
       <AdminShell
         activeView={activeView}
@@ -937,11 +976,16 @@ function AdminPanel() {
         setSidebarOpen={setSidebarOpen}
         onLogout={logout}
       >
-        <AdminSkeleton />
+        <Panel title="Loading admin panel">
+          <div className="py-10 text-center text-sm text-muted-foreground">
+            Checking admin access and loading live database records...
+          </div>
+        </Panel>
       </AdminShell>
     );
+  }
 
-  if (!isAdmin) {
+  if (isAdmin === false) {
     return <AdminAccessDenied onLogout={logout} />;
   }
 
@@ -1029,7 +1073,10 @@ function AdminPanel() {
         )}
         {activeView === "employee_awards" && (
           <EmployeeAwardsView
+            adminUserId={adminUserId}
             awards={employeeAwards}
+            loading={employeeAwardsLoading}
+            error={employeeAwardsError}
             onStatusChange={changeEmployeeAwardStatus}
           />
         )}
@@ -1222,6 +1269,7 @@ function DashboardView({
     visitor: number;
     guest: number;
     testPaid: number;
+    employeeAwards: number;
   };
   activities: AdminActivity[];
   passes: PublicEntryPass[];
@@ -1233,6 +1281,7 @@ function DashboardView({
     { label: "Visitor Passes", value: stats.visitor, icon: Ticket },
     { label: "Guest Passes", value: stats.guest, icon: UserRound },
     { label: "Test Payments", value: stats.testPaid, icon: CreditCard },
+    { label: "Employee Awards", value: stats.employeeAwards, icon: Award },
     { label: "Checked In Today", value: stats.checkedIn, icon: CheckCircle2 },
     { label: "Pending Payments", value: stats.pending, icon: Activity },
     { label: "Revoked Passes", value: stats.revoked, icon: XCircle },
@@ -2624,10 +2673,10 @@ function BlogPostsView({
         display_order: Number(form.display_order) || 0,
         updated_at: new Date().toISOString(),
       };
-      const db = db as any;
+      const dbClient = db as any;
       const result = editingPost
-        ? await db.from("blog_posts").update(payload).eq("id", editingPost.id)
-        : await db.from("blog_posts").insert(payload);
+        ? await dbClient.from("blog_posts").update(payload).eq("id", editingPost.id)
+        : await dbClient.from("blog_posts").insert(payload);
       if (result.error) throw result.error;
       await logActivity(
         editingPost ? `Updated blog post ${payload.title}` : `Created blog post ${payload.title}`,
@@ -2928,7 +2977,7 @@ function ScannerView({
       const { Html5Qrcode } = await import("html5-qrcode");
       const scanner = new Html5Qrcode("admin-qr-file-reader");
       const decoded = await scanner.scanFile(file, true);
-      await scanner.clear().catch(() => undefined);
+      await Promise.resolve(scanner.clear()).catch(() => undefined);
       await validateScannedCode(decoded, setResult, adminUserId);
     } catch (error) {
       setResult({
@@ -3248,36 +3297,31 @@ function ParticipantsView({
 }
 
 function EmployeeAwardsView({
+  adminUserId,
   awards,
+  loading,
+  error,
   onStatusChange,
 }: {
+  adminUserId: string;
   awards: EmployeeAwardRecord[];
+  loading: boolean;
+  error: string;
   onStatusChange: (award: EmployeeAwardRecord, status: EmployeeAwardRecord["status"]) => Promise<void>;
 }) {
   const [selected, setSelected] = useState<EmployeeAwardRecord | null>(null);
-  const exportAwards = () => {
-    const headers = [
-      "application_number",
-      "employee_full_name",
-      "company_name",
-      "mobile_number",
-      "employee_email",
-      "award_categories",
-      "status",
-      "submitted_at",
-    ];
-    const csv = [
-      headers.join(","),
-      ...awards.map((row) =>
-        headers
-          .map((key) => {
-            const value = row[key as keyof EmployeeAwardRecord];
-            return `"${String(Array.isArray(value) ? value.join("; ") : value ?? "").replace(/"/g, '""')}"`;
-          })
-          .join(","),
-      ),
-    ].join("\n");
-    downloadText(csv, "employee-award-registrations.csv", "text/csv;charset=utf-8");
+  const [exporting, setExporting] = useState(false);
+  const exportAwards = async () => {
+    setExporting(true);
+    try {
+      const csv = await exportEmployeeAwardsExcel({ data: { adminUserId } });
+      downloadText(csv, "employee-award-registrations.csv", "text/csv;charset=utf-8");
+      toast.success("Employee Award export downloaded");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to export Employee Awards");
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -3287,12 +3331,12 @@ function EmployeeAwardsView({
           <div>
             <h2 className="font-display text-xl font-semibold">Employee Award Registrations</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Real Employee Award Ceremony 2026 submissions. Payment details are not collected.
+              Company registrations, employee awards, payment status and invoices.
             </p>
           </div>
-          <Button variant="outline" onClick={exportAwards} disabled={awards.length === 0}>
+          <Button variant="outline" onClick={exportAwards} disabled={awards.length === 0 || exporting}>
             <Download className="h-4 w-4" />
-            Export CSV
+            Export Excel
           </Button>
         </div>
 
@@ -3300,11 +3344,12 @@ function EmployeeAwardsView({
           <table className="min-w-[1100px] w-full text-left text-sm">
             <thead className="bg-accent text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
-                <th className="px-4 py-3">Application</th>
-                <th className="px-4 py-3">Nominee</th>
+                <th className="px-4 py-3">Company ID</th>
                 <th className="px-4 py-3">Company</th>
-                <th className="px-4 py-3">Contact</th>
-                <th className="px-4 py-3">Award Category</th>
+                <th className="px-4 py-3">Owner</th>
+                <th className="px-4 py-3">Employees</th>
+                <th className="px-4 py-3">Amount</th>
+                <th className="px-4 py-3">Payment</th>
                 <th className="px-4 py-3">Submitted</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Actions</th>
@@ -3313,20 +3358,23 @@ function EmployeeAwardsView({
             <tbody>
               {awards.map((award) => (
                 <tr key={award.id} className="border-t border-border">
-                  <td className="px-4 py-4 font-semibold text-primary">{award.application_number}</td>
+                  <td className="px-4 py-4 font-semibold text-primary">{award.company_registration_number}</td>
                   <td className="px-4 py-4">
-                    <div className="font-semibold">{award.employee_full_name}</div>
-                    <div className="text-xs text-muted-foreground">{award.designation}</div>
-                  </td>
-                  <td className="px-4 py-4">{award.company_name}</td>
-                  <td className="px-4 py-4">
-                    <div>{award.mobile_number}</div>
-                    <div className="text-xs text-muted-foreground">{award.employee_email}</div>
+                    <div className="font-semibold">{award.company_name}</div>
+                    <div className="text-xs text-muted-foreground">{award.company_mobile}</div>
                   </td>
                   <td className="px-4 py-4">
-                    {[...award.award_categories, award.other_award_category].filter(Boolean).join(", ")}
+                    <div className="font-medium">{award.owner_name}</div>
+                    <div className="text-xs text-muted-foreground">{award.owner_designation}</div>
                   </td>
-                  <td className="px-4 py-4">{formatDateTime(award.submitted_at)}</td>
+                  <td className="px-4 py-4">{award.total_recipients}</td>
+                  <td className="px-4 py-4">Rs. {award.total_amount.toLocaleString("en-IN")}</td>
+                  <td className="px-4 py-4">
+                    <span className={cn("rounded-full px-3 py-1 text-xs font-semibold uppercase", award.payment_status === "paid" ? "bg-emerald-500/15 text-emerald-600" : award.payment_status === "failed" ? "bg-destructive/15 text-destructive" : "bg-amber-500/15 text-amber-600")}>
+                      {award.payment_status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-4">{formatEmployeeAwardDateTime(award.submitted_at)}</td>
                   <td className="px-4 py-4">
                     <select
                       value={award.status}
@@ -3338,10 +3386,13 @@ function EmployeeAwardsView({
                       }
                       className="rounded-full border border-border bg-background px-3 py-2 text-xs font-semibold uppercase"
                     >
-                      <option value="submitted">Submitted</option>
+                      <option value="pending">Pending</option>
+                      <option value="confirmed">Confirmed</option>
                       <option value="reviewing">Reviewing</option>
                       <option value="approved">Approved</option>
                       <option value="rejected">Rejected</option>
+                      <option value="failed">Failed</option>
+                      <option value="cancelled">Cancelled</option>
                     </select>
                   </td>
                   <td className="px-4 py-4">
@@ -3358,9 +3409,23 @@ function EmployeeAwardsView({
                   </td>
                 </tr>
               ))}
-              {awards.length === 0 && (
+              {loading && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
+                    Loading Employee Award registrations from database...
+                  </td>
+                </tr>
+              )}
+              {!loading && error && (
+                <tr>
+                  <td colSpan={9} className="px-4 py-12 text-center text-destructive">
+                    {error}
+                  </td>
+                </tr>
+              )}
+              {!loading && !error && awards.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
                     No Employee Award registrations found.
                   </td>
                 </tr>
@@ -3375,48 +3440,61 @@ function EmployeeAwardsView({
           <DialogHeader>
             <DialogTitle>Employee Award Registration</DialogTitle>
             <DialogDescription>
-              {selected?.application_number} - no payment details are collected for this form.
+              {selected?.company_registration_number} - {selected?.invoice_number}
             </DialogDescription>
           </DialogHeader>
           {selected && (
-            <div className="grid gap-4 text-sm sm:grid-cols-2">
-              <Detail label="Application Number" value={selected.application_number} />
-              <Detail label="Status" value={selected.status} />
+            <div className="space-y-6 text-sm">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <EmployeeAwardLogo award={selected} alt={`${selected.company_name} logo`} />
+              <Detail label="Company Registration ID" value={selected.company_registration_number} />
+              <Detail label="Invoice Number" value={selected.invoice_number} />
               <Detail label="Company Name" value={selected.company_name} />
               <Detail label="Company Address" value={selected.company_address} />
-              <Detail label="HR / Coordinator" value={selected.coordinator_name} />
-              <Detail label="Company Contact" value={selected.contact_number} />
+              <Detail label="City" value={selected.city} />
+              <Detail label="State" value={selected.state} />
+              <Detail label="Pincode" value={selected.pincode} />
+              <Detail label="GST Number" value={selected.gst_number || "Not provided"} />
+              <Detail label="Company Website" value={selected.company_website || "Not provided"} />
+              <Detail label="Company Contact" value={selected.company_mobile} />
               <Detail label="Company Email" value={selected.company_email} />
-              <Detail label="Employee Full Name" value={selected.employee_full_name} />
-              <Detail label="Designation" value={selected.designation} />
-              <Detail label="Department" value={selected.department} />
-              <Detail label="Gender" value={selected.gender} />
-              <Detail label="Mobile Number" value={selected.mobile_number} />
-              <Detail label="Email Address" value={selected.employee_email} />
-              <Detail
-                label="Award Category"
-                value={[...selected.award_categories, selected.other_award_category]
-                  .filter(Boolean)
-                  .join(", ")}
-              />
-              <Detail label="Working Since" value={selected.working_since || "Not provided"} />
-              <Detail label="Total Experience" value={selected.total_experience} />
-              <Detail label="Major Achievements" value={selected.major_achievements} wide />
-              <Detail
-                label="Event Participation"
-                value={participationLabel(selected.event_participation)}
-              />
-              <Detail
-                label="Number of Participants"
-                value={String(selected.number_of_participants)}
-              />
-              <Detail label="Employee Signature" value={selected.employee_signature_name} />
-              <Detail
-                label="Authorized Company Signature"
-                value={selected.authorized_company_signature_name}
-              />
-              <Detail label="Declaration Date" value={selected.declaration_date} />
-              <Detail label="Submitted At" value={formatDateTime(selected.submitted_at)} />
+              <Detail label="Owner Name" value={selected.owner_name} />
+              <Detail label="Owner Designation" value={selected.owner_designation} />
+              <Detail label="Owner Email" value={selected.owner_email} />
+              <Detail label="Owner Mobile" value={selected.owner_mobile} />
+              <Detail label="Employees" value={String(selected.employee_count)} />
+              <Detail label="Employees Receiving Awards" value={String(selected.employee_count)} />
+              <Detail label="Total Amount" value={`Rs. ${selected.total_amount.toLocaleString("en-IN")}`} />
+              <Detail label="Payment Status" value={selected.payment_status} />
+              <Detail label="Order ID" value={selected.payment_order_id || "Not created"} />
+              <Detail label="Transaction ID" value={selected.transaction_id || "Not paid"} />
+              <Detail label="Status" value={selected.status} />
+              <Detail label="Submitted At" value={formatEmployeeAwardDateTime(selected.submitted_at)} />
+              </div>
+              <div className="overflow-x-auto rounded-2xl border border-border">
+                <table className="min-w-[720px] w-full text-left text-sm">
+                  <thead className="bg-accent text-xs uppercase tracking-wider text-muted-foreground">
+                    <tr>
+                      <th className="px-4 py-3">Award ID</th>
+                      <th className="px-4 py-3">Name</th>
+                      <th className="px-4 py-3">Type</th>
+                      <th className="px-4 py-3">Designation</th>
+                      <th className="px-4 py-3">Contact</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selected.recipients.map((recipient) => (
+                      <tr key={recipient.id} className="border-t border-border">
+                        <td className="px-4 py-3 font-semibold text-primary">{recipient.award_registration_number}</td>
+                        <td className="px-4 py-3">{recipient.name}</td>
+                        <td className="px-4 py-3 capitalize">{recipient.recipient_type}</td>
+                        <td className="px-4 py-3">{recipient.designation}</td>
+                        <td className="px-4 py-3">{recipient.mobile || recipient.email || "Not provided"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </DialogContent>
@@ -3920,7 +3998,7 @@ function PassDetailsDialog({
   onOpenChange: (open: boolean) => void;
   onDownload: (pass: PublicEntryPass) => void;
   onPrint: (pass: PublicEntryPass) => void;
-  qrRef: React.RefObject<HTMLCanvasElement>;
+  qrRef: React.RefObject<HTMLCanvasElement | null>;
 }) {
   return (
     <Dialog open={!!pass} onOpenChange={onOpenChange}>
@@ -4248,9 +4326,7 @@ function EventsView({
     const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
     const folder = eventId || editingEvent?.id || "new";
     const path = `events/${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
-    const { error: uploadError } = await db.storage
-      .from("event-images")
-      .upload(path, file, { cacheControl: "31536000", upsert: true });
+    const { error: uploadError } = await db.storage.from("event-images").upload(path, file);
     if (uploadError) throw uploadError;
     const { data: publicUrlData } = db.storage.from("event-images").getPublicUrl(path);
     return publicUrlData.publicUrl;
@@ -4597,20 +4673,6 @@ function AdminAccessDenied({ onLogout }: { onLogout: () => void }) {
   );
 }
 
-function AdminSkeleton() {
-  return (
-    <div className="space-y-6">
-      <div className="h-10 w-72 animate-pulse rounded-xl bg-white/10" />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, index) => (
-          <div key={index} className="h-32 animate-pulse rounded-2xl bg-white/10" />
-        ))}
-      </div>
-      <div className="h-96 animate-pulse rounded-2xl bg-white/10" />
-    </div>
-  );
-}
-
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="rounded-2xl border border-primary/15 bg-white/[0.04] p-5 shadow-soft">
@@ -4801,15 +4863,6 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-function participationLabel(value: EmployeeAwardRecord["event_participation"]) {
-  const labels: Record<EmployeeAwardRecord["event_participation"], string> = {
-    employee_only: "Employee Only",
-    employee_family: "Employee + Family",
-    company_team: "Company Team Participation",
-  };
-  return labels[value] ?? value;
-}
-
 function Detail({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
   return (
     <div className={wide ? "sm:col-span-2" : ""}>
@@ -4819,51 +4872,37 @@ function Detail({ label, value, wide = false }: { label: string; value: string; 
   );
 }
 
-function printEmployeeAward(award: EmployeeAwardRecord) {
-  const win = window.open("", "_blank", "noopener,noreferrer");
-  if (!win) return toast.error("Allow popups to print this registration.");
-  win.document.write(`
-    <html>
-      <head>
-        <title>${escapeHtml(award.application_number)}</title>
-        <style>
-          body{font-family:Inter,Arial,sans-serif;padding:28px;color:#111}
-          h1{margin:0 0 6px;font-size:26px}
-          .muted{color:#555;margin-bottom:22px}
-          .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-          .item{border:1px solid #ddd;border-radius:10px;padding:10px}
-          .label{font-size:11px;text-transform:uppercase;color:#666;letter-spacing:.12em}
-          .value{margin-top:4px;font-weight:600;white-space:pre-wrap}
-          .wide{grid-column:1 / -1}
-        </style>
-      </head>
-      <body>
-        <h1>Employee Award Ceremony 2026 Registration</h1>
-        <div class="muted">Application ${escapeHtml(award.application_number)} - Payment details excluded</div>
-        <div class="grid">
-          ${employeeAwardPrintItem("Company", award.company_name)}
-          ${employeeAwardPrintItem("Nominee", award.employee_full_name)}
-          ${employeeAwardPrintItem("Designation", award.designation)}
-          ${employeeAwardPrintItem("Department", award.department)}
-          ${employeeAwardPrintItem("Phone", award.mobile_number)}
-          ${employeeAwardPrintItem("Email", award.employee_email)}
-          ${employeeAwardPrintItem("Award Category", [...award.award_categories, award.other_award_category].filter(Boolean).join(", "), true)}
-          ${employeeAwardPrintItem("Major Achievements", award.major_achievements, true)}
-          ${employeeAwardPrintItem("Participation", participationLabel(award.event_participation))}
-          ${employeeAwardPrintItem("Participants", String(award.number_of_participants))}
-          ${employeeAwardPrintItem("Status", award.status)}
-          ${employeeAwardPrintItem("Submitted", formatDateTime(award.submitted_at))}
+function EmployeeAwardLogo({ award, alt }: { award: EmployeeAwardRecord; alt: string }) {
+  const [failed, setFailed] = useState(false);
+  const safeSrc = employeeAwardCompanyLogoUrl(award);
+  return (
+    <div className="sm:col-span-2">
+      {safeSrc && !failed ? (
+        <img
+          src={safeSrc}
+          alt={alt}
+          onError={() => setFailed(true)}
+          className="h-20 max-w-64 rounded-xl border border-border object-contain p-2"
+        />
+      ) : (
+        <div className="grid h-20 max-w-64 place-items-center rounded-xl border border-dashed border-border px-4 text-xs text-muted-foreground">
+          Company logo not available
         </div>
-      </body>
-    </html>
-  `);
-  win.document.close();
-  win.focus();
-  win.print();
+      )}
+    </div>
+  );
 }
 
-function employeeAwardPrintItem(label: string, value: string, wide = false) {
-  return `<div class="item ${wide ? "wide" : ""}"><div class="label">${escapeHtml(label)}</div><div class="value">${escapeHtml(value || "Not provided")}</div></div>`;
+function printEmployeeAward(award: EmployeeAwardRecord) {
+  const autoPrint = `<script>(function(){function p(){setTimeout(function(){window.focus();window.print();},150)}var imgs=Array.prototype.slice.call(document.images).filter(function(i){return !i.complete});if(!imgs.length){p();return}var left=imgs.length;function done(){left-=1;if(left<=0)p()}imgs.forEach(function(img){img.addEventListener("load",done,{once:true});img.addEventListener("error",done,{once:true})});setTimeout(p,2500)})();</script>`;
+  const html = invoiceHtml(award, window.location.origin).replace("</body>", `${autoPrint}</body>`);
+  const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
+  const win = window.open(url, "_blank");
+  if (!win) {
+    URL.revokeObjectURL(url);
+    return toast.error("Allow popups to print this registration.");
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 function formatDateTime(value?: string | null) {

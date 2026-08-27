@@ -20,15 +20,56 @@ async function assertAdmin(db: AdminDb, adminUserId: string) {
 }
 
 async function safeList<T>(query: PromiseLike<{ data: T[] | null; error: any }>) {
-  const { data, error } = await query;
-  if (error) return [];
-  return data ?? [];
+  try {
+    const { data, error } = await query;
+    if (error) return [];
+    return data ?? [];
+  } catch {
+    return [];
+  }
 }
 
 async function safeMaybeSingle<T>(query: PromiseLike<{ data: T | null; error: any }>) {
-  const { data, error } = await query;
-  if (error) return null;
-  return data ?? null;
+  try {
+    const { data, error } = await query;
+    if (error) return null;
+    return data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function toMoney(value: unknown) {
+  return Number(value || 0);
+}
+
+async function listEmployeeAwardsForAdmin() {
+  const { query } = await import("@/db/index");
+  const companies = await query<any>(
+    "SELECT * FROM employee_award_company_registrations ORDER BY created_at DESC",
+  );
+  if (!companies.length) return [];
+  const ids = companies.map((company) => company.id);
+  const placeholders = ids.map(() => "?").join(", ");
+  const recipients = await query<any>(
+    `SELECT * FROM employee_award_recipients WHERE company_registration_id IN (${placeholders}) ORDER BY display_order ASC`,
+    ids,
+  );
+  const payments = await query<any>(
+    `SELECT * FROM employee_award_payments WHERE company_registration_id IN (${placeholders}) ORDER BY created_at DESC`,
+    ids,
+  );
+  return companies.map((company) => ({
+    ...company,
+    employee_count: Number(company.employee_count),
+    total_recipients: Number(company.total_recipients),
+    price_per_recipient: toMoney(company.price_per_recipient),
+    total_amount: toMoney(company.total_amount),
+    recipients: recipients
+      .filter((recipient) => recipient.company_registration_id === company.id)
+      .map((recipient) => ({ ...recipient, fee_amount: toMoney(recipient.fee_amount) })),
+    payment: payments.find((payment) => payment.company_registration_id === company.id) ?? null,
+  }));
 }
 
 function parseQrValue(value: string) {
@@ -325,12 +366,7 @@ export const fetchAdminData = createServerFn({ method: "GET" })
             .order("display_order", { ascending: true })
             .order("published_at", { ascending: false }),
         ),
-        safeList<any>(
-          (dbAdmin as any)
-            .from("employee_award_registrations")
-            .select("*")
-            .order("created_at", { ascending: false }),
-        ),
+        listEmployeeAwardsForAdmin().catch(() => []),
       ]);
 
     return {

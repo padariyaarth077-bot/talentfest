@@ -25,9 +25,10 @@ function cookieValue() {
 }
 
 function setSessionCookie(token: string, maxAge = MAX_AGE_SECONDS) {
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
   setResponseHeader(
     "Set-Cookie",
-    `${COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=Lax; Secure`,
+    `${COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=Lax${secure}`,
   );
 }
 
@@ -102,4 +103,3 @@ export async function requireAdmin(userId: string) {
   const rows = await query("SELECT id FROM user_roles WHERE user_id = ? AND role = 'admin' LIMIT 1", [userId]);
   if (rows.length === 0) throw new Error("Admin access required.");
 }
-

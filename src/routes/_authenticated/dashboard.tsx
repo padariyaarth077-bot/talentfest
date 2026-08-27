@@ -4,6 +4,7 @@ import { db } from "@/db/client";
 import { Section } from "@/components/site/Section";
 import { Button } from "@/components/ui/button";
 import { Ticket, ArrowRight, LogOut } from "lucide-react";
+import { fetchMyEmployeeAwards, type EmployeeAwardRecord } from "@/lib/employee-awards.functions";
 
 type Pass = {
   id: string;
@@ -24,6 +25,9 @@ const statusStyles: Record<string, string> = {
   approved: "bg-emerald-500/15 text-emerald-500",
   rejected: "bg-red-500/15 text-red-500",
   checked_in: "bg-blue-500/15 text-blue-500",
+  paid: "bg-emerald-500/15 text-emerald-500",
+  failed: "bg-red-500/15 text-red-500",
+  confirmed: "bg-emerald-500/15 text-emerald-500",
   completed: "bg-purple-500/15 text-purple-500",
   cancelled: "bg-zinc-500/15 text-zinc-400",
   expired: "bg-zinc-800/40 text-zinc-500",
@@ -31,6 +35,7 @@ const statusStyles: Record<string, string> = {
 
 function DashboardPage() {
   const [passes, setPasses] = useState<Pass[]>([]);
+  const [employeeAwards, setEmployeeAwards] = useState<EmployeeAwardRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState("");
 
@@ -43,6 +48,7 @@ function DashboardPage() {
         .select("id, entry_number, competition, category, status, created_at")
         .order("created_at", { ascending: false });
       setPasses((data as Pass[] | null) ?? []);
+      setEmployeeAwards(await fetchMyEmployeeAwards());
       setLoading(false);
     })();
   }, []);
@@ -89,6 +95,34 @@ function DashboardPage() {
                   </div>
                   <div className="font-semibold truncate">{p.competition}</div>
                   <div className="text-xs text-muted-foreground">{p.category}</div>
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {!loading && employeeAwards.length > 0 && (
+          <div className="pt-6 space-y-3">
+            <h2 className="font-display text-2xl font-semibold">My Employee Award Registrations</h2>
+            {employeeAwards.map((award) => (
+              <Link
+                key={award.id}
+                to="/employee-award-ceremony-2026/success"
+                search={{ company: award.company_registration_number }}
+                className="p-5 rounded-2xl bg-card border border-border hover:border-primary/50 transition-colors flex items-center justify-between gap-4"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-mono text-xs px-2 py-0.5 rounded bg-accent">{award.company_registration_number}</span>
+                    <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${statusStyles[award.payment_status] ?? statusStyles.pending}`}>
+                      {award.payment_status}
+                    </span>
+                  </div>
+                  <div className="font-semibold truncate">{award.company_name}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {award.employee_count} employees · Invoice {award.invoice_number} · Rs. {award.total_amount.toLocaleString("en-IN")}
+                  </div>
                 </div>
                 <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
               </Link>
