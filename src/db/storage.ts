@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { getServerEnv } from "./env";
 
 const PUBLIC_DIR = path.resolve(process.cwd(), "public");
 const UPLOAD_ROOT = path.join(PUBLIC_DIR, "uploads");
@@ -11,7 +12,7 @@ function cleanSegment(value: string) {
 }
 
 function publicBaseUrl() {
-  return (process.env.STORAGE_PUBLIC_BASE_URL || process.env.VITE_PUBLIC_SITE_URL || "").replace(/\/$/, "");
+  return (getServerEnv("STORAGE_PUBLIC_BASE_URL") || getServerEnv("VITE_PUBLIC_SITE_URL") || "").replace(/\/$/, "");
 }
 
 export function getPublicUrl(bucket: string, objectPath: string) {
@@ -31,4 +32,3 @@ export async function uploadObject(bucket: string, objectPath: string, bytes: Bu
   await writeFile(target, bytes);
   return { path: safePath, publicUrl: getPublicUrl(safeBucket, safePath) };
 }
-
