@@ -1,27 +1,22 @@
 import mysql from 'mysql2/promise';
+import { getServerEnv } from './env';
 
 function requiredEnv(name: string): string {
-  const value = process.env[name];
+  const value = getServerEnv(name);
   if (!value) throw new Error(`Missing required environment variable: ${name}`);
   return value;
 }
-
-const DB_HOST = requiredEnv('MYSQL_HOST');
-const DB_PORT = parseInt(process.env.MYSQL_PORT || '3306', 10);
-const DB_NAME = requiredEnv('MYSQL_DATABASE');
-const DB_USER = requiredEnv('MYSQL_USER');
-const DB_PASS = requiredEnv('MYSQL_PASSWORD');
 
 let _pool: mysql.Pool | null = null;
 
 export function getPool(): mysql.Pool {
   if (!_pool) {
     _pool = mysql.createPool({
-      host: DB_HOST,
-      port: DB_PORT,
-      database: DB_NAME,
-      user: DB_USER,
-      password: DB_PASS,
+      host: requiredEnv('MYSQL_HOST'),
+      port: parseInt(getServerEnv('MYSQL_PORT') || '3306', 10),
+      database: requiredEnv('MYSQL_DATABASE'),
+      user: requiredEnv('MYSQL_USER'),
+      password: requiredEnv('MYSQL_PASSWORD'),
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0,
