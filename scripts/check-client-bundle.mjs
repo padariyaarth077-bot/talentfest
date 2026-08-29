@@ -1,4 +1,4 @@
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const assetsDir = join(process.cwd(), "dist", "assets");
@@ -38,7 +38,20 @@ if (offenders.length) {
 
 const workerConfig = JSON.parse(await readFile(workerConfigPath, "utf8"));
 const flags = new Set(workerConfig.compatibility_flags ?? []);
-if (!flags.has("nodejs_compat")) {
+const nodeCompatDefaultDate = "2026-08-04";
+const hasDefaultNodeCompat = workerConfig.compatibility_date >= nodeCompatDefaultDate;
+const hasNodeCompat = hasDefaultNodeCompat || flags.has("nodejs_compat");
+
+if (!hasNodeCompat) {
   console.error("Cloudflare worker build is missing nodejs_compat.");
   process.exit(1);
+}
+
+if (hasDefaultNodeCompat && workerConfig.compatibility_flags) {
+  const filteredFlags = workerConfig.compatibility_flags.filter((flag) =>
+    flag !== "nodejs_compat" && flag !== "nodejs_compat_v2"
+  );
+  if (filteredFlags.length) workerConfig.compatibility_flags = filteredFlags;
+  else delete workerConfig.compatibility_flags;
+  await writeFile(workerConfigPath, `${JSON.stringify(workerConfig, null, 2)}\n`);
 }
