@@ -196,6 +196,13 @@ function EmployeeAwardSuccessPage() {
                         <td className="px-4 py-3 text-right">Rs. {recipient.fee_amount.toLocaleString("en-IN")}</td>
                       </tr>
                     ))}
+                    {record.recipients.length === 0 && (
+                      <tr className="border-t border-border">
+                        <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                          No employee award recipients for this owner-only registration.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>

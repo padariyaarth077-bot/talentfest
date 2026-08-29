@@ -39,7 +39,7 @@ const companySchema = z.object({
   ownerEmail: z.string().trim().email(),
   ownerMobile: z.string().trim().regex(/^\d{10}$/),
   ownerPhoto: imageSchema.optional().nullable(),
-  employees: z.array(employeeSchema).min(1).max(MAX_EMPLOYEES).default([]),
+  employees: z.array(employeeSchema).max(MAX_EMPLOYEES).default([]),
 });
 
 const companyRefSchema = z.object({ company: z.string().trim().min(1) });
@@ -356,7 +356,7 @@ export const submitEmployeeAwardRegistration = createServerFn({ method: "POST" }
       await conn.beginTransaction();
       const companyNo = seq("COMP", await nextSeq(conn, "company"));
       const invoiceNo = seq("INV", await nextSeq(conn, "invoice"));
-      const firstAward = await nextSeq(conn, "award", employeeCount);
+      const firstAward = employeeCount > 0 ? await nextSeq(conn, "award", employeeCount) : 0;
       const companyId = crypto.randomUUID();
       const orderId = `EAC-${companyNo}`;
       const logo = await saveImage(data.companyLogo, `company/${companyNo}/logo`);
@@ -561,8 +561,21 @@ export const exportEmployeeAwardsExcel = createServerFn({ method: "POST" })
       "Employee Count", "Owner Fee", "Employee Fee", "Recipient Fee", "Total Order Amount", "Payment Status",
       "Payment Order ID", "Transaction ID", "Invoice Number", "Registration Date", "Payment Date",
     ];
-    const rows = awards.flatMap((award) =>
-      award.recipients.map((recipient) => [
+    const rows = awards.flatMap((award) => {
+      const recipients = award.recipients.length
+        ? award.recipients
+        : [{
+            award_registration_number: "",
+            recipient_type: "employee",
+            name: "",
+            designation: "",
+            department: "",
+            email: "",
+            mobile: "",
+            photo_url: "",
+            fee_amount: 0,
+          }];
+      return recipients.map((recipient) => [
         award.company_registration_number, recipient.award_registration_number, award.company_name, award.company_logo_url,
         award.company_email, award.company_mobile, award.company_address, award.city, award.state, award.pincode,
         award.gst_number ?? "", award.owner_name, award.owner_designation, recipient.recipient_type, recipient.name,
@@ -570,8 +583,8 @@ export const exportEmployeeAwardsExcel = createServerFn({ method: "POST" })
         award.employee_count, OWNER_FEE, EMPLOYEE_AWARD_FEE, recipient.fee_amount, award.total_amount,
         award.payment_status, award.payment_order_id ?? "", award.transaction_id ?? "", award.invoice_number,
         award.submitted_at, award.paid_at ?? "",
-      ]),
-    );
+      ]);
+    });
     return [headers, ...rows]
       .map((row) => row.map((value) => `"${String(value ?? "").replace(/"/g, '""')}"`).join(","))
       .join("\n");

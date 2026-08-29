@@ -3450,6 +3450,13 @@ function EmployeeAwardsView({
                         <td className="px-4 py-3">{recipient.mobile || recipient.email || "Not provided"}</td>
                       </tr>
                     ))}
+                    {selected.recipients.length === 0 && (
+                      <tr className="border-t border-border">
+                        <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                          No employee award recipients for this owner-only registration.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>

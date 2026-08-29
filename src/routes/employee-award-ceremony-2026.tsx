@@ -89,7 +89,7 @@ const emptyForm: FormState = {
   ownerEmail: "",
   ownerMobile: "",
   ownerPhoto: null,
-  employees: [emptyEmployee()],
+  employees: [],
   declarationAccepted: false,
 };
 
@@ -175,7 +175,7 @@ function EmployeeAwardCeremonyPage() {
   };
 
   const setEmployeeCount = (value: string) => {
-    const count = Math.min(MAX_EMPLOYEES, Math.max(1, Number(value.replace(/\D/g, "")) || 1));
+    const count = Math.min(MAX_EMPLOYEES, Math.max(0, Number(value.replace(/\D/g, "")) || 0));
     setForm((current) => {
       if (count < current.employees.length) {
         const removed = current.employees.slice(count).some((employee) => Object.values(employee).some(Boolean));
@@ -312,12 +312,26 @@ function EmployeeAwardCeremonyPage() {
           </FormSection>
 
           <FormSection icon={UserRound} title="Employees Receiving Awards">
+            <div className="md:col-span-2 flex flex-wrap gap-3">
+              <Button type="button" variant={form.employees.length === 0 ? "default" : "outline"} onClick={() => setEmployeeCount("0")}>
+                Owner Only
+              </Button>
+              <Button type="button" variant={form.employees.length > 0 ? "default" : "outline"} onClick={() => setEmployeeCount(String(Math.max(1, form.employees.length)))}>
+                Owner + Employees
+              </Button>
+            </div>
             <div className="md:col-span-2 grid gap-4 sm:grid-cols-[220px_1fr] sm:items-end">
               <TextField label="Employee Count" value={String(form.employees.length)} error={errors.employees} onChange={setEmployeeCount} type="number" required />
               <div className="rounded-2xl border border-primary/20 bg-primary/10 p-4 text-sm text-muted-foreground">
                 Owner is the company contact only. Award IDs are created only for employees. You can add up to {MAX_EMPLOYEES} employees.
               </div>
             </div>
+
+            {form.employees.length === 0 && (
+              <div className="md:col-span-2 rounded-2xl border border-border bg-background/70 p-4 text-sm text-muted-foreground">
+                Owner-only registration selected. No employee award recipient will be created or charged.
+              </div>
+            )}
 
             {form.employees.map((employee, index) => (
               <div key={index} className="md:col-span-2 rounded-2xl border border-border bg-background/70 p-4">
