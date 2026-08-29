@@ -50,7 +50,7 @@ if (!hasNodeCompat) {
 
 if (flags.has("nodejs_compat") && flags.has("nodejs_compat_v2")) {
   workerConfig.compatibility_flags = workerConfig.compatibility_flags.filter(
-    (flag) => flag !== "nodejs_compat",
+    (flag) => flag !== "nodejs_compat_v2",
   );
   await writeFile(workerConfigPath, `${JSON.stringify(workerConfig, null, 2)}\n`);
 }
