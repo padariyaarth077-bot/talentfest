@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const assetsDir = join(process.cwd(), "dist", "assets");
+const workerConfigPath = join(process.cwd(), "dist", "_worker.js", "wrangler.json");
 const blocked = [
   "node:process",
   "node:net",
@@ -35,3 +36,9 @@ if (offenders.length) {
   process.exit(1);
 }
 
+const workerConfig = JSON.parse(await readFile(workerConfigPath, "utf8"));
+const flags = new Set(workerConfig.compatibility_flags ?? []);
+if (!flags.has("nodejs_compat")) {
+  console.error("Cloudflare worker build is missing nodejs_compat.");
+  process.exit(1);
+}
