@@ -40,11 +40,19 @@ const workerConfig = JSON.parse(await readFile(workerConfigPath, "utf8"));
 const flags = new Set(workerConfig.compatibility_flags ?? []);
 const nodeCompatDefaultDate = "2026-08-04";
 const hasDefaultNodeCompat = workerConfig.compatibility_date >= nodeCompatDefaultDate;
-const hasNodeCompat = hasDefaultNodeCompat || flags.has("nodejs_compat");
+const hasNodeCompat =
+  hasDefaultNodeCompat || flags.has("nodejs_compat") || flags.has("nodejs_compat_v2");
 
 if (!hasNodeCompat) {
-  console.error("Cloudflare worker build is missing nodejs_compat.");
+  console.error("Cloudflare worker build is missing Node.js compatibility.");
   process.exit(1);
+}
+
+if (flags.has("nodejs_compat") && flags.has("nodejs_compat_v2")) {
+  workerConfig.compatibility_flags = workerConfig.compatibility_flags.filter(
+    (flag) => flag !== "nodejs_compat",
+  );
+  await writeFile(workerConfigPath, `${JSON.stringify(workerConfig, null, 2)}\n`);
 }
 
 if (hasDefaultNodeCompat && workerConfig.compatibility_flags) {

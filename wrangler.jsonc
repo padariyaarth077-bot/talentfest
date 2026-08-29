@@ -3,5 +3,5 @@
   "name": "talent-final-main",
   "pages_build_output_dir": "dist",
   "compatibility_date": "2024-09-22",
-  "compatibility_flags": ["nodejs_compat", "nodejs_compat_v2"]
+  "compatibility_flags": ["nodejs_compat_v2"]
 }
