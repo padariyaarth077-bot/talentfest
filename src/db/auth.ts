@@ -1,3 +1,4 @@
+import "@tanstack/react-start/server-only";
 import bcrypt from "bcryptjs";
 import { getRequestHeader, setResponseHeader } from "@tanstack/react-start/server";
 import { execute, query, queryOne } from "./index";

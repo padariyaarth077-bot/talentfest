@@ -1,3 +1,4 @@
+import "@tanstack/react-start/server-only";
 import { execute, query, queryOne } from "./index";
 import { callRpc } from "./rpc";
 import { getPublicUrl, uploadObject } from "./storage";
@@ -354,4 +355,3 @@ class ServerQuery implements PromiseLike<any> {
 }
 
 export const dbAdmin = createDbAdmin();
-

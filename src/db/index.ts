@@ -1,3 +1,4 @@
+import "@tanstack/react-start/server-only";
 import mysql from 'mysql2/promise';
 import { getServerEnv } from './env';
 

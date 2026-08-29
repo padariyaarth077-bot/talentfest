@@ -1,3 +1,4 @@
+import "@tanstack/react-start/server-only";
 import type mysql from "mysql2/promise";
 import { getPool } from "./index";
 
@@ -143,4 +144,3 @@ export async function callRpc(name: string, args: Record<string, any>) {
   if (name === "allocate_registration_seats") return allocateRegistrationSeats(args as any);
   throw new Error(`Unknown RPC function: ${name}`);
 }
-
