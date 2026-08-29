@@ -1,12 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
-import { currentUser, signIn, signOut, signUp } from "./auth";
-import { runQuery, type QueryPayload } from "./data-client.server";
-import { callRpc } from "./rpc";
-import { uploadObject } from "./storage";
+import type { QueryPayload } from "./data-client.server";
 
 const runDbQuery = createServerFn({ method: "POST" })
   .validator((data: QueryPayload) => data)
   .handler(async ({ data }) => {
+    const { runQuery } = await import("./data-client.server");
     return runQuery(data);
   });
 
@@ -14,6 +12,7 @@ const runRpc = createServerFn({ method: "POST" })
   .validator((data: { name: string; args: Record<string, any> }) => data)
   .handler(async ({ data }) => {
     try {
+      const { callRpc } = await import("./rpc");
       return { data: await callRpc(data.name, data.args), error: null };
     } catch (error) {
       return { data: null, error: { message: error instanceof Error ? error.message : String(error) } };
@@ -23,6 +22,7 @@ const runRpc = createServerFn({ method: "POST" })
 const uploadFile = createServerFn({ method: "POST" })
   .validator((data: { bucket: string; path: string; base64: string }) => data)
   .handler(async ({ data }) => {
+    const { uploadObject } = await import("./storage");
     const saved = await uploadObject(data.bucket, data.path, Buffer.from(data.base64, "base64"));
     return { data: { path: saved.path }, error: null };
   });
@@ -30,22 +30,26 @@ const uploadFile = createServerFn({ method: "POST" })
 const login = createServerFn({ method: "POST" })
   .validator((data: { email: string; password: string; adminOnly?: boolean }) => data)
   .handler(async ({ data }) => {
+    const { signIn } = await import("./auth");
     return signIn(data.email, data.password, data.adminOnly);
   });
 
 const signup = createServerFn({ method: "POST" })
   .validator((data: { email: string; password: string; fullName: string; phone?: string }) => data)
   .handler(async ({ data }) => {
+    const { signUp } = await import("./auth");
     return signUp(data.email, data.password, data.fullName, data.phone);
   });
 
 const logout = createServerFn({ method: "POST" })
   .handler(async () => {
+    const { signOut } = await import("./auth");
     return signOut();
   });
 
 const getUser = createServerFn({ method: "GET" })
   .handler(async () => {
+    const { currentUser } = await import("./auth");
     return { user: await currentUser() };
   });
 
