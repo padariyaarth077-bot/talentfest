@@ -2,6 +2,8 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { setCloudflareEnv } from "./db/env";
+import { serveUploadedObject } from "./db/storage";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -68,6 +70,10 @@ function isH3SwallowedErrorBody(body: string): boolean {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      setCloudflareEnv(env);
+      if (new URL(request.url).pathname.startsWith("/uploads/")) {
+        return serveUploadedObject(request);
+      }
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return preventStaleHtmlShell(await normalizeCatastrophicSsrResponse(response));

@@ -682,6 +682,21 @@ CREATE TABLE IF NOT EXISTS `rate_limits` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
+-- 29. UPLOADED OBJECTS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `uploaded_objects` (
+  `object_key` VARCHAR(512) NOT NULL,
+  `bucket` VARCHAR(128) NOT NULL,
+  `object_path` VARCHAR(384) NOT NULL,
+  `body_base64` LONGTEXT NOT NULL,
+  `content_type` VARCHAR(128) NOT NULL,
+  `size_bytes` INT NOT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`object_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
 -- SEED DATA
 -- ============================================================
 

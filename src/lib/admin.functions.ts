@@ -46,7 +46,7 @@ function toMoney(value: unknown) {
 async function listEmployeeAwardsForAdmin() {
   const { query } = await import("@/db/index");
   const companies = await query<any>(
-    "SELECT * FROM employee_award_company_registrations ORDER BY created_at DESC",
+    "SELECT * FROM employee_award_company_registrations WHERE payment_status = 'paid' ORDER BY created_at DESC",
   );
   if (!companies.length) return [];
   const ids = companies.map((company) => company.id);

@@ -1,5 +1,4 @@
 import "@tanstack/react-start/server-only";
-import type mysql from "mysql2/promise";
 import { getPool } from "./index";
 
 export async function incrementRateLimit(input: {
@@ -132,7 +131,7 @@ export async function allocateRegistrationSeats(input: {
   }
 }
 
-async function holderNameForPass(conn: mysql.PoolConnection, pass: any, fallback: string) {
+async function holderNameForPass(conn: any, pass: any, fallback: string) {
   if (!pass.guest_id) return fallback;
   const [rows] = await conn.execute("SELECT full_name FROM guests WHERE id = ? LIMIT 1", [pass.guest_id]);
   return (rows as any[])[0]?.full_name ?? fallback;

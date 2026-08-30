@@ -8,6 +8,8 @@ const blocked = [
   "node:net",
   "node:tls",
   "mysql2",
+  "cloudflare-mysql",
+  "cloudflare:sockets",
   "__vite-browser-external",
   "No such module",
 ];
@@ -50,16 +52,7 @@ if (!hasNodeCompat) {
 
 if (flags.has("nodejs_compat") && flags.has("nodejs_compat_v2")) {
   workerConfig.compatibility_flags = workerConfig.compatibility_flags.filter(
-    (flag) => flag !== "nodejs_compat_v2",
+    (flag) => flag !== "nodejs_compat",
   );
-  await writeFile(workerConfigPath, `${JSON.stringify(workerConfig, null, 2)}\n`);
-}
-
-if (hasDefaultNodeCompat && workerConfig.compatibility_flags) {
-  const filteredFlags = workerConfig.compatibility_flags.filter((flag) =>
-    flag !== "nodejs_compat" && flag !== "nodejs_compat_v2"
-  );
-  if (filteredFlags.length) workerConfig.compatibility_flags = filteredFlags;
-  else delete workerConfig.compatibility_flags;
   await writeFile(workerConfigPath, `${JSON.stringify(workerConfig, null, 2)}\n`);
 }

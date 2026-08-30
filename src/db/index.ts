@@ -1,6 +1,6 @@
 import "@tanstack/react-start/server-only";
-import mysql from 'mysql2/promise';
-import { getServerEnv } from './env';
+import { createConnection } from "cloudflare-mysql";
+import { getCloudflareEnv, getServerEnv } from './env';
 
 function requiredEnv(name: string): string {
   const value = getServerEnv(name);
@@ -8,25 +8,75 @@ function requiredEnv(name: string): string {
   return value;
 }
 
-let _pool: mysql.Pool | null = null;
+type HyperdriveBinding = {
+  host: string;
+  port: number;
+  database: string;
+  user: string;
+  password: string;
+};
 
-export function getPool(): mysql.Pool {
-  if (!_pool) {
-    _pool = mysql.createPool({
-      host: requiredEnv('MYSQL_HOST'),
-      port: parseInt(getServerEnv('MYSQL_PORT') || '3306', 10),
-      database: requiredEnv('MYSQL_DATABASE'),
-      user: requiredEnv('MYSQL_USER'),
-      password: requiredEnv('MYSQL_PASSWORD'),
-      waitForConnections: true,
-      connectionLimit: 10,
-      queueLimit: 0,
+function hyperdriveBinding(): HyperdriveBinding | undefined {
+  return getCloudflareEnv()?.HYPERDRIVE as HyperdriveBinding | undefined;
+}
+
+function connectionOptions() {
+  const binding = hyperdriveBinding();
+  if (binding) {
+    return {
+      host: binding.host,
+      port: binding.port,
+      database: binding.database,
+      user: binding.user,
+      password: binding.password,
       charset: 'utf8mb4',
       timezone: '+00:00',
       dateStrings: true,
-    });
+    };
   }
-  return _pool;
+
+  return {
+    host: requiredEnv('MYSQL_HOST'),
+    port: parseInt(getServerEnv('MYSQL_PORT') || '3306', 10),
+    database: requiredEnv('MYSQL_DATABASE'),
+    user: requiredEnv('MYSQL_USER'),
+    password: requiredEnv('MYSQL_PASSWORD'),
+    charset: 'utf8mb4',
+    timezone: '+00:00',
+    dateStrings: true,
+  };
+}
+
+function runConnection<T>(handler: (conn: any) => Promise<T>) {
+  const conn = createConnection(connectionOptions());
+  return handler(conn).finally(() => conn.end());
+}
+
+function mysqlCallback<T>(run: (done: (error: any, result?: T, fields?: any[]) => void) => void) {
+  return new Promise<[T, any[]]>((resolve, reject) => {
+    run((error, result, fields = []) => {
+      if (error) reject(error);
+      else resolve([result as T, fields]);
+    });
+  });
+}
+
+function wrapConnection(conn: any) {
+  return {
+    execute: (sql: string, params?: any[]) => mysqlCallback<any[]>((done) => conn.query(sql, params, done)),
+    beginTransaction: () => mysqlCallback<any>((done) => conn.beginTransaction(done)).then(() => undefined),
+    commit: () => mysqlCallback<any>((done) => conn.commit(done)).then(() => undefined),
+    rollback: () => mysqlCallback<any>((done) => conn.rollback(done)).then(() => undefined),
+    release: () => conn.end(),
+  };
+}
+
+export function getPool() {
+  return {
+    execute: (sql: string, params?: any[]) => runConnection((conn) => mysqlCallback<any[]>((done) => conn.query(sql, params, done))),
+    getConnection: async () => wrapConnection(createConnection(connectionOptions())),
+    end: async () => {},
+  };
 }
 
 export async function query<T = any>(sql: string, params?: any[]): Promise<T[]> {
@@ -40,10 +90,10 @@ export async function queryOne<T = any>(sql: string, params?: any[]): Promise<T 
   return rows.length > 0 ? rows[0] : null;
 }
 
-export async function execute(sql: string, params?: any[]): Promise<mysql.ResultSetHeader> {
+export async function execute(sql: string, params?: any[]): Promise<any> {
   const pool = getPool();
   const [result] = await pool.execute(sql, params);
-  return result as mysql.ResultSetHeader;
+  return result;
 }
 
 export async function insert(table: string, data: Record<string, any>): Promise<string> {
@@ -97,8 +147,5 @@ export async function count(table: string, where?: string, whereParams?: any[]):
 }
 
 export async function closePool(): Promise<void> {
-  if (_pool) {
-    await _pool.end();
-    _pool = null;
-  }
+  return undefined;
 }

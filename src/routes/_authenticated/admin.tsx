@@ -3310,13 +3310,15 @@ function EmployeeAwardsView({
           <div>
             <h2 className="font-display text-xl font-semibold">Employee Award Registrations</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Company registrations, employee awards, payment status and invoices.
+              Paid company registrations, employee awards and invoices.
             </p>
           </div>
-          <Button variant="outline" onClick={exportAwards} disabled={awards.length === 0 || exporting}>
-            <Download className="h-4 w-4" />
-            Export Excel
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={exportAwards} disabled={awards.length === 0 || exporting}>
+              <Download className="h-4 w-4" />
+              Export Excel
+            </Button>
+          </div>
         </div>
 
         <div className="mt-6 overflow-x-auto rounded-2xl border border-border">

@@ -17,22 +17,14 @@ function AdminLoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [resetLoading, setResetLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     const configError = getDbConfigError();
     if (configError) return;
 
-    db.auth.getUser().then(async ({ data }) => {
-      if (!data.user) return;
-      const { data: roleData } = await db
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", data.user.id)
-        .eq("role", "admin")
-        .maybeSingle();
-      if (roleData) navigate({ to: "/admin" });
+    db.auth.getUser().then(({ data }) => {
+      if (data.user?.role === "admin") navigate({ to: "/admin" });
     });
   }, [navigate]);
 
@@ -48,22 +40,10 @@ function AdminLoginPage() {
 
     setLoading(true);
     try {
-      const { data, error } = await db.auth.signInWithPassword({ email, password });
+      const { data, error } = await db.auth.signInWithPassword({ email, password, adminOnly: true });
       if (error) throw error;
       if (!data.user) throw new Error("Unable to verify admin account.");
-
-      const { data: roleData, error: roleError } = await db
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", data.user.id)
-        .eq("role", "admin")
-        .maybeSingle();
-
-      if (roleError) throw roleError;
-      if (!roleData) {
-        await db.auth.signOut();
-        throw new Error("This account is not authorized for admin access.");
-      }
+      if (data.user.role !== "admin") throw new Error("This account is not authorized for admin access.");
 
       toast.success("Admin login successful.");
       navigate({ to: "/admin" });
@@ -73,29 +53,6 @@ function AdminLoginPage() {
       toast.error(message);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const sendReset = async () => {
-    if (!email.trim()) {
-      setError("Enter your admin email before requesting a password reset.");
-      return;
-    }
-
-    setResetLoading(true);
-    setError("");
-    try {
-      const { error } = await db.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/admin/login`,
-      });
-      if (error) throw error;
-      toast.success("Password reset email sent.");
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to send reset email.";
-      setError(message);
-      toast.error(message);
-    } finally {
-      setResetLoading(false);
     }
   };
 
@@ -167,11 +124,10 @@ function AdminLoginPage() {
 
           <button
             type="button"
-            onClick={sendReset}
-            disabled={resetLoading}
+            onClick={() => navigate({ to: "/forgot-password" })}
             className="w-full text-center text-sm text-primary hover:underline disabled:opacity-60"
           >
-            {resetLoading ? "Sending reset email..." : "Forgot password?"}
+            Forgot password?
           </button>
         </form>
       </div>

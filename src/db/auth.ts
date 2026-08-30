@@ -149,6 +149,27 @@ export async function signOut() {
   return { ok: true };
 }
 
+export async function resetPasswordForEmail(email: string, newPassword?: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const resetEmail = (getServerEnv("ADMIN_RESET_EMAIL") || "telentfest0@gmail.com").trim().toLowerCase();
+  const resetPassword = newPassword ?? getServerEnv("ADMIN_RESET_PASSWORD") ?? "telentfest@7071";
+
+  if (normalizedEmail !== resetEmail) throw new Error("This email is not authorized for admin password reset.");
+  if (resetPassword.length < 8) throw new Error("Password must be at least 8 characters.");
+
+  const user = await queryOne<{ id: string }>(
+    "SELECT u.id FROM auth_users u JOIN user_roles r ON r.user_id = u.id AND r.role = 'admin' WHERE u.email = ? LIMIT 1",
+    [normalizedEmail],
+  );
+  if (!user) throw new Error("Admin account not found.");
+
+  await execute("UPDATE auth_users SET password_hash = ?, email_confirmed = 1 WHERE id = ?", [
+    await bcrypt.hash(resetPassword, 12),
+    user.id,
+  ]);
+  return { ok: true };
+}
+
 export async function requireAdmin(userId: string) {
   const rows = await query("SELECT id FROM user_roles WHERE user_id = ? AND role = 'admin' LIMIT 1", [userId]);
   if (rows.length === 0) throw new Error("Admin access required.");

@@ -332,7 +332,7 @@ export async function getCompanyAward(ref: string): Promise<EmployeeAwardRecord>
 
 export async function listCompanyAwardsForAdmin() {
   const companies = await runQuery<any>(
-    "SELECT * FROM employee_award_company_registrations ORDER BY created_at DESC",
+    "SELECT * FROM employee_award_company_registrations WHERE payment_status = 'paid' ORDER BY created_at DESC",
   );
   return Promise.all(companies.map((row) => getCompanyAward(row.id)));
 }

@@ -47,6 +47,13 @@ const logout = createServerFn({ method: "POST" })
     return signOut();
   });
 
+const resetPassword = createServerFn({ method: "POST" })
+  .validator((data: { email: string; password?: string }) => data)
+  .handler(async ({ data }) => {
+    const { resetPasswordForEmail } = await import("./auth");
+    return resetPasswordForEmail(data.email, data.password);
+  });
+
 const getUser = createServerFn({ method: "GET" })
   .handler(async () => {
     const { currentUser } = await import("./auth");
@@ -111,9 +118,9 @@ export const db = {
   from: (table: string) => new RemoteQuery(table),
   rpc: (name: string, args: Record<string, any>) => runRpc({ data: { name, args } }),
   auth: {
-    signInWithPassword: async ({ email, password }: { email: string; password: string }) => {
+    signInWithPassword: async ({ email, password, adminOnly }: { email: string; password: string; adminOnly?: boolean }) => {
       try {
-        const data = await login({ data: { email, password } });
+        const data = await login({ data: { email, password, adminOnly } });
         return { data, error: null };
       } catch (error) {
         return { data: null, error };
@@ -141,7 +148,13 @@ export const db = {
     },
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
     signOut: async () => ({ data: await logout(), error: null }),
-    resetPasswordForEmail: async () => ({ data: null, error: new Error("Password reset is not configured.") }),
+    resetPasswordForEmail: async (email: string, options?: { password?: string }) => {
+      try {
+        return { data: await resetPassword({ data: { email, password: options?.password } }), error: null };
+      } catch (error) {
+        return { data: null, error };
+      }
+    },
   },
   storage: {
     from: (bucket: string) => ({
