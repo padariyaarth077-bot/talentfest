@@ -140,7 +140,7 @@ function EmployeeAwardSuccessPage() {
               {paid ? <CheckCircle2 className="h-8 w-8" /> : <CreditCard className="h-8 w-8" />}
             </div>
             <h1 className="mt-6 font-display text-4xl font-semibold">
-              {paid ? "Registration Confirmed" : "Complete Payment"}
+              {paid ? "Registration Confirmed" : "Proceed to Payment"}
             </h1>
             <p className="mt-3 text-muted-foreground">
               {paid
