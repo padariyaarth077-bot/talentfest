@@ -60,6 +60,8 @@ CREATE TABLE IF NOT EXISTS `employee_award_recipients` (
   `display_order` INT NOT NULL,
   `name` TEXT NOT NULL,
   `designation` TEXT NOT NULL,
+  `award_category` TEXT NOT NULL,
+  `other_award_category` TEXT,
   `department` TEXT,
   `email` TEXT,
   `mobile` TEXT,

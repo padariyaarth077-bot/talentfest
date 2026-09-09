@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { createServerFn } from "@tanstack/react-start";
+import { createServerFn, createServerOnlyFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 const OWNER_FEE = 1500;
 const EMPLOYEE_AWARD_FEE = 1500;
 const MAX_EMPLOYEES = 20;
 const statuses = ["pending", "confirmed", "reviewing", "approved", "rejected", "failed", "cancelled"] as const;
+const awardCategories = ["Best Employee Award", "Best Team Leader Award", "Best Performer Award", "Innovation Award", "Best Attendance Award", "Rising Star Award", "Customer Service Excellence", "Leadership Excellence", "Other"] as const;
 const imageSchema = z.object({
   name: z.string().min(1),
   mime: z.enum(["image/jpeg", "image/jpg", "image/png", "image/webp"]),
@@ -19,7 +20,13 @@ const employeeSchema = z.object({
   department: z.string().trim().optional().default(""),
   email: z.string().trim().email().optional().or(z.literal("")).default(""),
   mobile: z.string().trim().optional().default(""),
+  awardCategory: z.enum(awardCategories),
+  otherAwardCategory: z.string().trim().optional().default(""),
   photo: imageSchema.optional().nullable(),
+}).superRefine((employee, ctx) => {
+  if (employee.awardCategory === "Other" && !employee.otherAwardCategory) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["otherAwardCategory"], message: "Please enter the award category." });
+  }
 });
 
 const companySchema = z.object({
@@ -66,6 +73,8 @@ export type EmployeeAwardRecipient = {
   department: string | null;
   email: string | null;
   mobile: string | null;
+  award_category: string | null;
+  other_award_category: string | null;
   photo_url: string | null;
   fee_amount: number;
   status: string;
@@ -121,7 +130,7 @@ async function assertAdmin(adminUserId: string) {
   if (!rows.length) throw new Error("Admin access required.");
 }
 
-async function runQuery<T = any>(sql: string, params?: any[]) {
+const runQuery = createServerOnlyFn(async function runQuery<T = any>(sql: string, params?: any[]) {
   const { closePool, query } = await import("@/db/index");
   try {
     return await query<T>(sql, params);
@@ -132,12 +141,12 @@ async function runQuery<T = any>(sql: string, params?: any[]) {
     }
     throw error;
   }
-}
+});
 
-async function getDbPool() {
+const getDbPool = createServerOnlyFn(async function getDbPool() {
   const { getPool } = await import("@/db/index");
   return getPool();
-}
+});
 
 function phone(value: string) {
   return `+91${value.replace(/\D/g, "").slice(-10)}`;
@@ -147,10 +156,10 @@ function money(value: unknown) {
   return Number(value || 0);
 }
 
-async function serverEnv(name: string) {
+const serverEnv = createServerOnlyFn(async function serverEnv(name: string) {
   const { getServerEnv } = await import("@/db/env");
   return getServerEnv(name);
-}
+});
 
 async function razorpayKey() {
   const key = await serverEnv("RAZORPAY_KEY");
@@ -277,11 +286,11 @@ function ext(mime: string) {
   return "jpg";
 }
 
-async function saveImage(file: z.infer<typeof imageSchema>, path: string) {
+const saveImage = createServerOnlyFn(async function saveImage(file: z.infer<typeof imageSchema>, path: string) {
   const { uploadObject } = await import("@/db/storage");
   const saved = await uploadObject("employee-awards", `${path}.${ext(file.mime)}`, imageBuffer(file));
   return saved;
-}
+});
 
 async function nextSeq(conn: any, name: string, count = 1) {
   const [rows] = await conn.execute("SELECT `value` FROM employee_award_sequences WHERE `name` = ? FOR UPDATE", [name]);
@@ -387,6 +396,8 @@ export const submitEmployeeAwardRegistration = createServerFn({ method: "POST" }
           department: employee.department || null,
           email: employee.email ? employee.email.toLowerCase() : null,
           mobile: employee.mobile ? phone(employee.mobile) : null,
+          awardCategory: employee.awardCategory,
+          otherAwardCategory: employee.awardCategory === "Other" ? employee.otherAwardCategory : null,
           photo: null as Awaited<ReturnType<typeof saveImage>> | null,
           originalPhoto: employee.photo,
         }));
@@ -398,11 +409,11 @@ export const submitEmployeeAwardRegistration = createServerFn({ method: "POST" }
         await conn.execute(
           `INSERT INTO employee_award_recipients
           (id, company_registration_id, award_registration_number, recipient_type, display_order, name, designation,
-           department, email, mobile, photo_path, photo_url, fee_amount, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+           award_category, other_award_category, department, email, mobile, photo_path, photo_url, fee_amount, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
           [
             crypto.randomUUID(), companyId, row.awardNo, row.type, row.order, row.name, row.designation,
-            row.department, row.email, row.mobile, row.photo?.path ?? null, row.photo?.publicUrl ?? null, EMPLOYEE_AWARD_FEE,
+            row.awardCategory, row.otherAwardCategory, row.department, row.email, row.mobile, row.photo?.path ?? null, row.photo?.publicUrl ?? null, EMPLOYEE_AWARD_FEE,
           ],
         );
       }
@@ -557,7 +568,7 @@ export const exportEmployeeAwardsExcel = createServerFn({ method: "POST" })
     const headers = [
       "Company Registration ID", "Individual Award ID", "Company Name", "Company Logo URL", "Company Email", "Company Phone",
       "Company Address", "City", "State", "Pincode", "GST Number", "Owner Name", "Owner Designation", "Employee Type",
-      "Recipient Name", "Recipient Designation", "Department", "Recipient Email", "Recipient Mobile", "Photo URL",
+      "Recipient Name", "Recipient Designation", "Award Category", "Other Award Category", "Department", "Recipient Email", "Recipient Mobile", "Photo URL",
       "Employee Count", "Owner Fee", "Employee Fee", "Recipient Fee", "Total Order Amount", "Payment Status",
       "Payment Order ID", "Transaction ID", "Invoice Number", "Registration Date", "Payment Date",
     ];
@@ -570,6 +581,8 @@ export const exportEmployeeAwardsExcel = createServerFn({ method: "POST" })
             name: "",
             designation: "",
             department: "",
+            award_category: "",
+            other_award_category: "",
             email: "",
             mobile: "",
             photo_url: "",
@@ -579,7 +592,7 @@ export const exportEmployeeAwardsExcel = createServerFn({ method: "POST" })
         award.company_registration_number, recipient.award_registration_number, award.company_name, award.company_logo_url,
         award.company_email, award.company_mobile, award.company_address, award.city, award.state, award.pincode,
         award.gst_number ?? "", award.owner_name, award.owner_designation, recipient.recipient_type, recipient.name,
-        recipient.designation, recipient.department ?? "", recipient.email ?? "", recipient.mobile ?? "", recipient.photo_url ?? "",
+        recipient.designation, recipient.award_category ?? "", recipient.other_award_category ?? "", recipient.department ?? "", recipient.email ?? "", recipient.mobile ?? "", recipient.photo_url ?? "",
         award.employee_count, OWNER_FEE, EMPLOYEE_AWARD_FEE, recipient.fee_amount, award.total_amount,
         award.payment_status, award.payment_order_id ?? "", award.transaction_id ?? "", award.invoice_number,
         award.submitted_at, award.paid_at ?? "",

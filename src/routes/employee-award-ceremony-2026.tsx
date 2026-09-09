@@ -33,6 +33,17 @@ export const Route = createFileRoute("/employee-award-ceremony-2026")({
 const OWNER_FEE = 1500;
 const EMPLOYEE_AWARD_FEE = 1500;
 const MAX_EMPLOYEES = 20;
+const AWARD_CATEGORIES = [
+  "Best Employee Award",
+  "Best Team Leader Award",
+  "Best Performer Award",
+  "Innovation Award",
+  "Best Attendance Award",
+  "Rising Star Award",
+  "Customer Service Excellence",
+  "Leadership Excellence",
+  "Other",
+] as const;
 
 type UploadImage = { name: string; mime: "image/jpeg" | "image/jpg" | "image/png" | "image/webp"; base64: string; size: number };
 type EmployeeInput = {
@@ -41,6 +52,8 @@ type EmployeeInput = {
   department: string;
   email: string;
   mobile: string;
+  awardCategory: string;
+  otherAwardCategory: string;
   photo: UploadImage | null;
 };
 type FormState = {
@@ -70,6 +83,8 @@ const emptyEmployee = (): EmployeeInput => ({
   department: "",
   email: "",
   mobile: "",
+  awardCategory: "",
+  otherAwardCategory: "",
   photo: null,
 });
 
@@ -233,6 +248,8 @@ function EmployeeAwardCeremonyPage() {
       else if (employee.designation.trim().length < 2) next[`employee-${index}-designation`] = "Enter at least 2 characters.";
       if (employee.email && !email.test(employee.email.trim())) next[`employee-${index}-email`] = "Enter a valid email address.";
       if (employee.mobile && employee.mobile.length !== 10) next[`employee-${index}-mobile`] = "Enter a valid 10-digit mobile number.";
+      if (!employee.awardCategory) next[`employee-${index}-awardCategory`] = "Please select an award category.";
+      if (employee.awardCategory === "Other" && !employee.otherAwardCategory.trim()) next[`employee-${index}-otherAwardCategory`] = "Please enter the award category.";
     });
 
     setErrors(next);
@@ -348,6 +365,8 @@ function EmployeeAwardCeremonyPage() {
                   <TextField label="Department" value={employee.department} error={errors[`employee-${index}-department`]} onChange={(value) => updateEmployee(index, "department", value)} />
                   <PhoneField label="Mobile" value={employee.mobile} error={errors[`employee-${index}-mobile`]} onChange={(value) => updateEmployee(index, "mobile", value.replace(/\D/g, "").slice(0, 10))} />
                   <TextField label="Email" value={employee.email} error={errors[`employee-${index}-email`]} onChange={(value) => updateEmployee(index, "email", value)} type="email" />
+                  <SelectField label="Award Category" value={employee.awardCategory} error={errors[`employee-${index}-awardCategory`]} onChange={(value) => updateEmployee(index, "awardCategory", value)} required options={AWARD_CATEGORIES} />
+                  {employee.awardCategory === "Other" && <TextField label="Other Award Category" value={employee.otherAwardCategory} error={errors[`employee-${index}-otherAwardCategory`]} onChange={(value) => updateEmployee(index, "otherAwardCategory", value)} required />}
                   <FileField label="Employee Photo" value={employee.photo} error={errors[`employee-${index}-photo`]} onChange={(value) => updateEmployee(index, "photo", value)} />
                 </div>
               </div>
@@ -502,6 +521,22 @@ function PhoneField({ label, value, onChange, error, required = false }: { label
         <span className="grid w-16 place-items-center border-r border-border text-sm text-muted-foreground">+91</span>
         <input id={id} value={value} onChange={(event) => onChange(event.target.value)} required={required} inputMode="numeric" placeholder="9876543210" className="min-w-0 flex-1 bg-transparent px-4 text-sm outline-none" />
       </div>
+      {error && <ErrorText text={error} />}
+    </div>
+  );
+}
+
+function SelectField({ label, value, onChange, error, required = false, options }: { label: string; value: string; onChange: (value: string) => void; error?: string; required?: boolean; options: readonly string[] }) {
+  const id = label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  return (
+    <div>
+      <label htmlFor={id} className="mb-2 block text-sm font-semibold">
+        {label} {required && <span className="text-primary">*</span>}
+      </label>
+      <select id={id} value={value} onChange={(event) => onChange(event.target.value)} className="h-12 w-full rounded-2xl border border-border bg-background px-4 text-sm outline-none transition focus:border-primary">
+        <option value="">Select award category</option>
+        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+      </select>
       {error && <ErrorText text={error} />}
     </div>
   );

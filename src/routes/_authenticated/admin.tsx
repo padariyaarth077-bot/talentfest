@@ -3439,6 +3439,7 @@ function EmployeeAwardsView({
                       <th className="px-4 py-3">Name</th>
                       <th className="px-4 py-3">Type</th>
                       <th className="px-4 py-3">Designation</th>
+                      <th className="px-4 py-3">Award Category</th>
                       <th className="px-4 py-3">Contact</th>
                     </tr>
                   </thead>
@@ -3449,12 +3450,13 @@ function EmployeeAwardsView({
                         <td className="px-4 py-3">{recipient.name}</td>
                         <td className="px-4 py-3 capitalize">{recipient.recipient_type}</td>
                         <td className="px-4 py-3">{recipient.designation}</td>
+                        <td className="px-4 py-3">{recipient.award_category === "Other" ? recipient.other_award_category : recipient.award_category || "Not provided"}</td>
                         <td className="px-4 py-3">{recipient.mobile || recipient.email || "Not provided"}</td>
                       </tr>
                     ))}
                     {selected.recipients.length === 0 && (
                       <tr className="border-t border-border">
-                        <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                        <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                           No employee award recipients for this owner-only registration.
                         </td>
                       </tr>
