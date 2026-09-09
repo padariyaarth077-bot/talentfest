@@ -44,6 +44,19 @@ const AWARD_CATEGORIES = [
   "Leadership Excellence",
   "Other",
 ] as const;
+const OWNER_AWARD_CATEGORIES = [
+  "Business Icon Award",
+  "Entrepreneur of the Year Award",
+  "Business Excellence Award",
+  "Visionary Business Leader Award",
+  "Business Leadership Excellence Award",
+  "Outstanding Business Achievement Award",
+  "Emerging Entrepreneur Award",
+  "Innovative Business Leader Award",
+  "Most Inspiring Business Leader Award",
+  "Lifetime Business Achievement Award",
+  "Other",
+] as const;
 
 type UploadImage = { name: string; mime: "image/jpeg" | "image/jpg" | "image/png" | "image/webp"; base64: string; size: number };
 type EmployeeInput = {
@@ -69,6 +82,8 @@ type FormState = {
   companyWebsite: string;
   ownerName: string;
   ownerDesignation: string;
+  ownerAwardCategory: string;
+  ownerOtherAwardCategory: string;
   ownerEmail: string;
   ownerMobile: string;
   ownerPhoto: UploadImage | null;
@@ -101,6 +116,8 @@ const emptyForm: FormState = {
   companyWebsite: "",
   ownerName: "",
   ownerDesignation: "",
+  ownerAwardCategory: "",
+  ownerOtherAwardCategory: "",
   ownerEmail: "",
   ownerMobile: "",
   ownerPhoto: null,
@@ -119,6 +136,8 @@ const fieldLabels: Record<string, string> = {
   pincode: "Pincode",
   ownerName: "Owner name",
   ownerDesignation: "Owner designation",
+  ownerAwardCategory: "Owner award category",
+  ownerOtherAwardCategory: "Other owner award category",
   ownerEmail: "Owner email",
   ownerMobile: "Owner mobile",
   declarationAccepted: "Declaration",
@@ -219,6 +238,7 @@ function EmployeeAwardCeremonyPage() {
       "pincode",
       "ownerName",
       "ownerDesignation",
+      "ownerAwardCategory",
       "ownerEmail",
       "ownerMobile",
     ];
@@ -234,6 +254,7 @@ function EmployeeAwardCeremonyPage() {
     if (form.state.trim() && form.state.trim().length < 2) next.state = "Enter at least 2 characters.";
     if (form.ownerName.trim() && form.ownerName.trim().length < 2) next.ownerName = "Enter at least 2 characters.";
     if (form.ownerDesignation.trim() && form.ownerDesignation.trim().length < 2) next.ownerDesignation = "Enter at least 2 characters.";
+    if (form.ownerAwardCategory === "Other" && !form.ownerOtherAwardCategory.trim()) next.ownerOtherAwardCategory = "Please enter the award category.";
     if (!email.test(form.companyEmail.trim())) next.companyEmail = "Enter a valid email address.";
     if (!email.test(form.ownerEmail.trim())) next.ownerEmail = "Enter a valid email address.";
     if (form.companyMobile.length !== 10) next.companyMobile = "Enter a valid 10-digit mobile number.";
@@ -323,6 +344,8 @@ function EmployeeAwardCeremonyPage() {
           <FormSection icon={UserRound} title="Owner / Authorized Person">
             <TextField label="Owner Name" value={form.ownerName} error={errors.ownerName} onChange={(value) => update("ownerName", value)} required />
             <TextField label="Owner Designation" value={form.ownerDesignation} error={errors.ownerDesignation} onChange={(value) => update("ownerDesignation", value)} required />
+            <SelectField label="Award Category" value={form.ownerAwardCategory} error={errors.ownerAwardCategory} onChange={(value) => update("ownerAwardCategory", value)} required options={OWNER_AWARD_CATEGORIES} />
+            {form.ownerAwardCategory === "Other" && <TextField label="Other Award Category" value={form.ownerOtherAwardCategory} error={errors.ownerOtherAwardCategory} onChange={(value) => update("ownerOtherAwardCategory", value)} required />}
             <TextField label="Owner Email" value={form.ownerEmail} error={errors.ownerEmail} onChange={(value) => update("ownerEmail", value)} type="email" required />
             <PhoneField label="Owner Mobile" value={form.ownerMobile} error={errors.ownerMobile} onChange={(value) => updatePhone("ownerMobile", value)} required />
             <FileField label="Owner Photo" value={form.ownerPhoto} error={errors.ownerPhoto} onChange={(value) => update("ownerPhoto", value)} />
@@ -338,7 +361,7 @@ function EmployeeAwardCeremonyPage() {
               </Button>
             </div>
             <div className="md:col-span-2 grid gap-4 sm:grid-cols-[220px_1fr] sm:items-end">
-              <TextField label="Employee Count" value={String(form.employees.length)} error={errors.employees} onChange={setEmployeeCount} type="number" required />
+              <TextField label="Employee Count" value={String(form.employees.length)} error={errors.employees} onChange={setEmployeeCount} inputMode="numeric" required />
               <div className="rounded-2xl border border-primary/20 bg-primary/10 p-4 text-sm text-muted-foreground">
                 Owner is the company contact only. Award IDs are created only for employees. You can add up to {MAX_EMPLOYEES} employees.
               </div>
@@ -461,6 +484,7 @@ function TextField({
   onChange,
   error,
   type = "text",
+  inputMode,
   textarea = false,
   required = false,
   placeholder,
@@ -471,6 +495,7 @@ function TextField({
   onChange: (value: string) => void;
   error?: string;
   type?: string;
+  inputMode?: "numeric";
   textarea?: boolean;
   required?: boolean;
   placeholder?: string;
@@ -500,6 +525,7 @@ function TextField({
           required={required}
           placeholder={placeholder}
           type={type}
+          inputMode={inputMode}
           min={type === "number" ? 0 : undefined}
           max={type === "number" ? MAX_EMPLOYEES : undefined}
           className="h-12 w-full rounded-2xl border border-border bg-background px-4 text-sm outline-none transition placeholder:text-muted-foreground/70 focus:border-primary"

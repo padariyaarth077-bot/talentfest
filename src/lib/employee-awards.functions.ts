@@ -7,6 +7,7 @@ const EMPLOYEE_AWARD_FEE = 1500;
 const MAX_EMPLOYEES = 20;
 const statuses = ["pending", "confirmed", "reviewing", "approved", "rejected", "failed", "cancelled"] as const;
 const awardCategories = ["Best Employee Award", "Best Team Leader Award", "Best Performer Award", "Innovation Award", "Best Attendance Award", "Rising Star Award", "Customer Service Excellence", "Leadership Excellence", "Other"] as const;
+const ownerAwardCategories = ["Business Icon Award", "Entrepreneur of the Year Award", "Business Excellence Award", "Visionary Business Leader Award", "Business Leadership Excellence Award", "Outstanding Business Achievement Award", "Emerging Entrepreneur Award", "Innovative Business Leader Award", "Most Inspiring Business Leader Award", "Lifetime Business Achievement Award", "Other"] as const;
 const imageSchema = z.object({
   name: z.string().min(1),
   mime: z.enum(["image/jpeg", "image/jpg", "image/png", "image/webp"]),
@@ -43,10 +44,16 @@ const companySchema = z.object({
   companyWebsite: z.string().trim().optional().default(""),
   ownerName: z.string().trim().min(2),
   ownerDesignation: z.string().trim().min(2),
+  ownerAwardCategory: z.enum(ownerAwardCategories),
+  ownerOtherAwardCategory: z.string().trim().optional().default(""),
   ownerEmail: z.string().trim().email(),
   ownerMobile: z.string().trim().regex(/^\d{10}$/),
   ownerPhoto: imageSchema.optional().nullable(),
   employees: z.array(employeeSchema).max(MAX_EMPLOYEES).default([]),
+}).superRefine((company, ctx) => {
+  if (company.ownerAwardCategory === "Other" && !company.ownerOtherAwardCategory) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["ownerOtherAwardCategory"], message: "Please enter the award category." });
+  }
 });
 
 const companyRefSchema = z.object({ company: z.string().trim().min(1) });
@@ -96,6 +103,8 @@ export type EmployeeAwardRecord = {
   company_website: string | null;
   owner_name: string;
   owner_designation: string;
+  owner_award_category: string | null;
+  owner_other_award_category: string | null;
   owner_email: string;
   owner_mobile: string;
   owner_photo_url: string | null;
@@ -374,14 +383,14 @@ export const submitEmployeeAwardRegistration = createServerFn({ method: "POST" }
       await conn.execute(
         `INSERT INTO employee_award_company_registrations
         (id, company_registration_number, company_name, company_logo_path, company_logo_url, company_email, company_mobile,
-         company_address, city, state, pincode, gst_number, company_website, owner_name, owner_designation, owner_email,
+         company_address, city, state, pincode, gst_number, company_website, owner_name, owner_designation, owner_award_category, owner_other_award_category, owner_email,
          owner_mobile, owner_photo_path, owner_photo_url, employee_count, total_recipients, price_per_recipient,
          total_amount, status, payment_status, invoice_number, payment_order_id, idempotency_key)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'pending', ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'pending', ?, ?, ?)`,
         [
           companyId, companyNo, data.companyName, logo.path, logo.publicUrl, data.companyEmail.toLowerCase(), phone(data.companyMobile),
           data.companyAddress, data.city, data.state, data.pincode, data.gstNumber || null, data.companyWebsite || null,
-          data.ownerName, data.ownerDesignation, data.ownerEmail.toLowerCase(), phone(data.ownerMobile),
+          data.ownerName, data.ownerDesignation, data.ownerAwardCategory, data.ownerAwardCategory === "Other" ? data.ownerOtherAwardCategory : null, data.ownerEmail.toLowerCase(), phone(data.ownerMobile),
           ownerPhoto?.path ?? null, ownerPhoto?.publicUrl ?? null, employeeCount, employeeCount, EMPLOYEE_AWARD_FEE,
           totalAmount, invoiceNo, orderId, data.idempotencyKey,
         ],
@@ -567,7 +576,7 @@ export const exportEmployeeAwardsExcel = createServerFn({ method: "POST" })
     const awards = await listCompanyAwardsForAdmin();
     const headers = [
       "Company Registration ID", "Individual Award ID", "Company Name", "Company Logo URL", "Company Email", "Company Phone",
-      "Company Address", "City", "State", "Pincode", "GST Number", "Owner Name", "Owner Designation", "Employee Type",
+      "Company Address", "City", "State", "Pincode", "GST Number", "Owner Name", "Owner Designation", "Owner Award Category", "Owner Other Award Category", "Employee Type",
       "Recipient Name", "Recipient Designation", "Award Category", "Other Award Category", "Department", "Recipient Email", "Recipient Mobile", "Photo URL",
       "Employee Count", "Owner Fee", "Employee Fee", "Recipient Fee", "Total Order Amount", "Payment Status",
       "Payment Order ID", "Transaction ID", "Invoice Number", "Registration Date", "Payment Date",
@@ -591,7 +600,7 @@ export const exportEmployeeAwardsExcel = createServerFn({ method: "POST" })
       return recipients.map((recipient) => [
         award.company_registration_number, recipient.award_registration_number, award.company_name, award.company_logo_url,
         award.company_email, award.company_mobile, award.company_address, award.city, award.state, award.pincode,
-        award.gst_number ?? "", award.owner_name, award.owner_designation, recipient.recipient_type, recipient.name,
+        award.gst_number ?? "", award.owner_name, award.owner_designation, award.owner_award_category ?? "", award.owner_other_award_category ?? "", recipient.recipient_type, recipient.name,
         recipient.designation, recipient.award_category ?? "", recipient.other_award_category ?? "", recipient.department ?? "", recipient.email ?? "", recipient.mobile ?? "", recipient.photo_url ?? "",
         award.employee_count, OWNER_FEE, EMPLOYEE_AWARD_FEE, recipient.fee_amount, award.total_amount,
         award.payment_status, award.payment_order_id ?? "", award.transaction_id ?? "", award.invoice_number,

@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS `employee_award_company_registrations` (
   `company_website` TEXT,
   `owner_name` TEXT NOT NULL,
   `owner_designation` TEXT NOT NULL,
+  `owner_award_category` TEXT NOT NULL,
+  `owner_other_award_category` TEXT,
   `owner_email` TEXT NOT NULL,
   `owner_mobile` TEXT NOT NULL,
   `owner_photo_path` TEXT,

@@ -3420,6 +3420,7 @@ function EmployeeAwardsView({
               <Detail label="Company Email" value={selected.company_email} />
               <Detail label="Owner Name" value={selected.owner_name} />
               <Detail label="Owner Designation" value={selected.owner_designation} />
+              <Detail label="Owner Award Category" value={selected.owner_award_category === "Other" ? selected.owner_other_award_category || "Not provided" : selected.owner_award_category || "Not provided"} />
               <Detail label="Owner Email" value={selected.owner_email} />
               <Detail label="Owner Mobile" value={selected.owner_mobile} />
               <Detail label="Employees" value={String(selected.employee_count)} />
