@@ -1,12 +1,13 @@
 import { Download, ExternalLink, FileText, Maximize2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/lib/i18n";
 
 type Brochure = {
-  id: "grandFinale" | "employeeAward";
-  titleKey: string;
+  id: string;
+  title?: string;
+  titleKey?: string;
   fileName: string;
   href: string;
 };
@@ -26,13 +27,17 @@ const brochures: Brochure[] = [
   },
 ];
 
-export function SponsorshipTabs() {
+export function SponsorshipTabs({ documents = [] }: { documents?: Array<{ id: string; name: string; file_url: string }> }) {
   const { t } = useLang();
-  const [activeBrochureId, setActiveBrochureId] = useState<Brochure["id"]>("grandFinale");
+  const contentBrochures: Brochure[] = documents.map((document) => ({ id: document.id, title: document.name, fileName: `${document.name}.pdf`, href: document.file_url }));
+  const visibleBrochures = contentBrochures.length ? contentBrochures : brochures;
+  const [activeBrochureId, setActiveBrochureId] = useState("grandFinale");
+  useEffect(() => { setActiveBrochureId(visibleBrochures[0].id); }, [visibleBrochures[0]?.id]);
   const activeBrochure = useMemo(
-    () => brochures.find((brochure) => brochure.id === activeBrochureId) ?? brochures[0],
-    [activeBrochureId],
+    () => visibleBrochures.find((brochure) => brochure.id === activeBrochureId) ?? visibleBrochures[0],
+    [activeBrochureId, visibleBrochures],
   );
+  const title = (brochure: Brochure) => brochure.title ?? t(brochure.titleKey!);
   const viewerSrc = `${activeBrochure.href}#toolbar=1&navpanes=0&view=FitH`;
 
   return (
@@ -42,7 +47,7 @@ export function SponsorshipTabs() {
         aria-label={t("sponsorship.selectLabel")}
       >
         <div className="grid gap-2 sm:flex sm:flex-wrap">
-          {brochures.map((brochure) => {
+          {visibleBrochures.map((brochure) => {
             const isActive = activeBrochure.id === brochure.id;
 
             return (
@@ -59,7 +64,7 @@ export function SponsorshipTabs() {
                 )}
               >
                 <FileText className="mr-2 h-4 w-4" aria-hidden="true" />
-                {t(brochure.titleKey)}
+                {title(brochure)}
               </button>
             );
           })}
@@ -71,7 +76,7 @@ export function SponsorshipTabs() {
               href={activeBrochure.href}
               target="_blank"
               rel="noreferrer"
-              aria-label={`${t("sponsorship.viewBrochure")} - ${t(activeBrochure.titleKey)}`}
+              aria-label={`${t("sponsorship.viewBrochure")} - ${title(activeBrochure)}`}
             >
               <ExternalLink className="h-4 w-4" aria-hidden="true" />
               {t("sponsorship.viewBrochure")}
@@ -82,7 +87,7 @@ export function SponsorshipTabs() {
               href={viewerSrc}
               target="_blank"
               rel="noreferrer"
-              aria-label={`${t("sponsorship.openFullScreen")} - ${t(activeBrochure.titleKey)}`}
+              aria-label={`${t("sponsorship.openFullScreen")} - ${title(activeBrochure)}`}
             >
               <Maximize2 className="h-4 w-4" aria-hidden="true" />
               {t("sponsorship.openFullScreen")}
@@ -92,7 +97,7 @@ export function SponsorshipTabs() {
             <a
               href={activeBrochure.href}
               download={activeBrochure.fileName}
-              aria-label={`${t("sponsorship.downloadPdf")} - ${t(activeBrochure.titleKey)}`}
+              aria-label={`${t("sponsorship.downloadPdf")} - ${title(activeBrochure)}`}
             >
               <Download className="h-4 w-4" aria-hidden="true" />
               {t("sponsorship.downloadPdf")}
@@ -106,7 +111,7 @@ export function SponsorshipTabs() {
           key={activeBrochure.href}
           data={viewerSrc}
           type="application/pdf"
-          aria-label={`${t("sponsorship.pdfViewerLabel")} - ${t(activeBrochure.titleKey)}`}
+          aria-label={`${t("sponsorship.pdfViewerLabel")} - ${title(activeBrochure)}`}
           className="h-[70vh] min-h-[520px] w-full rounded-xl bg-background md:h-[80vh] lg:h-[68vh] xl:h-[70vh]"
         >
           <div className="flex min-h-[420px] flex-col items-center justify-center gap-4 rounded-xl border border-primary/25 bg-background/80 p-6 text-center">

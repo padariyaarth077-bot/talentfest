@@ -27,6 +27,14 @@ const uploadFile = createServerFn({ method: "POST" })
     return { data: { path: saved.path }, error: null };
   });
 
+const removeFile = createServerFn({ method: "POST" })
+  .validator((data: { bucket: string; path: string }) => data)
+  .handler(async ({ data }) => {
+    const { removeObject } = await import("./storage");
+    await removeObject(data.bucket, data.path);
+    return { data: null, error: null };
+  });
+
 const login = createServerFn({ method: "POST" })
   .validator((data: { email: string; password: string; adminOnly?: boolean }) => data)
   .handler(async ({ data }) => {
@@ -108,10 +116,12 @@ class RemoteQuery implements PromiseLike<any> {
 
 async function fileToBase64(file: Blob) {
   const buffer = await file.arrayBuffer();
-  let binary = "";
   const bytes = new Uint8Array(buffer);
-  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary);
+  const chunks: string[] = [];
+  for (let i = 0; i < bytes.byteLength; i += 0x8000) {
+    chunks.push(String.fromCharCode(...bytes.subarray(i, i + 0x8000)));
+  }
+  return btoa(chunks.join(""));
 }
 
 export const db = {
@@ -161,6 +171,14 @@ export const db = {
       getPublicUrl: (path: string) => ({ data: { publicUrl: `/uploads/${bucket}/${path}` } }),
       createSignedUrl: async (path: string) => ({ data: { signedUrl: `/uploads/${bucket}/${path}` }, error: null }),
       upload: async (path: string, file: Blob) => uploadFile({ data: { bucket, path, base64: await fileToBase64(file) } }),
+      remove: async (paths: string[]) => {
+        try {
+          await Promise.all(paths.map((path) => removeFile({ data: { bucket, path } })));
+          return { data: null, error: null };
+        } catch (error) {
+          return { data: null, error };
+        }
+      },
     }),
   },
 };

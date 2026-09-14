@@ -131,6 +131,28 @@ export type BlogPost = {
   display_order: number;
 };
 
+export type WebsiteContent = {
+  team: Array<{ id: string; name: string; designation: string; photo_url: string | null }>;
+  projects: Array<{ id: string; title: string; subtitle: string; label: string; banner_url: string | null; link_url: string | null }>;
+  sponsorship: Array<{ id: string; name: string; file_url: string }>;
+};
+
+export const fetchWebsiteContent = createServerFn({ method: "GET" })
+  .handler(async (): Promise<WebsiteContent> => {
+    const { dbAdmin } = await import("@/db/client.server");
+    const db = dbAdmin as any;
+    const [team, projects, sponsorship] = await Promise.all([
+      db.from("team_members").select("id,name,designation,photo_url").order("display_order", { ascending: true }),
+      db.from("projects").select("id,title,subtitle,label,banner_url,link_url").order("display_order", { ascending: true }),
+      db.from("sponsorship_documents").select("id,name,file_url").order("display_order", { ascending: true }),
+    ]);
+    return {
+      team: team.error ? [] : team.data ?? [],
+      projects: projects.error ? [] : projects.data ?? [],
+      sponsorship: sponsorship.error ? [] : sponsorship.data ?? [],
+    };
+  });
+
 const fallbackBlogs: BlogPost[] = [
   {
     title: "How to Prepare for Your Telent Fest Audition",

@@ -2,7 +2,6 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { isDbConfigured, db } from "@/db/client";
 
 export const Route = createFileRoute("/_authenticated")({
-  ssr: false,
   beforeLoad: async ({ location }) => {
     const loginTarget = location.pathname === "/admin" ? "/admin/login" : "/login";
     if (!isDbConfigured()) throw redirect({ to: loginTarget });

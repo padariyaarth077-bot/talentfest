@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { createServerFn } from "@tanstack/react-start";
+import { createServerFn, createServerOnlyFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 type AdminDb = Awaited<typeof import("@/db/client.server")>["dbAdmin"];
@@ -43,7 +43,7 @@ function toMoney(value: unknown) {
   return Number(value || 0);
 }
 
-async function listEmployeeAwardsForAdmin() {
+const listEmployeeAwardsForAdmin = createServerOnlyFn(async function listEmployeeAwardsForAdmin() {
   const { query } = await import("@/db/index");
   const companies = await query<any>(
     "SELECT * FROM employee_award_company_registrations WHERE payment_status = 'paid' ORDER BY created_at DESC",
@@ -70,7 +70,7 @@ async function listEmployeeAwardsForAdmin() {
       .map((recipient) => ({ ...recipient, fee_amount: toMoney(recipient.fee_amount) })),
     payment: payments.find((payment) => payment.company_registration_id === company.id) ?? null,
   }));
-}
+});
 
 function parseQrValue(value: string) {
   const raw = value.trim();

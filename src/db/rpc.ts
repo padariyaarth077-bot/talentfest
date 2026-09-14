@@ -6,7 +6,7 @@ export async function incrementRateLimit(input: {
   p_identifier: string;
   p_window_start?: string;
 }) {
-  const pool = getPool();
+  const pool = await getPool();
   await pool.execute(
     `INSERT INTO rate_limits (action_key, identifier, window_start, attempt_count)
      VALUES (?, ?, COALESCE(?, CURRENT_TIMESTAMP), 1)
@@ -25,7 +25,7 @@ export async function generateEventSeats(input: {
 }) {
   const start = Number(input.p_start_number ?? 1);
   const end = Number(input.p_end_number ?? start);
-  const conn = await getPool().getConnection();
+  const conn = await (await getPool()).getConnection();
   try {
     await conn.beginTransaction();
     const [sectionRows] = await conn.execute(
@@ -59,7 +59,7 @@ export async function allocateRegistrationSeats(input: {
   p_registration_id: string;
   p_changed_by?: string;
 }) {
-  const conn = await getPool().getConnection();
+  const conn = await (await getPool()).getConnection();
   try {
     await conn.beginTransaction();
     const [regRows] = await conn.execute(

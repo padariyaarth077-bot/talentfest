@@ -33,7 +33,9 @@ import {
   type BlogPost,
   type ConcertArtist,
   type ConcertSettings,
+  type WebsiteContent,
   fetchConcertContent,
+  fetchWebsiteContent,
   fetchPublishedBlogPosts,
   resolveConcertMapUrls,
 } from "@/lib/public-content.functions";
@@ -73,10 +75,12 @@ function Home() {
   const { t } = useLang();
   const [concert, setConcert] = React.useState<{ settings: ConcertSettings; artists: ConcertArtist[] } | null>(null);
   const [posts, setPosts] = React.useState<BlogPost[]>([]);
+  const [websiteContent, setWebsiteContent] = React.useState<WebsiteContent>({ team: [], projects: [], sponsorship: [] });
 
   React.useEffect(() => {
     fetchConcertContent().then(setConcert).catch(() => undefined);
     fetchPublishedBlogPosts({ data: { limit: 3 } }).then(setPosts).catch(() => undefined);
+    fetchWebsiteContent().then(setWebsiteContent).catch(() => undefined);
   }, []);
 
   const [selectedService, setSelectedService] = React.useState<(typeof services)[number] | null>(null);
@@ -321,14 +325,14 @@ function Home() {
 
       <Section id="team" eyebrow={t("home.team.eyebrow")} title={t("home.team.title")} subtitle={t("home.team.subtitle")}>
         <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
-          {team.map((m, i) => (
+          {(websiteContent.team.length ? websiteContent.team : team).map((m, i) => (
             <Link key={m.name} to="/contact" className="block overflow-hidden rounded-3xl border border-border bg-card hover-lift">
               <div className={`grid aspect-square place-items-center ${["gradient-primary", "gradient-accent", "gradient-bronze", "gradient-dark"][i % 4]}`}>
-                <div className="font-display text-5xl font-bold text-foreground/90">{m.name.split(" ").map((n) => n[0]).join("")}</div>
+                {"photo_url" in m && m.photo_url ? <img src={m.photo_url} alt={m.name} className="h-full w-full object-cover" loading="lazy" /> : <div className="font-display text-5xl font-bold text-foreground/90">{m.name.split(" ").map((n) => n[0]).join("")}</div>}
               </div>
               <div className="p-4">
                 <div className="font-semibold">{m.name}</div>
-                <div className="text-xs text-muted-foreground">{t(m.roleKey)}</div>
+                <div className="text-xs text-muted-foreground">{"designation" in m ? m.designation : t(m.roleKey)}</div>
               </div>
             </Link>
           ))}
@@ -337,15 +341,18 @@ function Home() {
 
       <Section id="projects" eyebrow={t("home.projects.eyebrow")} title={t("home.projects.title")} subtitle={t("home.projects.subtitle")}>
         <div className="grid gap-6 lg:grid-cols-2">
-          {projectCards.map((project) => (
-            <ProjectCard key={project.id} project={project} />
-          ))}
+          {websiteContent.projects.length ? websiteContent.projects.map((project) => (
+            <a key={project.id} href={project.link_url || "#projects"} className="group overflow-hidden rounded-3xl border border-primary/20 bg-card hover-lift">
+              {project.banner_url && <div className="bg-[#0B0B0B] p-3"><img src={project.banner_url} alt={project.title} className="h-auto max-h-[620px] w-full object-contain" loading="lazy" /></div>}
+              <div className="p-6"><div className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">{project.label}</div><h3 className="mt-2 text-2xl font-semibold">{project.title}</h3><p className="mt-2 text-sm text-muted-foreground">{project.subtitle}</p></div>
+            </a>
+          )) : projectCards.map((project) => <ProjectCard key={project.id} project={project} />)}
         </div>
       </Section>
 
 
       <Section id="sponsor" eyebrow={t("home.sponsor.eyebrow")} title={t("home.sponsor.title")} subtitle={t("home.sponsor.subtitle")}>
-        <SponsorshipTabs />
+        <SponsorshipTabs documents={websiteContent.sponsorship} />
       </Section>
 
       <Section id="blog" eyebrow={t("home.blog.eyebrow")} title={t("home.blog.title")} subtitle={t("home.blog.subtitle")}>

@@ -154,7 +154,7 @@ const runQuery = createServerOnlyFn(async function runQuery<T = any>(sql: string
 
 const getDbPool = createServerOnlyFn(async function getDbPool() {
   const { getPool } = await import("@/db/index");
-  return getPool();
+  return await getPool();
 });
 
 function phone(value: string) {

@@ -1,5 +1,4 @@
 import "@tanstack/react-start/server-only";
-import { createConnection } from "cloudflare-mysql";
 import { getCloudflareEnv, getServerEnv } from './env';
 
 function requiredEnv(name: string): string {
@@ -47,8 +46,18 @@ function connectionOptions() {
   };
 }
 
-function runConnection<T>(handler: (conn: any) => Promise<T>) {
-  const conn = createConnection(connectionOptions());
+async function createDatabaseConnection() {
+  if (typeof process !== "undefined" && process.versions?.node) {
+    const { createConnection } = await import("mysql2");
+    return createConnection(connectionOptions());
+  }
+
+  const { createConnection } = await import("cloudflare-mysql");
+  return createConnection(connectionOptions());
+}
+
+async function runConnection<T>(handler: (conn: any) => Promise<T>) {
+  const conn = await createDatabaseConnection();
   return handler(conn).finally(() => conn.end());
 }
 
@@ -71,16 +80,16 @@ function wrapConnection(conn: any) {
   };
 }
 
-export function getPool() {
+export async function getPool() {
   return {
     execute: (sql: string, params?: any[]) => runConnection((conn) => mysqlCallback<any[]>((done) => conn.query(sql, params, done))),
-    getConnection: async () => wrapConnection(createConnection(connectionOptions())),
+    getConnection: async () => wrapConnection(await createDatabaseConnection()),
     end: async () => {},
   };
 }
 
 export async function query<T = any>(sql: string, params?: any[]): Promise<T[]> {
-  const pool = getPool();
+  const pool = await getPool();
   const [rows] = await pool.execute(sql, params);
   return rows as T[];
 }
@@ -91,7 +100,7 @@ export async function queryOne<T = any>(sql: string, params?: any[]): Promise<T 
 }
 
 export async function execute(sql: string, params?: any[]): Promise<any> {
-  const pool = getPool();
+  const pool = await getPool();
   const [result] = await pool.execute(sql, params);
   return result;
 }
@@ -113,7 +122,7 @@ export async function insertMany(table: string, rows: Record<string, any>[]): Pr
   const keys = Object.keys(firstRow);
   const placeholders = keys.map(() => '?').join(', ');
   const sql = `INSERT INTO \`${table}\` (${keys.map(k => `\`${k}\``).join(', ')}) VALUES (${placeholders})`;
-  const pool = getPool();
+  const pool = await getPool();
   let inserted = 0;
   for (const row of rows) {
     const values = keys.map(k => (row as any)[k]);

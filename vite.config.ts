@@ -6,8 +6,12 @@
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { resolve } from "node:path";
+import { loadEnv } from "vite";
 
-export default defineConfig({
+export default defineConfig(({ command, mode }) => {
+  if (command === "serve") Object.assign(process.env, loadEnv(mode, process.cwd(), ""));
+
+  return {
   vite: {
     build: {
       rolldownOptions: {
@@ -15,7 +19,9 @@ export default defineConfig({
       },
     },
     resolve: {
-      alias: {
+      // Dev runs in Node, where MySQL must read the real server process env.
+      // The process shim is only needed in the Cloudflare production build.
+      alias: command === "serve" ? {} : {
         "node:process": resolve("node_modules/unenv/dist/runtime/node/process.mjs"),
         process: resolve("node_modules/unenv/dist/runtime/node/process.mjs"),
       },
@@ -29,4 +35,5 @@ export default defineConfig({
   nitro: {
     preset: "cloudflare-pages",
   },
+  };
 });

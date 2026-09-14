@@ -79,6 +79,12 @@ export async function uploadObject(bucket: string, objectPath: string, bytes: Ar
   return { path: safePath, publicUrl: getPublicUrl(safeBucket, safePath) };
 }
 
+export async function removeObject(bucket: string, objectPath: string) {
+  const { key } = objectKey(bucket, objectPath);
+  const { execute } = await import("./index");
+  await execute("DELETE FROM uploaded_objects WHERE object_key = ?", [key]);
+}
+
 export async function serveUploadedObject(request: Request) {
   const url = new URL(request.url);
   const rawPath = decodeURIComponent(url.pathname.replace(/^\/uploads\//, ""));

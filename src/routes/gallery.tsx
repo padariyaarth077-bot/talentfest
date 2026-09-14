@@ -4,13 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Section } from "@/components/site/Section";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
-import {
-  eventGallery,
-  galleryCities,
-  type GalleryCategory,
-  type GalleryCitySlug,
-  type GalleryItem,
-} from "@/data/eventGallery";
 import { getDbConfigError, db } from "@/db/client";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -23,6 +16,20 @@ type RemoteCity = {
   id: string;
   name: string;
   slug: string;
+};
+
+type GalleryCity = RemoteCity;
+type GalleryItem = {
+  id: string;
+  city: string;
+  cityName: string;
+  title: string;
+  description: string;
+  image: string;
+  alt: string;
+  featured: boolean;
+  width: number;
+  height: number;
 };
 
 type RemoteMedia = {
@@ -57,8 +64,9 @@ function GalleryPage() {
   const { t } = useLang();
   const navigate = useNavigate();
   const search = Route.useSearch();
+  const [galleryCities, setGalleryCities] = useState<GalleryCity[]>([]);
+  const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
   const selectedCity = galleryCities.find((city) => city.slug === search.city);
-  const [remoteItems, setRemoteItems] = useState<GalleryItem[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const cardRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
@@ -70,7 +78,7 @@ function GalleryPage() {
 
       try {
         const [citiesResult, mediaResult] = await Promise.all([
-          db.from("gallery_cities").select("id, name, slug").eq("is_active", true),
+          db.from("gallery_cities").select("id, name, slug, display_order").eq("is_active", true).order("display_order", { ascending: true }),
           db
             .from("gallery_media")
             .select("id, city_id, title, media_type, category, media_url, thumbnail_url, description, display_order, is_active")
@@ -81,38 +89,33 @@ function GalleryPage() {
 
         if (ignore || citiesResult.error || mediaResult.error) return;
 
-        const cityById = new Map(
-          ((citiesResult.data ?? []) as RemoteCity[]).map((city) => [city.id, galleryCities.find((local) => local.slug === city.slug)]),
-        );
+        const cities = (citiesResult.data ?? []) as GalleryCity[];
+        const cityById = new Map(cities.map((city) => [city.id, city]));
 
         const mapped = ((mediaResult.data ?? []) as RemoteMedia[])
           .map((item): GalleryItem | null => {
             const city = item.city_id ? cityById.get(item.city_id) : undefined;
             if (!city || !item.media_url) return null;
 
-            const category = normalizeCategory(item.category);
             return {
-              id: `remote-${item.id}`,
+              id: item.id,
               city: city.slug,
               cityName: city.name,
-              category,
-              mediaType: "photo",
-              title: item.title,
+              title: item.title || "Event moment",
               description: item.description ?? `Telent Fest ${city.name} event moment.`,
               image: item.thumbnail_url ?? item.media_url,
               alt: `${item.title} at Telent Fest ${city.name}`,
-              featured: item.display_order <= 3,
-              winner: category === "highlights" || item.category.toLowerCase().includes("winner"),
-              highlight: category === "highlights",
+              featured: item.display_order <= 4,
               width: 900,
               height: 1200,
             };
           })
           .filter(Boolean) as GalleryItem[];
 
-        setRemoteItems(mapped);
+        setGalleryCities(cities);
+        setGalleryItems(mapped);
       } catch {
-        if (!ignore) setRemoteItems([]);
+        if (!ignore) { setGalleryCities([]); setGalleryItems([]); }
       }
     }
 
@@ -126,10 +129,9 @@ function GalleryPage() {
     setLightboxIndex(null);
   }, [selectedCity?.slug]);
 
-  const allItems = useMemo(() => dedupeGalleryItems([...eventGallery, ...remoteItems]), [remoteItems]);
   const cityItems = useMemo(
-    () => (selectedCity ? allItems.filter((item) => item.city === selectedCity.slug) : []),
-    [allItems, selectedCity],
+    () => (selectedCity ? galleryItems.filter((item) => item.city === selectedCity.slug) : []),
+    [galleryItems, selectedCity],
   );
   const featuredItems = useMemo(() => {
     const featured = cityItems.filter((item) => item.featured);
@@ -314,7 +316,6 @@ function GalleryCard({
         )}
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/75 to-transparent p-4 pt-16">
           <h4 className={cn("font-semibold text-white", compact ? "text-base" : "text-lg")}>{item.title}</h4>
-          <p className="mt-1 text-xs text-white/70">{item.cityName}</p>
         </div>
       </div>
     </button>
@@ -426,26 +427,4 @@ function Lightbox({
       </button>
     </div>
   );
-}
-
-function dedupeGalleryItems(items: GalleryItem[]) {
-  const seen = new Set<string>();
-  return items.filter((item) => {
-    const key = `${item.city}:${item.image.trim().toLowerCase()}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-function normalizeCategory(category: string): GalleryCategory {
-  const value = category.toLowerCase().trim();
-  if (value.includes("dance")) return "dance";
-  if (value.includes("sing")) return "singing";
-  if (value.includes("music") || value.includes("instrument")) return "music";
-  if (value.includes("paint") || value.includes("art")) return "painting";
-  if (value.includes("acting") || value.includes("theatre") || value.includes("theater")) return "acting";
-  if (value.includes("writing") || value.includes("creative")) return "creative-writing";
-  if (value.includes("photo")) return "photography";
-  return "highlights";
 }

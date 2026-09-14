@@ -90,6 +90,7 @@ import {
 import { cn, eventLabel } from "@/lib/utils";
 import { getDbConfigError, db } from "@/db/client";
 import { GalleryAdminView } from "@/components/admin/GalleryAdminView";
+import { WebsiteContentView } from "@/components/admin/WebsiteContentView";
 
 type AdminView =
   | "dashboard"
@@ -100,6 +101,7 @@ type AdminView =
   | "contact_messages"
   | "reports"
   | "gallery"
+  | "website_content"
   | "events"
   | "concert"
   | "blog"
@@ -300,6 +302,7 @@ const sidebarItems: Array<{ view: AdminView; label: string; icon: typeof LayoutD
   { view: "events", label: "Events", icon: CalendarDays },
   { view: "reports", label: "Reports", icon: BarChart3 },
   { view: "gallery", label: "Gallery Cities", icon: ImageIcon },
+  { view: "website_content", label: "Website Content", icon: FileText },
   { view: "concert", label: "Concert Info", icon: Music },
   { view: "blog", label: "Blog Posts", icon: Newspaper },
   { view: "seating", label: "Seating", icon: LayoutGrid },
@@ -655,6 +658,21 @@ function AdminPanel() {
       setLoading(false);
       setRefreshing(false);
     }
+  }, []);
+
+  const refreshGallery = useCallback(async () => {
+    const [citiesResult, mediaResult] = await Promise.all([
+      db.from("gallery_cities").select("id, name, slug, display_order, is_active, created_at, updated_at").order("display_order", { ascending: true }).order("name", { ascending: true }),
+      db.from("gallery_media").select("id, city_id, title, media_type, category, media_url, thumbnail_url, description, display_order, is_active, is_featured, fit_mode, fit_position, storage_path, alt_text, width, height, created_at, updated_at").order("display_order", { ascending: true }).order("created_at", { ascending: false }),
+    ]);
+    if (citiesResult.error || mediaResult.error) {
+      const error = citiesResult.error ?? mediaResult.error;
+      setGalleryDataError(error?.message ?? "Gallery data could not refresh.");
+      throw error ?? new Error("Gallery data could not refresh.");
+    }
+    setGalleryDataError("");
+    setGalleryCities((citiesResult.data ?? []) as GalleryCity[]);
+    setGalleryMedia((mediaResult.data ?? []) as GalleryMedia[]);
   }, []);
 
   useEffect(() => {
@@ -1088,10 +1106,13 @@ function AdminPanel() {
             cities={galleryCities}
             media={galleryMedia}
             dataError={galleryDataError}
-            onRefresh={() => loadAdminData(true)}
+            onRefresh={refreshGallery}
             logActivity={logActivity}
             setConfirmAction={setConfirmAction}
           />
+        )}
+        {activeView === "website_content" && (
+          <WebsiteContentView onOpenBlog={() => setActiveView("blog")} />
         )}
         {activeView === "concert" && (
           <ConcertInformationView
@@ -2604,6 +2625,9 @@ function BlogPostsView({
 }) {
   const [editingPost, setEditingPost] = useState<BlogPostRecord | null>(null);
   const [saving, setSaving] = useState(false);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [removeThumbnail, setRemoveThumbnail] = useState(false);
+  const thumbnailInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     title: "",
     slug: "",
@@ -2620,6 +2644,9 @@ function BlogPostsView({
 
   const resetForm = () => {
     setEditingPost(null);
+    setThumbnailFile(null);
+    setRemoveThumbnail(false);
+    if (thumbnailInputRef.current) thumbnailInputRef.current.value = "";
     setForm({
       title: "",
       slug: "",
@@ -2638,19 +2665,30 @@ function BlogPostsView({
   const savePost = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!form.title.trim()) return toast.error("Blog title is required.");
+    if (thumbnailFile && (!thumbnailFile.type.match(/^image\/(jpeg|png|webp)$/) || thumbnailFile.size > 8 * 1024 * 1024)) return toast.error("Thumbnail must be a JPEG, PNG, or WebP image up to 8 MB.");
     setSaving(true);
     try {
+      const postId = editingPost?.id ?? crypto.randomUUID();
+      let thumbnailUrl = removeThumbnail ? null : form.thumbnail_url.trim() || null;
+      if (thumbnailFile) {
+        const extension = thumbnailFile.name.split(".").pop() || "jpg";
+        const path = `blog/${postId}/${crypto.randomUUID()}.${extension}`;
+        const upload = await db.storage.from("blog-images").upload(path, thumbnailFile);
+        if (upload.error) throw upload.error;
+        thumbnailUrl = db.storage.from("blog-images").getPublicUrl(path).data.publicUrl;
+      }
       const payload = {
+        ...(editingPost ? {} : { id: postId }),
         title: form.title.trim(),
         slug: slugify(form.slug || form.title),
         excerpt: form.excerpt.trim(),
         content: form.content.trim(),
         category: form.category.trim() || "Updates",
-        thumbnail_url: form.thumbnail_url.trim() || null,
+        thumbnail_url: thumbnailUrl,
         thumbnail_alt: form.thumbnail_alt.trim() || form.title.trim(),
         status: form.status,
         published_at: form.published_at || new Date().toISOString(),
-        is_featured: form.is_featured,
+        is_featured: false,
         display_order: Number(form.display_order) || 0,
         updated_at: new Date().toISOString(),
       };
@@ -2659,6 +2697,8 @@ function BlogPostsView({
         ? await dbClient.from("blog_posts").update(payload).eq("id", editingPost.id)
         : await dbClient.from("blog_posts").insert(payload);
       if (result.error) throw result.error;
+      const oldPath = editingPost?.thumbnail_url?.match(/^\/uploads\/blog-images\/(.+)$/)?.[1];
+      if ((thumbnailFile || removeThumbnail) && oldPath) await db.storage.from("blog-images").remove([oldPath]);
       await logActivity(
         editingPost ? `Updated blog post ${payload.title}` : `Created blog post ${payload.title}`,
       );
@@ -2706,12 +2746,12 @@ function BlogPostsView({
             placeholder="Category"
             className="field-input"
           />
-          <input
-            value={form.thumbnail_url}
-            onChange={(e) => setForm((f) => ({ ...f, thumbnail_url: e.target.value }))}
-            placeholder="Thumbnail image URL"
-            className="field-input"
-          />
+          <div className="flex flex-wrap items-center gap-2 field-input">
+            <input ref={thumbnailInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { setThumbnailFile(e.target.files?.[0] ?? null); setRemoveThumbnail(false); }} />
+            <Button type="button" variant="outline" size="sm" onClick={() => thumbnailInputRef.current?.click()}>{thumbnailFile ? thumbnailFile.name : form.thumbnail_url ? "Change thumbnail" : "Upload thumbnail"}</Button>
+            {thumbnailFile && <Button type="button" variant="outline" size="sm" onClick={() => { setThumbnailFile(null); if (thumbnailInputRef.current) thumbnailInputRef.current.value = ""; }}>Remove selected</Button>}
+            {form.thumbnail_url && !removeThumbnail && <Button type="button" variant="outline" size="sm" onClick={() => setRemoveThumbnail(true)}>Remove current</Button>}
+          </div>
           <input
             value={form.thumbnail_alt}
             onChange={(e) => setForm((f) => ({ ...f, thumbnail_alt: e.target.value }))}
@@ -2748,14 +2788,6 @@ function BlogPostsView({
             <option value="draft">Draft</option>
             <option value="published">Published</option>
           </select>
-          <label className="flex items-center gap-2 field-input cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.is_featured}
-              onChange={(e) => setForm((f) => ({ ...f, is_featured: e.target.checked }))}
-            />{" "}
-            Featured
-          </label>
           <div className="flex gap-2 lg:col-span-2">
             <Button type="submit" disabled={saving}>
               {editingPost ? "Update Blog Post" : "Create Blog Post"}
@@ -2814,12 +2846,14 @@ function BlogPostsView({
                             content: post.content,
                             category: post.category,
                             thumbnail_url: post.thumbnail_url ?? "",
-                            thumbnail_alt: post.thumbnail_alt ?? "",
+                          thumbnail_alt: post.thumbnail_alt ?? "",
                             status: post.status,
                             published_at: post.published_at?.slice(0, 10) ?? "",
-                            is_featured: post.is_featured,
-                            display_order: String(post.display_order),
-                          });
+                          is_featured: post.is_featured,
+                          display_order: String(post.display_order),
+                        });
+                          setThumbnailFile(null);
+                          setRemoveThumbnail(false);
                         }}
                       />
                       <IconButton
