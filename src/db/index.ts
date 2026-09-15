@@ -47,14 +47,20 @@ function connectionOptions() {
 }
 
 async function createDatabaseConnection() {
-  if (typeof process !== "undefined" && process.versions?.node) {
+  // Vite supplies a `process` shim in the Pages bundle, so `process.versions`
+  // cannot identify Node reliably. The request environment can.
+  if (!getCloudflareEnv()) {
     const { createConnection } = await import("mysql2");
     return createConnection(connectionOptions());
   }
 
   // Pages wraps this package differently from Node. Support both module shapes.
   const driver = await import("cloudflare-mysql/cloudflare-mysql/index.js") as any;
-  const createConnection = driver.createConnection ?? driver.default?.createConnection;
+  const createConnection =
+    driver.createConnection ??
+    driver.default?.createConnection ??
+    driver.default?.default?.createConnection ??
+    (typeof driver.default === "function" ? driver.default : undefined);
   if (typeof createConnection !== "function") {
     throw new Error("Cloudflare MySQL driver did not provide createConnection.");
   }
