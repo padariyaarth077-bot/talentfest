@@ -52,7 +52,9 @@ async function createDatabaseConnection() {
     return createConnection(connectionOptions());
   }
 
-  const { createConnection } = await import("cloudflare-mysql");
+  // Import the package's actual ESM entry. Its package main is CommonJS-shaped,
+  // which turns the named export into undefined in a Cloudflare Pages bundle.
+  const { createConnection } = await import("cloudflare-mysql/cloudflare-mysql/index.js");
   return createConnection(connectionOptions());
 }
 
