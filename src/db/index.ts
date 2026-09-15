@@ -52,9 +52,12 @@ async function createDatabaseConnection() {
     return createConnection(connectionOptions());
   }
 
-  // Import the package's actual ESM entry. Its package main is CommonJS-shaped,
-  // which turns the named export into undefined in a Cloudflare Pages bundle.
-  const { createConnection } = await import("cloudflare-mysql/cloudflare-mysql/index.js");
+  // Pages wraps this package differently from Node. Support both module shapes.
+  const driver = await import("cloudflare-mysql/cloudflare-mysql/index.js") as any;
+  const createConnection = driver.createConnection ?? driver.default?.createConnection;
+  if (typeof createConnection !== "function") {
+    throw new Error("Cloudflare MySQL driver did not provide createConnection.");
+  }
   return createConnection(connectionOptions());
 }
 
