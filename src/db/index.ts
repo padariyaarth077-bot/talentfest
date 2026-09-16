@@ -102,7 +102,11 @@ export async function getPool() {
 export async function query<T = any>(sql: string, params?: any[]): Promise<T[]> {
   const pool = await getPool();
   const [rows] = await pool.execute(sql, params);
-  return rows as T[];
+  // cloudflare-mysql returns RowDataPacket instances. Server functions can only
+  // serialize plain values, so normalize the driver result at this boundary.
+  return (rows as any[]).map((row) =>
+    row && typeof row === "object" ? { ...row } : row,
+  ) as T[];
 }
 
 export async function queryOne<T = any>(sql: string, params?: any[]): Promise<T | null> {
