@@ -75,12 +75,14 @@ import {
 } from "@/lib/admin.functions";
 import {
   employeeAwardCompanyLogoUrl,
+  employeeAwardImageUrl,
   fetchEmployeeAwardsForAdmin,
   formatEmployeeAwardDateTime,
   invoiceHtml,
   exportEmployeeAwardsExcel,
   type EmployeeAwardRecord,
 } from "@/lib/employee-awards.functions";
+import { EmployeeAwardImageActions } from "@/components/admin/EmployeeAwardImageActions";
 import {
   fetchContactMessages,
   updateContactMessageStatus,
@@ -3440,7 +3442,6 @@ function EmployeeAwardsView({
           {selected && (
             <div className="space-y-6 text-sm">
               <div className="grid gap-4 sm:grid-cols-2">
-                <EmployeeAwardLogo award={selected} alt={`${selected.company_name} logo`} />
               <Detail label="Company Registration ID" value={selected.company_registration_number} />
               <Detail label="Invoice Number" value={selected.invoice_number} />
               <Detail label="Company Name" value={selected.company_name} />
@@ -3465,6 +3466,36 @@ function EmployeeAwardsView({
               <Detail label="Transaction ID" value={selected.transaction_id || "Not paid"} />
               <Detail label="Status" value={selected.status} />
               <Detail label="Submitted At" value={formatEmployeeAwardDateTime(selected.submitted_at)} />
+              </div>
+              <div>
+                <h3 className="font-display text-lg font-semibold">Uploaded Images</h3>
+                <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                  <EmployeeAwardImageActions
+                    label="Company Logo"
+                    alt={`${selected.company_name} logo`}
+                    emptyText="Company logo not available"
+                    filename={employeeAwardImageFilename("company-logo", selected.company_registration_number, employeeAwardCompanyLogoUrl(selected))}
+                    src={employeeAwardCompanyLogoUrl(selected)}
+                  />
+                  <EmployeeAwardImageActions
+                    label="Owner Image"
+                    alt={`${selected.owner_name} owner image`}
+                    emptyText="Image not available"
+                    filename={employeeAwardImageFilename("owner-image", selected.company_registration_number, employeeAwardImageUrl(selected.owner_photo_url, selected.owner_photo_path))}
+                    src={employeeAwardImageUrl(selected.owner_photo_url, selected.owner_photo_path)}
+                  />
+                  {selected.recipients.filter((recipient) => recipient.recipient_type === "employee").map((recipient, index) => {
+                    const src = employeeAwardImageUrl(recipient.photo_url, recipient.photo_path);
+                    return <EmployeeAwardImageActions
+                      key={recipient.id}
+                      label={`Employee ${index + 1} Image`}
+                      alt={`${recipient.name} employee image`}
+                      emptyText="Image not available"
+                      filename={employeeAwardImageFilename(`employee-${index + 1}`, selected.company_registration_number, src)}
+                      src={src}
+                    />;
+                  })}
+                </div>
               </div>
               <div className="overflow-x-auto rounded-2xl border border-border">
                 <table className="min-w-[720px] w-full text-left text-sm">
@@ -4876,25 +4907,9 @@ function Detail({ label, value, wide = false }: { label: string; value: string; 
   );
 }
 
-function EmployeeAwardLogo({ award, alt }: { award: EmployeeAwardRecord; alt: string }) {
-  const [failed, setFailed] = useState(false);
-  const safeSrc = employeeAwardCompanyLogoUrl(award);
-  return (
-    <div className="sm:col-span-2">
-      {safeSrc && !failed ? (
-        <img
-          src={safeSrc}
-          alt={alt}
-          onError={() => setFailed(true)}
-          className="h-20 max-w-64 rounded-xl border border-border object-contain p-2"
-        />
-      ) : (
-        <div className="grid h-20 max-w-64 place-items-center rounded-xl border border-dashed border-border px-4 text-xs text-muted-foreground">
-          Company logo not available
-        </div>
-      )}
-    </div>
-  );
+function employeeAwardImageFilename(prefix: string, companyNumber: string, src: string) {
+  const extension = src.split(/[?#]/)[0].match(/\.([a-z0-9]{2,5})$/i)?.[1] || "jpg";
+  return `${prefix}-${companyNumber}.${extension}`;
 }
 
 function printEmployeeAward(award: EmployeeAwardRecord) {

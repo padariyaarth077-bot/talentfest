@@ -82,6 +82,7 @@ export type EmployeeAwardRecipient = {
   mobile: string | null;
   award_category: string | null;
   other_award_category: string | null;
+  photo_path: string | null;
   photo_url: string | null;
   fee_amount: number;
   status: string;
@@ -107,6 +108,7 @@ export type EmployeeAwardRecord = {
   owner_other_award_category: string | null;
   owner_email: string;
   owner_mobile: string;
+  owner_photo_path?: string | null;
   owner_photo_url: string | null;
   employee_count: number;
   total_recipients: number;
@@ -251,11 +253,15 @@ export function employeeAwardAssetUrl(value?: string | null, baseUrl = "") {
   return baseUrl ? `${baseUrl.replace(/\/$/, "")}${path}` : path;
 }
 
-export function employeeAwardCompanyLogoUrl(award: EmployeeAwardRecord, baseUrl = "") {
+export function employeeAwardImageUrl(url?: string | null, path?: string | null, baseUrl = "") {
   return (
-    employeeAwardAssetUrl(award.company_logo_url, baseUrl) ||
-    employeeAwardAssetUrl(award.company_logo_path ? `/uploads/employee-awards/${award.company_logo_path}` : "", baseUrl)
+    employeeAwardAssetUrl(url, baseUrl) ||
+    employeeAwardAssetUrl(path ? `/uploads/employee-awards/${path}` : "", baseUrl)
   );
+}
+
+export function employeeAwardCompanyLogoUrl(award: EmployeeAwardRecord, baseUrl = "") {
+  return employeeAwardImageUrl(award.company_logo_url, award.company_logo_path, baseUrl);
 }
 
 function parseDbTimestamp(value: string) {
