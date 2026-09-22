@@ -103,8 +103,9 @@ export async function query<T = any>(sql: string, params?: any[]): Promise<T[]> 
   const pool = await getPool();
   const [rows] = await pool.execute(sql, params);
   // cloudflare-mysql returns RowDataPacket instances. Server functions can only
-  // serialize plain values, so normalize the driver result at this boundary.
-  return (rows as any[]).map((row) =>
+  // serialize plain values, so normalize SELECT rows at this boundary. DML
+  // statements return a result object rather than rows.
+  return (Array.isArray(rows) ? rows : []).map((row) =>
     row && typeof row === "object" ? { ...row } : row,
   ) as T[];
 }
