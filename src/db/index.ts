@@ -1,4 +1,5 @@
 import "@tanstack/react-start/server-only";
+import mysql from "mysql2/promise";
 import { getCloudflareEnv, getServerEnv } from './env';
 
 function requiredEnv(name: string): string {
@@ -49,8 +50,7 @@ function connectionOptions() {
 async function createDatabaseConnection() {
   // mysql2 is supported by Cloudflare Hyperdrive. The legacy
   // cloudflare-mysql adapter fails after the Pages bundle is deserialized.
-  const { createConnection } = await import("mysql2/promise");
-  return createConnection({
+  return mysql.createConnection({
     ...connectionOptions(),
     ...(getCloudflareEnv() ? { disableEval: true } : {}),
   });
