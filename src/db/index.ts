@@ -1,5 +1,4 @@
 import "@tanstack/react-start/server-only";
-import mysql from "mysql2/promise";
 import { getCloudflareEnv, getServerEnv } from './env';
 
 function requiredEnv(name: string): string {
@@ -47,33 +46,65 @@ function connectionOptions() {
   };
 }
 
-async function createDatabaseConnection() {
-  // mysql2 is supported by Cloudflare Hyperdrive. The legacy
-  // cloudflare-mysql adapter fails after the Pages bundle is deserialized.
-  return mysql.createConnection({
-    ...connectionOptions(),
-    ...(getCloudflareEnv() ? { disableEval: true } : {}),
+type DatabaseConnection = {
+  conn: any;
+  usesCallbacks: boolean;
+};
+
+async function createDatabaseConnection(): Promise<DatabaseConnection> {
+  if (hyperdriveBinding()) {
+    const driver = await import("cloudflare-mysql/cloudflare-mysql/index.js") as any;
+    const createConnection = driver.createConnection ?? driver.default?.createConnection;
+    if (typeof createConnection !== "function") {
+      throw new Error("Cloudflare MySQL driver did not provide createConnection.");
+    }
+    return { conn: createConnection(connectionOptions()), usesCallbacks: true };
+  }
+
+  // Keep both runtime-specific drivers out of the opposite module graph.
+  const { createConnection } = await import("mysql2/promise");
+  return { conn: await createConnection(connectionOptions()), usesCallbacks: false };
+}
+
+async function runConnection<T>(handler: (connection: DatabaseConnection) => Promise<T>) {
+  const connection = await createDatabaseConnection();
+  return handler(connection).finally(() => connection.conn.end());
+}
+
+function mysqlCallback<T>(run: (done: (error: any, result?: T, fields?: any[]) => void) => void) {
+  return new Promise<[T, any[]]>((resolve, reject) => {
+    run((error, result, fields = []) => {
+      if (error) reject(error);
+      else resolve([result as T, fields]);
+    });
   });
 }
 
-async function runConnection<T>(handler: (conn: any) => Promise<T>) {
-  const conn = await createDatabaseConnection();
-  return handler(conn).finally(() => conn.end());
+function executeConnection(connection: DatabaseConnection, sql: string, params?: any[]) {
+  return connection.usesCallbacks
+    ? mysqlCallback<any[]>((done) => connection.conn.query(sql, params, done))
+    : connection.conn.query(sql, params);
 }
 
-function wrapConnection(conn: any) {
+function wrapConnection(connection: DatabaseConnection) {
   return {
-    execute: (sql: string, params?: any[]) => conn.query(sql, params),
-    beginTransaction: () => conn.beginTransaction(),
-    commit: () => conn.commit(),
-    rollback: () => conn.rollback(),
-    release: () => conn.end(),
+    execute: (sql: string, params?: any[]) => executeConnection(connection, sql, params),
+    beginTransaction: () => connection.usesCallbacks
+      ? mysqlCallback<any>((done) => connection.conn.beginTransaction(done)).then(() => undefined)
+      : connection.conn.beginTransaction(),
+    commit: () => connection.usesCallbacks
+      ? mysqlCallback<any>((done) => connection.conn.commit(done)).then(() => undefined)
+      : connection.conn.commit(),
+    rollback: () => connection.usesCallbacks
+      ? mysqlCallback<any>((done) => connection.conn.rollback(done)).then(() => undefined)
+      : connection.conn.rollback(),
+    release: () => connection.conn.end(),
   };
 }
 
 export async function getPool() {
   return {
-    execute: (sql: string, params?: any[]) => runConnection((conn) => conn.query(sql, params)),
+    execute: (sql: string, params?: any[]) => runConnection((connection) => executeConnection(connection, sql, params)),
     getConnection: async () => wrapConnection(await createDatabaseConnection()),
     end: async () => {},
   };
