@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite dev",
     "prebuild": "node scripts/patch-cloudflare-mysql.mjs",
-    "build": "vite build && node scripts/check-client-bundle.mjs",
+    "build": "vite build && node scripts/remove-static-uploads.mjs && node scripts/check-client-bundle.mjs",
+    "migrate:legacy-uploads": "node scripts/migrate-legacy-uploads.mjs",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
