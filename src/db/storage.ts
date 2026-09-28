@@ -99,7 +99,7 @@ export async function serveUploadedObject(request: Request) {
       "SELECT body_base64, content_type FROM uploaded_objects WHERE object_key = ? LIMIT 1",
       [safePath],
     );
-    if (!row) return new Response("Not found", { status: 404 });
+    if (!row) return new Response("Not found", { status: 404, headers: { "x-upload-status": "object-not-found" } });
     return new Response(base64ToBytes(row.body_base64), {
       headers: {
         "content-type": row.content_type,
@@ -108,6 +108,6 @@ export async function serveUploadedObject(request: Request) {
     });
   } catch (error) {
     console.error(error);
-    return new Response("Not found", { status: 404 });
+    return new Response("Not found", { status: 404, headers: { "x-upload-status": "storage-query-failed" } });
   }
 }
