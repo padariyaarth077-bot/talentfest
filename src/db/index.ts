@@ -110,7 +110,7 @@ export async function getPool(request?: Request) {
 }
 
 export async function query<T = any>(sql: string, params?: any[], request?: Request): Promise<T[]> {
-  const pool = getPool(request);
+  const pool = await getPool(request);
   const [rows] = await pool.execute(sql, params);
   return (Array.isArray(rows) ? rows : []).map((row) =>
     row && typeof row === "object" ? { ...row } : row,
@@ -123,7 +123,7 @@ export async function queryOne<T = any>(sql: string, params?: any[], request?: R
 }
 
 export async function execute(sql: string, params?: any[], request?: Request): Promise<any> {
-  const pool = getPool(request);
+  const pool = await getPool(request);
   const [result] = await pool.execute(sql, params);
   return result;
 }
@@ -145,7 +145,7 @@ export async function insertMany(table: string, rows: Record<string, any>[], req
   const keys = Object.keys(firstRow);
   const placeholders = keys.map(() => '?').join(', ');
   const sql = `INSERT INTO \`${table}\` (${keys.map(k => `\`${k}\``).join(', ')}) VALUES (${placeholders})`;
-  const pool = getPool(request);
+  const pool = await getPool(request);
   let inserted = 0;
   for (const row of rows) {
     const values = keys.map(k => (row as any)[k]);
