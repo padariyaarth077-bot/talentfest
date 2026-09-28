@@ -8,7 +8,14 @@ export function setCloudflareEnv(env: unknown) {
 
 export function getCloudflareEnv(): Record<string, any> | undefined {
   try {
-    return (getRequest() as any).runtime?.cloudflare?.env ?? cloudflareEnvFallback;
+    const requestEnv = (getRequest() as any).runtime?.cloudflare?.env;
+    // Direct Worker routes (for example /uploads/*) may expose an empty
+    // request runtime object. Retain the fetch env captured in server.ts so
+    // those routes can still use bindings such as Hyperdrive.
+    if (requestEnv && typeof requestEnv === "object") {
+      return { ...cloudflareEnvFallback, ...requestEnv };
+    }
+    return cloudflareEnvFallback;
   } catch {
     return cloudflareEnvFallback;
   }
