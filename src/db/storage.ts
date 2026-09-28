@@ -98,6 +98,7 @@ export async function serveUploadedObject(request: Request) {
     const row = await queryOne<{ body_base64: string; content_type: string }>(
       "SELECT body_base64, content_type FROM uploaded_objects WHERE object_key = ? LIMIT 1",
       [safePath],
+      request,
     );
     if (!row) return new Response("Not found", { status: 404 });
     return new Response(base64ToBytes(row.body_base64), {
@@ -108,10 +109,6 @@ export async function serveUploadedObject(request: Request) {
     });
   } catch (error) {
     console.error(error);
-    const headers = new Headers();
-    if (url.searchParams.has("debug") && error instanceof Error) {
-      headers.set("x-upload-debug", error.message.slice(0, 200));
-    }
-    return new Response("Not found", { status: 404, headers });
+    return new Response("Not found", { status: 404 });
   }
 }

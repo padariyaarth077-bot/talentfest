@@ -2,7 +2,7 @@ import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import mysql from "mysql2/promise";
 
-const root = path.resolve("public/uploads/employee-awards");
+const root = path.resolve("legacy-uploads/employee-awards");
 const env = Object.fromEntries((await readFile(".env.local", "utf8"))
   .split(/\r?\n/)
   .map((line) => line.match(/^([^#=]+)=(.*)$/))

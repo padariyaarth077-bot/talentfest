@@ -20,6 +20,10 @@ async function getServerEntry(): Promise<ServerEntry> {
   return serverEntryPromise;
 }
 
+function getCloudflareEnvFromRequest(request: Request): unknown {
+  return (request as any).runtime?.cloudflare?.env;
+}
+
 // h3 swallows in-handler throws into a normal 500 Response with body
 // {"unhandled":true,"message":"HTTPError"} — try/catch alone never fires for those.
 async function normalizeCatastrophicSsrResponse(response: Response): Promise<Response> {
@@ -70,12 +74,13 @@ function isH3SwallowedErrorBody(body: string): boolean {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
-      setCloudflareEnv(env);
+      const cfEnv = env ?? getCloudflareEnvFromRequest(request);
+      setCloudflareEnv(cfEnv);
       if (new URL(request.url).pathname.startsWith("/uploads/")) {
         return serveUploadedObject(request);
       }
       const handler = await getServerEntry();
-      const response = await handler.fetch(request, env, ctx);
+      const response = await handler.fetch(request, cfEnv, ctx);
       return preventStaleHtmlShell(await normalizeCatastrophicSsrResponse(response));
     } catch (error) {
       console.error(error);

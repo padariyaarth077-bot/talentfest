@@ -34,6 +34,12 @@ export default defineConfig(({ command, mode }) => {
   },
   nitro: {
     preset: "cloudflare-pages",
+    publicAssets: [
+      {
+        dir: "public",
+        ignore: ["uploads/**"],
+      },
+    ],
   },
   };
 });

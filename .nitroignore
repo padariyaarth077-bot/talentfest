@@ -1,0 +1,3 @@
+# Exclude employee award uploads from static assets
+# These are served dynamically via Worker from database
+uploads/**
