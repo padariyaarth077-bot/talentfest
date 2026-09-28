@@ -108,6 +108,10 @@ export async function serveUploadedObject(request: Request) {
     });
   } catch (error) {
     console.error(error);
-    return new Response("Not found", { status: 404, headers: { "x-upload-status": "storage-query-failed" } });
+    const headers = new Headers({ "x-upload-status": "storage-query-failed" });
+    if (url.searchParams.has("debug") && error instanceof Error) {
+      headers.set("x-upload-debug", error.message.slice(0, 200));
+    }
+    return new Response("Not found", { status: 404, headers });
   }
 }
